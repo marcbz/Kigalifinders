@@ -1,0 +1,21 @@
+{
+  "nav": {
+    "home": "Ahabanza",
+    "properties": "Inyubako",
+    "areas": "Uturere",
+    "about": "Impamvu Duhitamo",
+    "blog": "Blog",
+    "faq": "Ibibazo",
+    "contact": "Twandikire",
+    "bookVisit": "Fata Gahunda"
+  },
+  "hero": {
+    "tagline": "IMMOBILIER YA LUXE N°1 MU RWANDA",
+    "title": "Shaka Inzu Yawe y'Inzozi i Kigali"
+  },
+  "common": {
+    "search": "Shakisha",
+    "viewAll": "Reba Inyubako Zose",
+    "subscribe": "Iyandikishe"
+  }
+}

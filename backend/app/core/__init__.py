@@ -1,0 +1,1 @@
+"""Kigalifinders backend application package."""

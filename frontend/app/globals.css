@@ -1,0 +1,119 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222 47% 11%;
+    --card: 0 0% 100%;
+    --card-foreground: 222 47% 11%;
+    --primary: 222 47% 11%;
+    --primary-foreground: 43 74% 66%;
+    --secondary: 40 33% 97%;
+    --secondary-foreground: 222 47% 11%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+    --accent: 43 44% 59%;
+    --accent-foreground: 222 47% 11%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 43 44% 59%;
+    --radius: 0.5rem;
+    --navy-800: #0a1e3f;
+    --navy-900: #06132b;
+    --gold-500: #c9a961;
+    --gold-400: #d8bc7a;
+    --cream: #faf7f2;
+  }
+
+  .dark {
+    --background: 222 47% 6%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 8%;
+    --card-foreground: 210 40% 98%;
+    --primary: 43 44% 59%;
+    --primary-foreground: 222 47% 11%;
+    --secondary: 222 47% 12%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 222 47% 15%;
+    --muted-foreground: 215 20% 65%;
+    --accent: 43 44% 59%;
+    --accent-foreground: 222 47% 11%;
+    --border: 222 47% 18%;
+    --input: 222 47% 18%;
+    --ring: 43 44% 59%;
+  }
+
+  * {
+    @apply border-border;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-inter), sans-serif;
+  }
+}
+
+@layer components {
+  .btn-gold {
+    @apply bg-gradient-to-br from-[#c9a961] to-[#b08f47] text-white font-semibold shadow-lg shadow-gold-500/30 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-gold-500/50;
+  }
+
+  .btn-outline-white {
+    @apply border-[1.5px] border-white/60 backdrop-blur-md bg-white/10 text-white transition-all duration-300 hover:bg-white hover:text-navy-800;
+  }
+
+  .property-card {
+    @apply transition-all duration-500 bg-white dark:bg-card rounded-xl overflow-hidden shadow-lg hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-navy-800/15;
+  }
+
+  .badge-gold {
+    @apply bg-gradient-to-br from-[#c9a961] to-[#d8bc7a] text-white tracking-widest text-[10px] font-bold uppercase;
+  }
+
+  .section-divider {
+    @apply w-[60px] h-0.5 bg-gold-500;
+  }
+
+  .stat-num {
+    @apply bg-gradient-to-br from-[#c9a961] to-[#b08f47] bg-clip-text text-transparent;
+  }
+
+  .lux-input {
+    @apply w-full border border-gray-200 dark:border-border rounded px-4 py-3.5 text-sm transition-all focus:outline-none focus:border-gold-500 focus:ring-[3px] focus:ring-gold-500/15 bg-white dark:bg-card;
+  }
+
+  .nav-link {
+    @apply relative after:absolute after:bottom-[-6px] after:left-0 after:h-0.5 after:w-0 after:bg-gold-500 after:transition-all hover:after:w-full;
+  }
+
+  .search-bar {
+    @apply bg-white/95 dark:bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/20;
+  }
+
+  .testimonial-card {
+    @apply bg-gradient-to-br from-white to-cream dark:from-card dark:to-secondary;
+  }
+
+  .area-card {
+    @apply relative overflow-hidden rounded-lg block h-64;
+  }
+
+  .area-card::before {
+    content: "";
+    @apply absolute inset-0 z-[2];
+    background: linear-gradient(180deg, transparent 40%, rgba(6, 19, 43, 0.95) 100%);
+  }
+
+  .gold-text {
+    @apply text-gold-500;
+  }
+}

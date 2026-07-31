@@ -1,0 +1,21 @@
+{
+  "nav": {
+    "home": "Home",
+    "properties": "Properties",
+    "areas": "Areas",
+    "about": "Why Us",
+    "blog": "Blog",
+    "faq": "FAQ",
+    "contact": "Contact",
+    "bookVisit": "Book Visit"
+  },
+  "hero": {
+    "tagline": "RWANDA'S #1 LUXURY REAL ESTATE",
+    "title": "Find Your Dream Home in Kigali"
+  },
+  "common": {
+    "search": "Search",
+    "viewAll": "View All Properties",
+    "subscribe": "Subscribe"
+  }
+}

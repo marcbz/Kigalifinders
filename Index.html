@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Kigalifinders | Houses for Rent & Plots for Sale in Kigali</title>
+<meta name="description" content="Find furnished houses, rental homes, and plots for sale in Kigali. Book property visits and discover your next home with Kigalifinders." />
+<meta property="og:title" content="Kigalifinders | Luxury Real Estate in Kigali, Rwanda" />
+<meta property="og:description" content="Rwanda's most trusted real estate agency. Houses for rent, furnished homes, and plots for sale in Kigali." />
+<meta property="og:type" content="website" />
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: {
+    extend: {
+      colors: {
+        navy: { 50:'#f0f4fa', 600:'#1a3a6e', 700:'#13284f', 800:'#0a1e3f', 900:'#06132b' },
+        gold: { 400:'#d8bc7a', 500:'#c9a961', 600:'#b08f47' },
+        cream: '#faf7f2'
+      },
+      fontFamily: {
+        serif: ['"Playfair Display"', 'serif'],
+        sans: ['Inter', 'sans-serif']
+      }
+    }
+  }
+}
+</script>
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "RealEstateAgent",
+  "name": "Kigalifinders",
+  "image": "https://kigalifinders.com/logo.png",
+  "telephone": "+250784806641",
+  "address": {
+    "@type": "PostalAddress",
+    "streetAddress": "KN 4 St",
+    "addressLocality": "Kigali",
+    "addressCountry": "RW"
+  },
+  "url": "https://kigalifinders.com",
+  "priceRange": "$$$",
+  "aggregateRating": {
+    "@type": "AggregateRating",
+    "ratingValue": "4.9",
+    "reviewCount": "287"
+  }
+}
+</script>
+
+<style>
+  * { -webkit-font-smoothing: antialiased; }
+  html { scroll-behavior: smooth; }
+  body { font-family: 'Inter', sans-serif; color: #0a1e3f; background: #ffffff; }
+  .font-serif { font-family: 'Playfair Display', serif; }
+
+  /* Hero */
+  .hero-bg {
+    background-image: linear-gradient(rgba(6,19,43,0.55), rgba(6,19,43,0.7)), url('https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=2000&q=80');
+    background-size: cover; background-position: center;
+  }
+  .gold-text { color: #c9a961; }
+  .gold-line { background: linear-gradient(90deg, transparent, #c9a961, transparent); height: 1px; }
+  
+  .btn-gold {
+    background: linear-gradient(135deg, #c9a961, #b08f47);
+    color: white; transition: all 0.3s ease;
+    box-shadow: 0 4px 20px rgba(201,169,97,0.3);
+  }
+  .btn-gold:hover { transform: translateY(-2px); box-shadow: 0 8px 30px rgba(201,169,97,0.5); }
+  
+  .btn-outline-white {
+    border: 1.5px solid rgba(255,255,255,0.6);
+    backdrop-filter: blur(10px);
+    background: rgba(255,255,255,0.08);
+    transition: all 0.3s ease;
+  }
+  .btn-outline-white:hover { background: white; color: #0a1e3f; }
+
+  .property-card {
+    transition: all 0.4s ease;
+    background: white;
+  }
+  .property-card:hover { transform: translateY(-6px); box-shadow: 0 25px 50px rgba(10,30,63,0.15); }
+  .property-card img { transition: transform 0.6s ease; }
+  .property-card:hover img { transform: scale(1.06); }
+
+  .badge-gold {
+    background: linear-gradient(135deg, #c9a961, #d8bc7a);
+    color: white;
+    letter-spacing: 0.1em;
+  }
+
+  /* Animations */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(30px); } to { opacity: 1; transform: translateY(0); } }
+  .fade-up { animation: fadeUp 0.9s ease forwards; }
+  .delay-1 { animation-delay: 0.2s; opacity: 0; }
+  .delay-2 { animation-delay: 0.4s; opacity: 0; }
+  .delay-3 { animation-delay: 0.6s; opacity: 0; }
+
+  @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-8px)} }
+  .float-btn { animation: float 3s ease-in-out infinite; }
+
+  /* WhatsApp floating */
+  .whatsapp-float {
+    position: fixed; bottom: 24px; right: 24px; z-index: 60;
+    background: #25D366; color: white;
+    width: 60px; height: 60px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 30px rgba(37,211,102,0.4);
+    font-size: 28px;
+  }
+  .whatsapp-float::before {
+    content: ''; position: absolute; inset: -6px; border-radius: 50%;
+    border: 2px solid #25D366; opacity: 0.6; animation: pulse 2s infinite;
+  }
+  @keyframes pulse { 0%{transform:scale(1);opacity:0.6} 100%{transform:scale(1.4);opacity:0} }
+
+  .call-float {
+    position: fixed; bottom: 100px; right: 24px; z-index: 60;
+    background: #0a1e3f; color: #c9a961;
+    width: 56px; height: 56px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 8px 30px rgba(10,30,63,0.4);
+    font-size: 22px;
+  }
+
+  /* Navigation */
+  .nav-link { position: relative; }
+  .nav-link::after {
+    content: ''; position: absolute; bottom: -6px; left: 0;
+    width: 0; height: 2px; background: #c9a961; transition: width 0.3s;
+  }
+  .nav-link:hover::after { width: 100%; }
+
+  /* Search Bar */
+  .search-bar {
+    background: rgba(255,255,255,0.97);
+    backdrop-filter: blur(20px);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.2);
+  }
+
+  .stat-num { background: linear-gradient(135deg, #c9a961, #b08f47); -webkit-background-clip: text; background-clip: text; color: transparent; }
+
+  .section-divider { width: 60px; height: 2px; background: #c9a961; }
+
+  /* Trust marquee */
+  .marquee { overflow: hidden; }
+  .marquee-track { display: flex; gap: 60px; animation: scroll 30s linear infinite; }
+  @keyframes scroll { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+
+  /* Testimonial card */
+  .testimonial-card { background: linear-gradient(135deg, #ffffff, #faf7f2); }
+
+  /* Area card */
+  .area-card { position: relative; overflow: hidden; border-radius: 8px; }
+  .area-card::before {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(180deg, transparent 40%, rgba(6,19,43,0.95) 100%);
+    z-index: 2;
+  }
+  .area-card img { transition: transform 0.8s ease; }
+  .area-card:hover img { transform: scale(1.1); }
+
+  /* Tabs */
+  .tab-btn.active { background: #0a1e3f; color: #c9a961; }
+
+  /* Mobile menu */
+  .mobile-menu { transform: translateX(100%); transition: transform 0.4s ease; }
+  .mobile-menu.open { transform: translateX(0); }
+
+  /* Form input */
+  .lux-input {
+    border: 1px solid #e5e7eb; padding: 14px 16px; border-radius: 4px;
+    width: 100%; transition: all 0.3s; background: white;
+  }
+  .lux-input:focus { outline: none; border-color: #c9a961; box-shadow: 0 0 0 3px rgba(201,169,97,0.15); }
+
+  /* Map */
+  .map-frame { filter: grayscale(20%) contrast(1.05); }
+
+  /* Top bar */
+  .topbar { background: #06132b; color: #cbd5e1; font-size: 13px; }
+
+  .nav-blur { backdrop-filter: blur(16px); background: rgba(255,255,255,0.95); }
+  .nav-blur-dark { backdrop-filter: blur(10px); background: rgba(6,19,43,0.6); }
+
+  /* Image overlay icons */
+  .img-actions { position: absolute; top: 14px; right: 14px; display: flex; gap: 8px; z-index: 3; }
+  .img-actions button { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.95); color: #0a1e3f; display:flex; align-items:center; justify-content:center; transition: all .3s; }
+  .img-actions button:hover { background: #c9a961; color: white; }
+
+  /* Footer */
+  footer { background: #06132b; color: #cbd5e1; }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 8px; }
+  ::-webkit-scrollbar-track { background: #f1f5f9; }
+  ::-webkit-scrollbar-thumb { background: #c9a961; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<!-- Top Bar -->
+<div class="topbar hidden md:block">
+  <div class="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
+    <div class="flex gap-6">
+      <span><i class="fa-solid fa-location-dot gold-text mr-2"></i>KN 4 St, Kigali, Rwanda</span>
+      <span><i class="fa-solid fa-clock gold-text mr-2"></i>Mon - Sat: 8:00 AM - 7:00 PM</span>
+    </div>
+    <div class="flex gap-5 items-center">
+      <a href="tel:+250784806641" class="hover:text-gold-500"><i class="fa-solid fa-phone mr-2"></i>+250 784 806 641</a>
+      <div class="flex gap-3 text-xs">
+        <a class="hover:text-gold-500" href="#">EN</a>
+        <span class="text-gray-600">|</span>
+        <a class="hover:text-gold-500" href="#">FR</a>
+        <span class="text-gray-600">|</span>
+        <a class="hover:text-gold-500" href="#">RW</a>
+      </div>
+      <div class="flex gap-3">
+        <a href="#" class="hover:text-gold-500"><i class="fa-brands fa-facebook-f"></i></a>
+        <a href="#" class="hover:text-gold-500"><i class="fa-brands fa-instagram"></i></a>
+        <a href="#" class="hover:text-gold-500"><i class="fa-brands fa-linkedin-in"></i></a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Navbar -->
+<nav class="sticky top-0 z-50 nav-blur border-b border-gray-100">
+  <div class="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+    <a href="#" class="flex items-center gap-3">
+      <div class="w-11 h-11 rounded-full bg-navy-800 flex items-center justify-center">
+        <span class="font-serif text-gold-500 text-xl font-bold">K</span>
+      </div>
+      <div>
+        <div class="font-serif text-xl font-bold text-navy-800 tracking-wide">KIGALIFINDERS</div>
+        <div class="text-[10px] tracking-[0.25em] text-gold-500 -mt-1">LUXURY REAL ESTATE</div>
+      </div>
+    </a>
+    <div class="hidden lg:flex gap-8 text-sm font-medium text-navy-800">
+      <a href="#home" class="nav-link">Home</a>
+      <a href="#properties" class="nav-link">Properties</a>
+      <a href="#areas" class="nav-link">Areas</a>
+      <a href="#why" class="nav-link">Why Us</a>
+      <a href="#blog" class="nav-link">Blog</a>
+      <a href="#faq" class="nav-link">FAQ</a>
+      <a href="#contact" class="nav-link">Contact</a>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="https://secure-guard.setmore.com/" target="_blank" class="hidden md:inline-flex btn-gold px-6 py-2.5 rounded-full text-sm font-semibold items-center gap-2">
+        <i class="fa-regular fa-calendar-check"></i> Book Visit
+      </a>
+      <button id="menuBtn" class="lg:hidden text-navy-800 text-2xl"><i class="fa-solid fa-bars"></i></button>
+    </div>
+  </div>
+</nav>
+
+<!-- Mobile Menu -->
+<div id="mobileMenu" class="mobile-menu fixed inset-0 z-[55] bg-navy-800 text-white p-8 lg:hidden">
+  <button id="closeMenu" class="absolute top-6 right-6 text-2xl text-gold-500"><i class="fa-solid fa-xmark"></i></button>
+  <div class="font-serif text-2xl text-gold-500 mb-10 mt-4">KIGALIFINDERS</div>
+  <nav class="flex flex-col gap-5 text-lg">
+    <a href="#home" class="hover:text-gold-500">Home</a>
+    <a href="#properties" class="hover:text-gold-500">Properties</a>
+    <a href="#areas" class="hover:text-gold-500">Areas We Serve</a>
+    <a href="#why" class="hover:text-gold-500">Why Choose Us</a>
+    <a href="#blog" class="hover:text-gold-500">Blog</a>
+    <a href="#faq" class="hover:text-gold-500">FAQ</a>
+    <a href="#contact" class="hover:text-gold-500">Contact</a>
+    <a href="https://secure-guard.setmore.com/" target="_blank" class="btn-gold px-6 py-3 rounded-full text-center mt-4">Book Visit</a>
+  </nav>
+</div>
+
+<!-- Hero -->
+<section id="home" class="hero-bg min-h-[92vh] flex items-center text-white relative">
+  <div class="max-w-7xl mx-auto px-6 py-20 w-full">
+    <div class="max-w-3xl">
+      <div class="fade-up flex items-center gap-3 mb-6">
+        <span class="gold-line w-12"></span>
+        <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">RWANDA'S #1 LUXURY REAL ESTATE</span>
+      </div>
+      <h1 class="fade-up font-serif text-5xl md:text-7xl font-bold leading-[1.05] mb-6">
+        Find Your <span class="gold-text italic">Dream Home</span> in Kigali
+      </h1>
+      <p class="fade-up delay-1 text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed">
+        Discover an exclusive collection of furnished houses, rental homes, and prime plots for sale across Kigali. Premium properties. Trusted service. Unmatched expertise.
+      </p>
+      <div class="fade-up delay-2 flex flex-wrap gap-4">
+        <a href="https://secure-guard.setmore.com/" target="_blank" class="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
+          <i class="fa-regular fa-calendar-check"></i> Book a Visit
+        </a>
+        <a href="#properties" class="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2 text-white">
+          <i class="fa-solid fa-house"></i> Browse Properties
+        </a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scroll indicator -->
+  <div class="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center text-white/70 text-xs">
+    <span class="tracking-widest mb-2">SCROLL</span>
+    <div class="w-px h-10 bg-gold-500"></div>
+  </div>
+</section>
+
+<!-- Search Bar -->
+<section class="relative -mt-16 z-30 px-6">
+  <div class="max-w-6xl mx-auto search-bar rounded-2xl p-2">
+    <div class="flex gap-2 px-4 pt-3 border-b">
+      <button class="tab-btn active px-5 py-2 rounded-t-md text-sm font-semibold">For Rent</button>
+      <button class="tab-btn px-5 py-2 rounded-t-md text-sm font-semibold text-navy-800">Furnished</button>
+      <button class="tab-btn px-5 py-2 rounded-t-md text-sm font-semibold text-navy-800">Plots/Land</button>
+    </div>
+    <div class="grid grid-cols-1 md:grid-cols-5 gap-3 p-4">
+      <div>
+        <label class="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">LOCATION</label>
+        <select class="lux-input text-sm">
+          <option>All Kigali</option><option>Kicukiro</option><option>Gasabo</option><option>Nyarugenge</option><option>Kibagabaga</option><option>Nyarutarama</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">PROPERTY TYPE</label>
+        <select class="lux-input text-sm">
+          <option>Any</option><option>House</option><option>Apartment</option><option>Villa</option><option>Plot</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">BEDROOMS</label>
+        <select class="lux-input text-sm">
+          <option>Any</option><option>1+</option><option>2+</option><option>3+</option><option>4+</option><option>5+</option>
+        </select>
+      </div>
+      <div>
+        <label class="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">PRICE RANGE</label>
+        <select class="lux-input text-sm">
+          <option>Any</option><option>Under $500</option><option>$500 - $1,500</option><option>$1,500 - $5,000</option><option>$5,000+</option>
+        </select>
+      </div>
+      <div class="flex items-end">
+        <button class="btn-gold w-full py-3.5 rounded-md font-semibold text-sm inline-flex items-center justify-center gap-2">
+          <i class="fa-solid fa-magnifying-glass"></i> Search
+        </button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Stats -->
+<section class="py-20 px-6">
+  <div class="max-w-7xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
+    <div>
+      <div class="stat-num font-serif text-5xl md:text-6xl font-bold mb-2">1,200+</div>
+      <div class="text-sm tracking-widest text-gray-500 uppercase">Properties Listed</div>
+    </div>
+    <div>
+      <div class="stat-num font-serif text-5xl md:text-6xl font-bold mb-2">850+</div>
+      <div class="text-sm tracking-widest text-gray-500 uppercase">Happy Clients</div>
+    </div>
+    <div>
+      <div class="stat-num font-serif text-5xl md:text-6xl font-bold mb-2">10+</div>
+      <div class="text-sm tracking-widest text-gray-500 uppercase">Years Experience</div>
+    </div>
+    <div>
+      <div class="stat-num font-serif text-5xl md:text-6xl font-bold mb-2">4.9★</div>
+      <div class="text-sm tracking-widest text-gray-500 uppercase">Client Rating</div>
+    </div>
+  </div>
+</section>
+
+<!-- Featured Properties -->
+<section id="properties" class="py-20 px-6 bg-cream">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-14">
+      <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">EXCLUSIVE LISTINGS</span>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold text-navy-800 mt-3 mb-4">Featured Properties</h2>
+      <div class="section-divider mx-auto"></div>
+      <p class="text-gray-600 max-w-2xl mx-auto mt-5">Hand-picked premium homes available right now across Kigali's most desirable neighborhoods.</p>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+      <!-- Card 1 -->
+      <article class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative overflow-hidden h-64">
+          <img src="https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Luxury Villa Nyarutarama"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">For Rent</span>
+          <div class="img-actions">
+            <button title="Save"><i class="fa-regular fa-heart"></i></button>
+            <button title="Compare"><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+            <button title="Share"><i class="fa-solid fa-share-nodes"></i></button>
+          </div>
+        </div>
+        <div class="p-6">
+          <div class="flex justify-between items-start mb-2">
+            <h3 class="font-serif text-xl font-bold text-navy-800">Luxury Villa, Nyarutarama</h3>
+          </div>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Gasabo District</div>
+          <div class="flex gap-5 text-sm text-gray-700 border-y py-3 mb-4">
+            <span><i class="fa-solid fa-bed text-gold-500 mr-1"></i> 4 Beds</span>
+            <span><i class="fa-solid fa-bath text-gold-500 mr-1"></i> 3 Baths</span>
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 320m²</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-[11px] tracking-widest text-gray-400 uppercase">From</div>
+              <div class="font-serif text-2xl font-bold text-navy-800">$3,500<span class="text-sm font-normal text-gray-500">/mo</span></div>
+            </div>
+            <a href="#" class="text-navy-800 font-semibold text-sm inline-flex items-center gap-2 hover:text-gold-500">View <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 2 -->
+      <article class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative overflow-hidden h-64">
+          <img src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Modern Apartment"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">Furnished</span>
+          <div class="img-actions">
+            <button><i class="fa-regular fa-heart"></i></button>
+            <button><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+            <button><i class="fa-solid fa-share-nodes"></i></button>
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">Modern Apartment, Kibagabaga</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Gasabo District</div>
+          <div class="flex gap-5 text-sm text-gray-700 border-y py-3 mb-4">
+            <span><i class="fa-solid fa-bed text-gold-500 mr-1"></i> 2 Beds</span>
+            <span><i class="fa-solid fa-bath text-gold-500 mr-1"></i> 2 Baths</span>
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 120m²</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-[11px] tracking-widest text-gray-400 uppercase">From</div>
+              <div class="font-serif text-2xl font-bold text-navy-800">$1,200<span class="text-sm font-normal text-gray-500">/mo</span></div>
+            </div>
+            <a href="#" class="text-navy-800 font-semibold text-sm inline-flex items-center gap-2 hover:text-gold-500">View <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 3 -->
+      <article class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative overflow-hidden h-64">
+          <img src="https://images.unsplash.com/photo-1613977257363-707ba9348227?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Family Home"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">New</span>
+          <div class="img-actions">
+            <button><i class="fa-regular fa-heart"></i></button>
+            <button><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+            <button><i class="fa-solid fa-share-nodes"></i></button>
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">Family Home, Kicukiro</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Kicukiro District</div>
+          <div class="flex gap-5 text-sm text-gray-700 border-y py-3 mb-4">
+            <span><i class="fa-solid fa-bed text-gold-500 mr-1"></i> 3 Beds</span>
+            <span><i class="fa-solid fa-bath text-gold-500 mr-1"></i> 2 Baths</span>
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 210m²</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-[11px] tracking-widest text-gray-400 uppercase">From</div>
+              <div class="font-serif text-2xl font-bold text-navy-800">$900<span class="text-sm font-normal text-gray-500">/mo</span></div>
+            </div>
+            <a href="#" class="text-navy-800 font-semibold text-sm inline-flex items-center gap-2 hover:text-gold-500">View <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 4 -->
+      <article class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative overflow-hidden h-64">
+          <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Penthouse"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">Premium</span>
+          <div class="img-actions">
+            <button><i class="fa-regular fa-heart"></i></button>
+            <button><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+            <button><i class="fa-solid fa-share-nodes"></i></button>
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">City Penthouse, Nyarugenge</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Nyarugenge District</div>
+          <div class="flex gap-5 text-sm text-gray-700 border-y py-3 mb-4">
+            <span><i class="fa-solid fa-bed text-gold-500 mr-1"></i> 3 Beds</span>
+            <span><i class="fa-solid fa-bath text-gold-500 mr-1"></i> 3 Baths</span>
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 250m²</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-[11px] tracking-widest text-gray-400 uppercase">From</div>
+              <div class="font-serif text-2xl font-bold text-navy-800">$2,800<span class="text-sm font-normal text-gray-500">/mo</span></div>
+            </div>
+            <a href="#" class="text-navy-800 font-semibold text-sm inline-flex items-center gap-2 hover:text-gold-500">View <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 5 -->
+      <article class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative overflow-hidden h-64">
+          <img src="https://images.unsplash.com/photo-1568605114967-8130f3a36994?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Garden Villa"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">For Rent</span>
+          <div class="img-actions">
+            <button><i class="fa-regular fa-heart"></i></button>
+            <button><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+            <button><i class="fa-solid fa-share-nodes"></i></button>
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">Garden Villa, Kacyiru</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Gasabo District</div>
+          <div class="flex gap-5 text-sm text-gray-700 border-y py-3 mb-4">
+            <span><i class="fa-solid fa-bed text-gold-500 mr-1"></i> 5 Beds</span>
+            <span><i class="fa-solid fa-bath text-gold-500 mr-1"></i> 4 Baths</span>
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 450m²</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-[11px] tracking-widest text-gray-400 uppercase">From</div>
+              <div class="font-serif text-2xl font-bold text-navy-800">$4,200<span class="text-sm font-normal text-gray-500">/mo</span></div>
+            </div>
+            <a href="#" class="text-navy-800 font-semibold text-sm inline-flex items-center gap-2 hover:text-gold-500">View <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </article>
+
+      <!-- Card 6 -->
+      <article class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative overflow-hidden h-64">
+          <img src="https://images.unsplash.com/photo-1600047509807-ba8f99d2cdde?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Cozy Townhouse"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">Hot</span>
+          <div class="img-actions">
+            <button><i class="fa-regular fa-heart"></i></button>
+            <button><i class="fa-solid fa-arrow-right-arrow-left"></i></button>
+            <button><i class="fa-solid fa-share-nodes"></i></button>
+          </div>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">Cozy Townhouse, Remera</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Gasabo District</div>
+          <div class="flex gap-5 text-sm text-gray-700 border-y py-3 mb-4">
+            <span><i class="fa-solid fa-bed text-gold-500 mr-1"></i> 3 Beds</span>
+            <span><i class="fa-solid fa-bath text-gold-500 mr-1"></i> 2 Baths</span>
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 180m²</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div>
+              <div class="text-[11px] tracking-widest text-gray-400 uppercase">From</div>
+              <div class="font-serif text-2xl font-bold text-navy-800">$750<span class="text-sm font-normal text-gray-500">/mo</span></div>
+            </div>
+            <a href="#" class="text-navy-800 font-semibold text-sm inline-flex items-center gap-2 hover:text-gold-500">View <i class="fa-solid fa-arrow-right"></i></a>
+          </div>
+        </div>
+      </article>
+    </div>
+
+    <div class="text-center mt-12">
+      <a href="#" class="inline-flex items-center gap-3 border-2 border-navy-800 text-navy-800 hover:bg-navy-800 hover:text-gold-500 px-8 py-3.5 rounded-full font-semibold transition">
+        View All Properties <i class="fa-solid fa-arrow-right"></i>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Featured Plots -->
+<section class="py-20 px-6 bg-white">
+  <div class="max-w-7xl mx-auto">
+    <div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
+      <div>
+        <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">INVESTMENT OPPORTUNITIES</span>
+        <h2 class="font-serif text-4xl md:text-5xl font-bold text-navy-800 mt-3">Premium Plots for Sale</h2>
+        <div class="section-divider mt-4"></div>
+      </div>
+      <a href="#" class="text-gold-500 font-semibold inline-flex items-center gap-2">All Plots <i class="fa-solid fa-arrow-right"></i></a>
+    </div>
+
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative h-56 overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Plot"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">For Sale</span>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">Hilltop Plot, Rebero</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Kicukiro District</div>
+          <div class="flex justify-between text-sm border-y py-3 mb-4">
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 1,200 m²</span>
+            <span><i class="fa-solid fa-file-contract text-gold-500 mr-1"></i> Title Deed</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div class="font-serif text-2xl font-bold text-navy-800">$85,000</div>
+            <a href="#" class="text-gold-500 font-semibold text-sm">Details →</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative h-56 overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Plot"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">Prime</span>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">Residential Plot, Bumbogo</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Gasabo District</div>
+          <div class="flex justify-between text-sm border-y py-3 mb-4">
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 800 m²</span>
+            <span><i class="fa-solid fa-file-contract text-gold-500 mr-1"></i> Title Deed</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div class="font-serif text-2xl font-bold text-navy-800">$45,000</div>
+            <a href="#" class="text-gold-500 font-semibold text-sm">Details →</a>
+          </div>
+        </div>
+      </div>
+
+      <div class="property-card rounded-xl overflow-hidden shadow-lg">
+        <div class="relative h-56 overflow-hidden">
+          <img src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover" alt="Plot"/>
+          <span class="absolute top-4 left-4 badge-gold px-3 py-1 text-[10px] font-bold rounded uppercase z-3">Investment</span>
+        </div>
+        <div class="p-6">
+          <h3 class="font-serif text-xl font-bold text-navy-800 mb-2">Commercial Plot, Kimironko</h3>
+          <div class="text-gray-500 text-sm mb-4"><i class="fa-solid fa-location-dot text-gold-500 mr-1"></i> Gasabo District</div>
+          <div class="flex justify-between text-sm border-y py-3 mb-4">
+            <span><i class="fa-solid fa-ruler-combined text-gold-500 mr-1"></i> 2,000 m²</span>
+            <span><i class="fa-solid fa-file-contract text-gold-500 mr-1"></i> Title Deed</span>
+          </div>
+          <div class="flex justify-between items-center">
+            <div class="font-serif text-2xl font-bold text-navy-800">$180,000</div>
+            <a href="#" class="text-gold-500 font-semibold text-sm">Details →</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Why Choose Us -->
+<section id="why" class="py-24 px-6 bg-navy-800 text-white relative overflow-hidden">
+  <div class="absolute top-0 right-0 w-96 h-96 bg-gold-500 opacity-5 rounded-full -translate-y-1/2 translate-x-1/2"></div>
+  <div class="max-w-7xl mx-auto relative">
+    <div class="grid lg:grid-cols-2 gap-16 items-center">
+      <div>
+        <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">WHY CHOOSE US</span>
+        <h2 class="font-serif text-4xl md:text-5xl font-bold mt-3 mb-6 leading-tight">A Standard of <span class="gold-text italic">Excellence</span> in Real Estate</h2>
+        <div class="section-divider mb-6"></div>
+        <p class="text-gray-300 mb-10 leading-relaxed">For over a decade, Kigalifinders has been the trusted name for discerning clients seeking premium properties in Rwanda's capital. We deliver unparalleled service, deep local expertise, and complete transparency.</p>
+
+        <div class="grid grid-cols-2 gap-6">
+          <div>
+            <div class="w-14 h-14 rounded-full bg-gold-500/15 flex items-center justify-center mb-3"><i class="fa-solid fa-shield-halved gold-text text-xl"></i></div>
+            <h4 class="font-semibold mb-1">Verified Listings</h4>
+            <p class="text-sm text-gray-400">Every property is personally inspected and verified by our team.</p>
+          </div>
+          <div>
+            <div class="w-14 h-14 rounded-full bg-gold-500/15 flex items-center justify-center mb-3"><i class="fa-solid fa-handshake gold-text text-xl"></i></div>
+            <h4 class="font-semibold mb-1">Trusted Service</h4>
+            <p class="text-sm text-gray-400">850+ happy clients across Rwanda and the diaspora.</p>
+          </div>
+          <div>
+            <div class="w-14 h-14 rounded-full bg-gold-500/15 flex items-center justify-center mb-3"><i class="fa-solid fa-headset gold-text text-xl"></i></div>
+            <h4 class="font-semibold mb-1">24/7 Support</h4>
+            <p class="text-sm text-gray-400">Round-the-clock assistance via WhatsApp, call, and email.</p>
+          </div>
+          <div>
+            <div class="w-14 h-14 rounded-full bg-gold-500/15 flex items-center justify-center mb-3"><i class="fa-solid fa-map-location-dot gold-text text-xl"></i></div>
+            <h4 class="font-semibold mb-1">Local Expertise</h4>
+            <p class="text-sm text-gray-400">Deep knowledge of every Kigali neighborhood and market trends.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="relative">
+        <img src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=900&q=80" class="rounded-2xl shadow-2xl" alt="Luxury home"/>
+        <div class="absolute -bottom-8 -left-8 bg-white text-navy-800 p-6 rounded-xl shadow-2xl hidden md:block max-w-xs">
+          <div class="flex items-center gap-2 mb-2">
+            <div class="flex text-gold-500"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+            <span class="font-bold">4.9/5</span>
+          </div>
+          <p class="text-sm italic">"Best real estate agency in Kigali. Found my dream home in days."</p>
+          <p class="text-xs text-gray-500 mt-2">— Jean B., Kacyiru</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Testimonials -->
+<section class="py-20 px-6 bg-cream">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-14">
+      <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">CLIENT STORIES</span>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold text-navy-800 mt-3 mb-4">What Our Clients Say</h2>
+      <div class="section-divider mx-auto"></div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-8">
+      <div class="testimonial-card p-8 rounded-xl shadow-md">
+        <i class="fa-solid fa-quote-left gold-text text-3xl mb-4"></i>
+        <p class="text-gray-700 mb-6 leading-relaxed">"Kigalifinders made finding our family home stress-free. Professional, responsive, and they truly understand the Kigali market. Highly recommended!"</p>
+        <div class="flex items-center gap-4">
+          <img src="https://i.pravatar.cc/60?img=12" class="w-12 h-12 rounded-full" alt=""/>
+          <div>
+            <div class="font-semibold text-navy-800">Aline Mukamana</div>
+            <div class="text-xs text-gray-500">Homeowner, Nyarutarama</div>
+          </div>
+        </div>
+        <div class="flex text-gold-500 mt-4"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+      </div>
+
+      <div class="testimonial-card p-8 rounded-xl shadow-md">
+        <i class="fa-solid fa-quote-left gold-text text-3xl mb-4"></i>
+        <p class="text-gray-700 mb-6 leading-relaxed">"As an expat moving to Kigali, I needed a partner I could trust. The team at Kigalifinders went above and beyond — perfect furnished apartment in days."</p>
+        <div class="flex items-center gap-4">
+          <img src="https://i.pravatar.cc/60?img=33" class="w-12 h-12 rounded-full" alt=""/>
+          <div>
+            <div class="font-semibold text-navy-800">James Carter</div>
+            <div class="text-xs text-gray-500">Expat Tenant, Kibagabaga</div>
+          </div>
+        </div>
+        <div class="flex text-gold-500 mt-4"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+      </div>
+
+      <div class="testimonial-card p-8 rounded-xl shadow-md">
+        <i class="fa-solid fa-quote-left gold-text text-3xl mb-4"></i>
+        <p class="text-gray-700 mb-6 leading-relaxed">"I bought a plot through Kigalifinders. Transparent process, all documents verified, and zero surprises. They are the gold standard in Rwandan real estate."</p>
+        <div class="flex items-center gap-4">
+          <img src="https://i.pravatar.cc/60?img=51" class="w-12 h-12 rounded-full" alt=""/>
+          <div>
+            <div class="font-semibold text-navy-800">Patrick Niyonzima</div>
+            <div class="text-xs text-gray-500">Investor, Kicukiro</div>
+          </div>
+        </div>
+        <div class="flex text-gold-500 mt-4"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Areas We Serve -->
+<section id="areas" class="py-20 px-6 bg-white">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-14">
+      <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">EXPLORE KIGALI</span>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold text-navy-800 mt-3 mb-4">Areas We Serve</h2>
+      <div class="section-divider mx-auto"></div>
+      <p class="text-gray-600 max-w-2xl mx-auto mt-5">From bustling city centers to tranquil hillside neighborhoods, we know Kigali inside and out.</p>
+    </div>
+
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Kicukiro"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Kicukiro</div>
+          <div class="text-xs text-gold-400 tracking-wider">142 Properties</div>
+        </div>
+      </a>
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1582407947304-fd86f028f716?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Gasabo"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Gasabo</div>
+          <div class="text-xs text-gold-400 tracking-wider">218 Properties</div>
+        </div>
+      </a>
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Nyarugenge"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Nyarugenge</div>
+          <div class="text-xs text-gold-400 tracking-wider">96 Properties</div>
+        </div>
+      </a>
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Nyarutarama"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Nyarutarama</div>
+          <div class="text-xs text-gold-400 tracking-wider">68 Properties</div>
+        </div>
+      </a>
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Kibagabaga"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Kibagabaga</div>
+          <div class="text-xs text-gold-400 tracking-wider">87 Properties</div>
+        </div>
+      </a>
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1564013434775-f71db0030976?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Kacyiru"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Kacyiru</div>
+          <div class="text-xs text-gold-400 tracking-wider">73 Properties</div>
+        </div>
+      </a>
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Remera"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Remera</div>
+          <div class="text-xs text-gold-400 tracking-wider">54 Properties</div>
+        </div>
+      </a>
+      <a href="#" class="area-card h-64 block">
+        <img src="https://images.unsplash.com/photo-1600585154526-990dced4db0d?auto=format&fit=crop&w=600&q=80" class="w-full h-full object-cover" alt="Rebero"/>
+        <div class="absolute bottom-5 left-5 z-10 text-white">
+          <div class="font-serif text-2xl font-bold">Rebero</div>
+          <div class="text-xs text-gold-400 tracking-wider">42 Properties</div>
+        </div>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Map Section -->
+<section class="py-20 px-6 bg-cream">
+  <div class="max-w-7xl mx-auto">
+    <div class="grid lg:grid-cols-2 gap-12 items-center">
+      <div>
+        <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">VISIT OUR OFFICE</span>
+        <h2 class="font-serif text-4xl md:text-5xl font-bold text-navy-800 mt-3 mb-6">Find Us in the Heart of Kigali</h2>
+        <div class="section-divider mb-6"></div>
+        <p class="text-gray-600 mb-8 leading-relaxed">Stop by our office for personalized consultations, or schedule a virtual meeting through our booking system. We're here to help.</p>
+        <div class="space-y-5">
+          <div class="flex gap-4">
+            <div class="w-12 h-12 rounded-full bg-navy-800 text-gold-500 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-location-dot"></i></div>
+            <div>
+              <div class="font-semibold text-navy-800">Address</div>
+              <div class="text-gray-600 text-sm">KN 4 St, Kigali, Rwanda</div>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="w-12 h-12 rounded-full bg-navy-800 text-gold-500 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-phone"></i></div>
+            <div>
+              <div class="font-semibold text-navy-800">Phone & WhatsApp</div>
+              <a href="tel:+250784806641" class="text-gray-600 text-sm hover:text-gold-500">+250 784 806 641</a>
+            </div>
+          </div>
+          <div class="flex gap-4">
+            <div class="w-12 h-12 rounded-full bg-navy-800 text-gold-500 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-clock"></i></div>
+            <div>
+              <div class="font-semibold text-navy-800">Business Hours</div>
+              <div class="text-gray-600 text-sm">Mon - Sat: 8:00 AM - 7:00 PM</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="rounded-2xl overflow-hidden shadow-2xl h-[450px]">
+        <iframe class="map-frame w-full h-full" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.7956749506064!2d30.058775!3d-1.944072!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!2m1!1sKigali!5e0!3m2!1sen!2srw!4v1700000000000" loading="lazy"></iframe>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Blog -->
+<section id="blog" class="py-20 px-6 bg-white">
+  <div class="max-w-7xl mx-auto">
+    <div class="text-center mb-14">
+      <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">INSIGHTS & GUIDES</span>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold text-navy-800 mt-3 mb-4">Latest from Our Blog</h2>
+      <div class="section-divider mx-auto"></div>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-8">
+      <article class="group cursor-pointer">
+        <div class="overflow-hidden rounded-xl mb-5 h-56">
+          <img src="https://images.unsplash.com/photo-1572120360610-d971b9d7767c?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" alt=""/>
+        </div>
+        <div class="text-xs text-gold-500 tracking-widest mb-2">MARKET TRENDS · 5 MIN READ</div>
+        <h3 class="font-serif text-2xl font-bold text-navy-800 mb-3 group-hover:text-gold-500 transition">Kigali Rental Prices 2025: A Complete Guide</h3>
+        <p class="text-gray-600 text-sm">Understand the current rental landscape across all Kigali districts, with average prices and forecasts.</p>
+      </article>
+
+      <article class="group cursor-pointer">
+        <div class="overflow-hidden rounded-xl mb-5 h-56">
+          <img src="https://images.unsplash.com/photo-1560518883-ce09059eeffa?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" alt=""/>
+        </div>
+        <div class="text-xs text-gold-500 tracking-widest mb-2">BUYING GUIDE · 7 MIN READ</div>
+        <h3 class="font-serif text-2xl font-bold text-navy-800 mb-3 group-hover:text-gold-500 transition">Buying Land in Rwanda: What You Need to Know</h3>
+        <p class="text-gray-600 text-sm">From title deeds to zoning laws, here's everything first-time buyers should understand.</p>
+      </article>
+
+      <article class="group cursor-pointer">
+        <div class="overflow-hidden rounded-xl mb-5 h-56">
+          <img src="https://images.unsplash.com/photo-1486325212027-8081e485255e?auto=format&fit=crop&w=800&q=80" class="w-full h-full object-cover group-hover:scale-105 transition duration-500" alt=""/>
+        </div>
+        <div class="text-xs text-gold-500 tracking-widest mb-2">NEIGHBORHOOD · 6 MIN READ</div>
+        <h3 class="font-serif text-2xl font-bold text-navy-800 mb-3 group-hover:text-gold-500 transition">Best Places to Live in Kigali</h3>
+        <p class="text-gray-600 text-sm">Our top picks for families, professionals, and expats — covering schools, safety, and amenities.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- FAQ -->
+<section id="faq" class="py-20 px-6 bg-cream">
+  <div class="max-w-4xl mx-auto">
+    <div class="text-center mb-14">
+      <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">FREQUENTLY ASKED</span>
+      <h2 class="font-serif text-4xl md:text-5xl font-bold text-navy-800 mt-3 mb-4">Your Questions Answered</h2>
+      <div class="section-divider mx-auto"></div>
+    </div>
+
+    <div class="space-y-4" id="faqList">
+      <div class="faq-item bg-white rounded-xl shadow-sm overflow-hidden">
+        <button class="faq-btn w-full text-left p-6 flex justify-between items-center font-semibold text-navy-800">
+          <span>Where can I rent a house in Kigali?</span>
+          <i class="fa-solid fa-plus gold-text"></i>
+        </button>
+        <div class="faq-content hidden px-6 pb-6 text-gray-600 leading-relaxed">
+          You can rent a house in any of Kigali's prime neighborhoods, including Nyarutarama, Kibagabaga, Kacyiru, Kicukiro, Rebero, and Gacuriro. Kigalifinders offers verified listings in all these areas — from affordable family homes to luxury villas. <a href="https://wa.me/250784806641" class="text-gold-500 font-semibold">Contact us on WhatsApp</a> for personalized recommendations.
+        </div>
+      </div>
+
+      <div class="faq-item bg-white rounded-xl shadow-sm overflow-hidden">
+        <button class="faq-btn w-full text-left p-6 flex justify-between items-center font-semibold text-navy-800">
+          <span>Which is the best real estate agency in Kigali?</span>
+          <i class="fa-solid fa-plus gold-text"></i>
+        </button>
+        <div class="faq-content hidden px-6 pb-6 text-gray-600 leading-relaxed">
+          Kigalifinders is widely recognized as one of Rwanda's most trusted real estate agencies. With 10+ years of experience, 1,200+ properties listed, 850+ satisfied clients, and a 4.9★ rating, we offer unmatched local expertise, verified listings, and transparent service.
+        </div>
+      </div>
+
+      <div class="faq-item bg-white rounded-xl shadow-sm overflow-hidden">
+        <button class="faq-btn w-full text-left p-6 flex justify-between items-center font-semibold text-navy-800">
+          <span>How much does it cost to rent a furnished house in Kigali?</span>
+          <i class="fa-solid fa-plus gold-text"></i>
+        </button>
+        <div class="faq-content hidden px-6 pb-6 text-gray-600 leading-relaxed">
+          Furnished houses in Kigali typically range from $800/month for a 2-bedroom apartment to $5,000+/month for a luxury villa. Premium neighborhoods like Nyarutarama and Kacyiru command higher rates. We can help match you with the perfect property within your budget.
+        </div>
+      </div>
+
+      <div class="faq-item bg-white rounded-xl shadow-sm overflow-hidden">
+        <button class="faq-btn w-full text-left p-6 flex justify-between items-center font-semibold text-navy-800">
+          <span>What are the average plot prices in Kigali?</span>
+          <i class="fa-solid fa-plus gold-text"></i>
+        </button>
+        <div class="faq-content hidden px-6 pb-6 text-gray-600 leading-relaxed">
+          Plot prices in Kigali vary by location. Residential plots in developing areas start from $25,000, while prime hilltop or commercial plots in central districts can exceed $200,000. All our listings come with verified title deeds.
+        </div>
+      </div>
+
+      <div class="faq-item bg-white rounded-xl shadow-sm overflow-hidden">
+        <button class="faq-btn w-full text-left p-6 flex justify-between items-center font-semibold text-navy-800">
+          <span>Can I book a property viewing online?</span>
+          <i class="fa-solid fa-plus gold-text"></i>
+        </button>
+        <div class="faq-content hidden px-6 pb-6 text-gray-600 leading-relaxed">
+          Yes — booking a property viewing with Kigalifinders is simple. Just click the <a href="https://secure-guard.setmore.com/" target="_blank" class="text-gold-500 font-semibold">Book Visit</a> button on any page, select your preferred date and time, and we'll arrange the tour.
+        </div>
+      </div>
+
+      <div class="faq-item bg-white rounded-xl shadow-sm overflow-hidden">
+        <button class="faq-btn w-full text-left p-6 flex justify-between items-center font-semibold text-navy-800">
+          <span>Do you work with expats and international clients?</span>
+          <i class="fa-solid fa-plus gold-text"></i>
+        </button>
+        <div class="faq-content hidden px-6 pb-6 text-gray-600 leading-relaxed">
+          Absolutely. We specialize in helping expats and international clients relocate to Kigali. Our team speaks English, French, and Kinyarwanda, and we assist with everything from property search to lease negotiation and settling-in support.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Final CTA -->
+<section id="contact" class="py-24 px-6 relative" style="background: linear-gradient(135deg, #0a1e3f 0%, #13284f 100%);">
+  <div class="absolute inset-0 opacity-10" style="background-image: url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?auto=format&fit=crop&w=1600&q=80'); background-size: cover; background-position: center;"></div>
+  <div class="max-w-5xl mx-auto relative text-center text-white">
+    <span class="text-gold-500 tracking-[0.3em] text-xs font-semibold">READY TO MOVE?</span>
+    <h2 class="font-serif text-4xl md:text-6xl font-bold mt-4 mb-6 leading-tight">Let's Find Your <span class="gold-text italic">Perfect Property</span></h2>
+    <p class="text-gray-300 text-lg mb-10 max-w-2xl mx-auto">Speak to a Kigalifinders advisor today. Book a free consultation and start your real estate journey with Rwanda's most trusted agency.</p>
+    <div class="flex flex-wrap gap-4 justify-center">
+      <a href="https://secure-guard.setmore.com/" target="_blank" class="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
+        <i class="fa-regular fa-calendar-check"></i> Book Free Consultation
+      </a>
+      <a href="https://wa.me/250784806641?text=Hello%20Kigalifinders,%20I%20would%20like%20information%20about%20a%20property." class="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2 text-white">
+        <i class="fa-brands fa-whatsapp"></i> WhatsApp Us
+      </a>
+      <a href="tel:+250784806641" class="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2 text-white">
+        <i class="fa-solid fa-phone"></i> Call Now
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- Newsletter -->
+<section class="py-16 px-6 bg-cream">
+  <div class="max-w-4xl mx-auto text-center">
+    <h3 class="font-serif text-3xl font-bold text-navy-800 mb-3">Get Property Alerts</h3>
+    <p class="text-gray-600 mb-6">Be the first to know about new listings and exclusive opportunities.</p>
+    <form class="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
+      <input type="email" placeholder="Your email address" class="lux-input flex-1" required/>
+      <button type="submit" class="btn-gold px-8 py-3.5 rounded-md font-semibold whitespace-nowrap">Subscribe</button>
+    </form>
+  </div>
+</section>
+
+<!-- Footer -->
+<footer class="pt-16 pb-8 px-6">
+  <div class="max-w-7xl mx-auto">
+    <div class="grid md:grid-cols-4 gap-10 mb-12">
+      <div>
+        <div class="flex items-center gap-3 mb-4">
+          <div class="w-11 h-11 rounded-full bg-gold-500 flex items-center justify-center">
+            <span class="font-serif text-navy-800 text-xl font-bold">K</span>
+          </div>
+          <div>
+            <div class="font-serif text-xl font-bold text-white">KIGALIFINDERS</div>
+            <div class="text-[10px] tracking-[0.25em] text-gold-500">LUXURY REAL ESTATE</div>
+          </div>
+        </div>
+        <p class="text-sm leading-relaxed text-gray-400 mb-5">Rwanda's most trusted luxury real estate agency. Helping families and investors find their perfect property in Kigali since 2014.</p>
+        <div class="flex gap-3">
+          <a href="#" class="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gold-500 hover:border-gold-500 hover:text-navy-900 transition"><i class="fa-brands fa-facebook-f"></i></a>
+          <a href="#" class="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gold-500 hover:border-gold-500 hover:text-navy-900 transition"><i class="fa-brands fa-instagram"></i></a>
+          <a href="#" class="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gold-500 hover:border-gold-500 hover:text-navy-900 transition"><i class="fa-brands fa-linkedin-in"></i></a>
+          <a href="#" class="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gold-500 hover:border-gold-500 hover:text-navy-900 transition"><i class="fa-brands fa-x-twitter"></i></a>
+        </div>
+      </div>
+
+      <div>
+        <h4 class="text-white font-semibold mb-5 tracking-wider text-sm">EXPLORE</h4>
+        <ul class="space-y-2 text-sm">
+          <li><a href="#" class="hover:text-gold-500 transition">Houses for Rent</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Furnished Houses</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Unfurnished Houses</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Plots for Sale</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Luxury Homes</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Affordable Houses</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-white font-semibold mb-5 tracking-wider text-sm">AREAS</h4>
+        <ul class="space-y-2 text-sm">
+          <li><a href="#" class="hover:text-gold-500 transition">Houses in Kicukiro</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Houses in Gasabo</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Houses in Nyarugenge</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Nyarutarama</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Kibagabaga</a></li>
+          <li><a href="#" class="hover:text-gold-500 transition">Rebero</a></li>
+        </ul>
+      </div>
+
+      <div>
+        <h4 class="text-white font-semibold mb-5 tracking-wider text-sm">CONTACT</h4>
+        <ul class="space-y-3 text-sm">
+          <li class="flex gap-3"><i class="fa-solid fa-location-dot gold-text mt-1"></i><span>KN 4 St, Kigali, Rwanda</span></li>
+          <li class="flex gap-3"><i class="fa-solid fa-phone gold-text mt-1"></i><a href="tel:+250784806641" class="hover:text-gold-500">+250 784 806 641</a></li>
+          <li class="flex gap-3"><i class="fa-brands fa-whatsapp gold-text mt-1"></i><a href="https://wa.me/250784806641" class="hover:text-gold-500">WhatsApp Us</a></li>
+          <li class="flex gap-3"><i class="fa-regular fa-clock gold-text mt-1"></i><span>Mon-Sat: 8AM-7PM</span></li>
+          <li class="flex gap-3"><i class="fa-regular fa-calendar-check gold-text mt-1"></i><a href="https://secure-guard.setmore.com/" target="_blank" class="hover:text-gold-500">Book a Visit</a></li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="border-t border-gray-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-500">
+      <div>© 2025 Kigalifinders. All rights reserved.</div>
+      <div class="flex gap-5">
+        <a href="#" class="hover:text-gold-500">Privacy Policy</a>
+        <a href="#" class="hover:text-gold-500">Terms of Service</a>
+        <a href="#" class="hover:text-gold-500">Sitemap</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- Floating CTAs -->
+<a href="tel:+250784806641" class="call-float" title="Call Now">
+  <i class="fa-solid fa-phone"></i>
+</a>
+<a href="https://wa.me/250784806641?text=Hello%20Kigalifinders,%20I%20would%20like%20information%20about%20this%20property." class="whatsapp-float float-btn" target="_blank" title="Chat on WhatsApp">
+  <i class="fa-brands fa-whatsapp relative z-10"></i>
+</a>
+
+<script>
+// Mobile menu
+const menuBtn = document.getElementById('menuBtn');
+const closeMenu = document.getElementById('closeMenu');
+const mobileMenu = document.getElementById('mobileMenu');
+menuBtn?.addEventListener('click', () => mobileMenu.classList.add('open'));
+closeMenu?.addEventListener('click', () => mobileMenu.classList.remove('open'));
+document.querySelectorAll('#mobileMenu a').forEach(a => a.addEventListener('click', () => mobileMenu.classList.remove('open')));
+
+// Tabs
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  document.querySelectorAll('.tab-btn').forEach(x => { x.classList.remove('active'); x.classList.add('text-navy-800'); });
+  b.classList.add('active');
+  b.classList.remove('text-navy-800');
+}));
+
+// FAQ
+document.querySelectorAll('.faq-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const content = btn.nextElementSibling;
+    const icon = btn.querySelector('i');
+    content.classList.toggle('hidden');
+    icon.classList.toggle('fa-plus');
+    icon.classList.toggle('fa-minus');
+  });
+});
+
+// Animate fade-up on scroll
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(e => { if (e.isIntersecting) { e.target.style.opacity = 1; e.target.style.transform = 'translateY(0)'; } });
+}, { threshold: 0.1 });
+document.querySelectorAll('.property-card, .testimonial-card, .area-card').forEach(el => {
+  el.style.opacity = 0; el.style.transform = 'translateY(30px)'; el.style.transition = 'all 0.8s ease';
+  io.observe(el);
+});
+</script>
+
+</body>
+</html>
