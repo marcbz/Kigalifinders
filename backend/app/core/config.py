@@ -1,13 +1,21 @@
 from functools import lru_cache
+import json
 from typing import List, Union
 
-from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 def _parse_origins(value: Union[str, List[str]]) -> List[str]:
     if isinstance(value, list):
         return value
+    stripped = value.strip()
+    if stripped.startswith("["):
+        try:
+            parsed = json.loads(stripped)
+            if isinstance(parsed, list):
+                return [str(origin).strip() for origin in parsed if str(origin).strip()]
+        except json.JSONDecodeError:
+            pass
     return [origin.strip() for origin in value.split(",") if origin.strip()]
 
 
@@ -69,14 +77,13 @@ class Settings(BaseSettings):
     CELERY_BROKER_URL: str = "redis://localhost:6379/1"
     CELERY_RESULT_BACKEND: str = "redis://localhost:6379/2"
 
-    CORS_ORIGINS: List[str] = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    CORS_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     RATE_LIMIT: str = "100/minute"
 
-    @field_validator("CORS_ORIGINS", mode="before")
-    @classmethod
-    def parse_cors_origins(cls, v: Union[str, List[str]]) -> List[str]:
-        return _parse_origins(v)
+    @property
+    def cors_origins_list(self) -> List[str]:
+        return _parse_origins(self.CORS_ORIGINS)
 
     @property
     def is_production(self) -> bool:
