@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { getCachedHomepage } from "@/lib/server-api";
+import { fetchHomepage } from "@/lib/server-api";
 import { HeroSection } from "@/features/home/hero-section";
 import { SearchBar } from "@/components/search/search-bar";
 import { StatsSection } from "@/features/home/stats-section";
@@ -12,29 +12,11 @@ import {
   NewsletterSection,
   MapSection,
 } from "@/features/home/content-sections";
-import type { HomepageData } from "@/types";
 
-const emptyHomepage: HomepageData = {
-  stats: { properties_listed: 1200, happy_clients: 850, years_experience: 10, client_rating: 4.9 },
-  featured_properties: [],
-  featured_furnished: [],
-  featured_plots: [],
-  testimonials: [],
-  districts: [],
-  neighborhoods: [],
-  blog_posts: [],
-  faqs: [],
-  hero: {},
-  settings: {},
-};
+export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  let data: HomepageData = emptyHomepage;
-  try {
-    data = await getCachedHomepage();
-  } catch {
-    data = emptyHomepage;
-  }
+  const data = await fetchHomepage();
 
   const settings = data.settings || {};
   const hero = data.hero || {};
@@ -68,8 +50,8 @@ export default async function HomePage() {
         address={settings.address}
         phone={settings.phone}
         hours={settings.hours}
-        latitude={settings.latitude as number | undefined}
-        longitude={settings.longitude as number | undefined}
+        latitude={settings.latitude}
+        longitude={settings.longitude}
       />
       <BlogSection posts={data.blog_posts} />
       <FAQSection faqs={data.faqs} />

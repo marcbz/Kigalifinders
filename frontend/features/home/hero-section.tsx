@@ -16,22 +16,30 @@ interface HeroProps {
 }
 
 export function HeroSection({
-  tagline = "RWANDA'S #1 LUXURY REAL ESTATE",
-  title = "Find Your Dream Home in Kigali",
-  subtitle = "Discover an exclusive collection of furnished houses, rental homes, and prime plots for sale across Kigali. Premium properties. Trusted service. Unmatched expertise.",
-  backgroundImage = "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=2000&q=80",
-  ctaPrimary = "Book a Visit",
-  ctaSecondary = "Browse Properties",
-  bookingUrl = "https://secure-guard.setmore.com/",
+  tagline,
+  title,
+  subtitle,
+  backgroundImage,
+  ctaPrimary,
+  ctaSecondary,
+  bookingUrl,
 }: HeroProps) {
-  const titleParts = title.split("Dream Home");
+  const displayTagline = tagline || "RWANDA'S #1 LUXURY REAL ESTATE";
+  const displayTitle = title || "Find Your Dream Home in Kigali";
+  const displaySubtitle = subtitle || "";
+  const displayBg =
+    backgroundImage || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=2000&q=80";
+  const displayCtaPrimary = ctaPrimary || "Book a Visit";
+  const displayCtaSecondary = ctaSecondary || "Browse Properties";
+  const displayBookingUrl = bookingUrl || "https://secure-guard.setmore.com/";
+  const titleParts = displayTitle.split("Dream Home");
 
   return (
     <section
       id="home"
       className="min-h-[92vh] flex items-center text-white relative"
       style={{
-        backgroundImage: `linear-gradient(rgba(6,19,43,0.55), rgba(6,19,43,0.7)), url('${backgroundImage}')`,
+        backgroundImage: `linear-gradient(rgba(6,19,43,0.55), rgba(6,19,43,0.7)), url('${displayBg}')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
@@ -44,7 +52,7 @@ export function HeroSection({
             className="flex items-center gap-3 mb-6"
           >
             <span className="h-px w-12 bg-gradient-to-r from-transparent via-gold-500 to-transparent" />
-            <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">{tagline}</span>
+            <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">{displayTagline}</span>
           </motion.div>
 
           <motion.h1
@@ -56,18 +64,20 @@ export function HeroSection({
             {titleParts.length > 1 ? (
               <>Find Your <span className="gold-text italic">Dream Home</span>{titleParts[1]}</>
             ) : (
-              title
+              displayTitle
             )}
           </motion.h1>
 
+          {displaySubtitle && (
           <motion.p
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2 }}
             className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed"
           >
-            {subtitle}
+            {displaySubtitle}
           </motion.p>
+          )}
 
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -76,15 +86,15 @@ export function HeroSection({
             className="flex flex-wrap gap-4"
           >
             <Button asChild size="lg" className="rounded-full">
-              <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+              <a href={displayBookingUrl} target="_blank" rel="noopener noreferrer">
                 <CalendarCheck className="w-5 h-5" />
-                {ctaPrimary}
+                {displayCtaPrimary}
               </a>
             </Button>
             <Button asChild variant="outline" size="lg" className="btn-outline-white rounded-full border-white/60 bg-white/10 text-white hover:bg-white hover:text-navy-800">
               <Link href="/properties">
                 <Home className="w-5 h-5" />
-                {ctaSecondary}
+                {displayCtaSecondary}
               </Link>
             </Button>
           </motion.div>

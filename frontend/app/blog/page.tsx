@@ -1,11 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { contentService } from "@/services/api";
+import { fetchBlogPosts } from "@/lib/server-api";
 
-export const metadata: Metadata = { title: "Blog", description: "Real estate insights and guides for Kigali." };
+export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Blog",
+  description: "Real estate insights and guides for Kigali.",
+};
 
 export default async function BlogPage() {
-  const posts = await contentService.blogPosts().catch(() => []);
+  const posts = await fetchBlogPosts();
 
   return (
     <div className="py-20 px-6">
@@ -22,6 +27,9 @@ export default async function BlogPage() {
             </Link>
           ))}
         </div>
+        {posts.length === 0 && (
+          <p className="text-center text-gray-500">No blog posts yet.</p>
+        )}
       </div>
     </div>
   );

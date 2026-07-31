@@ -54,24 +54,28 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     queryKey: ["districts"],
     queryFn: locationService.districts,
     enabled: open,
+    staleTime: 0,
   });
 
   const { data: neighborhoods = [] } = useQuery({
     queryKey: ["neighborhoods"],
     queryFn: locationService.neighborhoods,
     enabled: open,
+    staleTime: 0,
   });
 
   const { data: propertyTypes = [] } = useQuery({
     queryKey: ["property-types"],
     queryFn: locationService.propertyTypes,
     enabled: open,
+    staleTime: 0,
   });
 
   const { data: propertyDetail } = useQuery({
     queryKey: ["property-detail", property?.slug],
     queryFn: () => propertyService.getBySlug(property!.slug),
     enabled: open && !!property?.slug,
+    staleTime: 0,
   });
 
   useEffect(() => {
@@ -162,6 +166,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-properties"] });
+      queryClient.invalidateQueries({ queryKey: ["property-detail"] });
       onClose();
     },
     onError: (err: unknown) => {

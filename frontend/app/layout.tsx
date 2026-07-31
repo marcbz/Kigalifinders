@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
-import { SiteChrome } from "@/components/layout/site-chrome";
+import { SiteChromeWithSettings } from "@/components/layout/site-chrome-wrapper";
 import { Providers } from "@/components/providers";
 import "./globals.css";
 
@@ -29,7 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         <Providers>
-          <SiteChrome>{children}</SiteChrome>
+          <SiteChromeWithSettings>{children}</SiteChromeWithSettings>
         </Providers>
       </body>
     </html>

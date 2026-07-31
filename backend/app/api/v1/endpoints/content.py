@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -26,11 +26,7 @@ router = APIRouter(tags=["Public Content"])
 
 
 @router.get("/homepage", response_model=HomepageData)
-async def homepage(
-    response: Response,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    response.headers["Cache-Control"] = "public, max-age=120, stale-while-revalidate=300"
+async def homepage(db: Annotated[AsyncSession, Depends(get_db)]):
     return await HomepageService(db).get_homepage_data()
 
 

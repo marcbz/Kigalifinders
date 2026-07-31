@@ -1,8 +1,9 @@
 import { Suspense } from "react";
-import { getCachedProperties } from "@/lib/server-api";
+import { fetchProperties } from "@/lib/server-api";
 import { PropertyCard } from "@/components/property/property-card";
 import { SearchBar } from "@/components/search/search-bar";
-import { PropertyGridSkeleton } from "@/components/ui/shimmer";
+
+export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "Properties",
@@ -15,7 +16,7 @@ interface Props {
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const params = await searchParams;
-  const data = await getCachedProperties({
+  const data = await fetchProperties({
     q: params.q,
     listing_type: params.listing_type,
     district_id: params.district_id,
@@ -28,7 +29,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     sort_order: params.sort_order || "desc",
     page: params.page ? parseInt(params.page) : 1,
     page_size: 12,
-  }).catch(() => ({ items: [], total: 0, page: 1, page_size: 12, pages: 0 }));
+  });
 
   return (
     <>

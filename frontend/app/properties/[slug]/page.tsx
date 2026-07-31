@@ -7,17 +7,19 @@ import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
-import { getCachedProperty, getCachedRelated } from "@/lib/server-api";
+import { fetchProperty, fetchRelated } from "@/lib/server-api";
 import { Button } from "@/components/ui/button";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const property = await getCachedProperty(slug);
+    const property = await fetchProperty(slug);
     return {
       title: property.meta_title || property.title,
       description: property.meta_description || property.short_description,
@@ -33,7 +35,7 @@ export default async function PropertyDetailPage({ params }: Props) {
   let property;
   let related = [];
   try {
-    [property, related] = await Promise.all([getCachedProperty(slug), getCachedRelated(slug)]);
+    [property, related] = await Promise.all([fetchProperty(slug), fetchRelated(slug)]);
   } catch {
     notFound();
   }
