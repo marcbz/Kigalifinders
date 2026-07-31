@@ -62,6 +62,9 @@ export interface PropertyCreatePayload {
   has_title_deed?: boolean;
   badge_label?: string;
   address?: string;
+  latitude?: number;
+  longitude?: number;
+  images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];
 }
 
 export type PropertyUpdatePayload = Partial<PropertyCreatePayload>;
@@ -121,4 +124,20 @@ export const authService = {
 
 export const adminService = {
   dashboard: () => api.get("/admin/dashboard").then((r) => r.data),
+  messages: () => api.get("/admin/messages").then((r) => r.data),
+  inquiries: () => api.get("/admin/inquiries").then((r) => r.data),
+  markMessageRead: (id: string) => api.patch(`/admin/messages/${id}/read`),
+  deleteMessage: (id: string) => api.delete(`/admin/messages/${id}`),
+  deleteInquiry: (id: string) => api.delete(`/admin/inquiries/${id}`),
+  blogPosts: () => api.get("/admin/blog").then((r) => r.data),
+  createBlogPost: (data: Record<string, unknown>) => api.post("/admin/blog", data).then((r) => r.data),
+  updateBlogPost: (id: string, data: Record<string, unknown>) => api.patch(`/admin/blog/${id}`, data).then((r) => r.data),
+  deleteBlogPost: (id: string) => api.delete(`/admin/blog/${id}`),
+  faqs: () => api.get("/admin/faqs").then((r) => r.data),
+  createFaq: (data: Record<string, unknown>) => api.post("/admin/faqs", data).then((r) => r.data),
+  updateFaq: (id: string, data: Record<string, unknown>) => api.patch(`/admin/faqs/${id}`, data).then((r) => r.data),
+  deleteFaq: (id: string) => api.delete(`/admin/faqs/${id}`),
+  getSettings: () => api.get<Record<string, unknown>>("/admin/settings").then((r) => r.data),
+  updateSettings: (updates: { key: string; value: unknown }[]) =>
+    api.patch("/admin/settings", updates).then((r) => r.data),
 };

@@ -121,6 +121,13 @@ class PropertyDetail(PropertyListItem):
     created_at: datetime
 
 
+class PropertyImageInput(BaseModel):
+    url: str
+    alt_text: Optional[str] = None
+    is_primary: bool = False
+    sort_order: int = 0
+
+
 class PropertyCreate(BaseModel):
     title: str
     slug: Optional[str] = None
@@ -147,6 +154,7 @@ class PropertyCreate(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    images: List[PropertyImageInput] = []
 
 
 class PropertyUpdate(BaseModel):
@@ -175,6 +183,7 @@ class PropertyUpdate(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    images: Optional[List[PropertyImageInput]] = None
 
 
 class PropertySearchParams(BaseModel):
@@ -241,6 +250,82 @@ class FAQResponse(BaseModel):
     question: str
     answer: str
     category: Optional[str] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class FAQCreate(BaseModel):
+    question: str
+    answer: str
+    category: Optional[str] = None
+    sort_order: int = 0
+    is_active: bool = True
+
+
+class FAQUpdate(BaseModel):
+    question: Optional[str] = None
+    answer: Optional[str] = None
+    category: Optional[str] = None
+    sort_order: Optional[int] = None
+    is_active: Optional[bool] = None
+
+
+class BlogPostCreate(BaseModel):
+    title: str
+    slug: Optional[str] = None
+    excerpt: Optional[str] = None
+    content: str
+    featured_image: Optional[str] = None
+    read_time_minutes: int = 5
+    is_published: bool = False
+    is_featured: bool = False
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+
+
+class BlogPostUpdate(BaseModel):
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    excerpt: Optional[str] = None
+    content: Optional[str] = None
+    featured_image: Optional[str] = None
+    read_time_minutes: Optional[int] = None
+    is_published: Optional[bool] = None
+    is_featured: Optional[bool] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+
+
+class ContactMessageResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    email: str
+    phone: Optional[str] = None
+    subject: Optional[str] = None
+    message: str
+    is_read: bool
+    created_at: datetime
+
+
+class ViewingRequestResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    property_id: Optional[UUID] = None
+    property_title: Optional[str] = None
+    name: str
+    email: str
+    phone: Optional[str] = None
+    message: Optional[str] = None
+    status: str
+    created_at: datetime
+
+
+class SettingUpdate(BaseModel):
+    key: str
+    value: dict | list | str | int | float | bool | None
 
 
 class DistrictResponse(BaseModel):
@@ -312,6 +397,7 @@ class SiteStats(BaseModel):
 class HomepageData(BaseModel):
     stats: SiteStats
     featured_properties: List[PropertyListItem]
+    featured_furnished: List[PropertyListItem] = []
     featured_plots: List[PropertyListItem]
     testimonials: List[TestimonialResponse]
     districts: List[DistrictResponse]

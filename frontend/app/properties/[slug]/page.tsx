@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Bath, Bed, MapPin, Ruler, CalendarCheck, MessageCircle } from "lucide-react";
-import { propertyService } from "@/services/api";
+import { Bath, Bed, CalendarCheck, MapPin, Ruler } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
+import { PropertyGallery } from "@/components/property/property-gallery";
+import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
+import { getCachedProperty, getCachedRelated } from "@/lib/server-api";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -15,7 +17,7 @@ interface Props {
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const property = await propertyService.getBySlug(slug);
+    const property = await getCachedProperty(slug);
     return {
       title: property.meta_title || property.title,
       description: property.meta_description || property.short_description,
@@ -31,33 +33,31 @@ export default async function PropertyDetailPage({ params }: Props) {
   let property;
   let related = [];
   try {
-    property = await propertyService.getBySlug(slug);
-    related = await propertyService.related(slug);
+    [property, related] = await Promise.all([getCachedProperty(slug), getCachedRelated(slug)]);
   } catch {
     notFound();
   }
 
-  const images = property.images?.length ? property.images : [{ id: "1", url: property.primary_image || "", is_primary: true }];
+  const images =
+    property.images?.length
+      ? property.images.map((img) => ({ id: img.id, url: img.url, alt_text: img.alt_text }))
+      : property.primary_image
+        ? [{ id: "primary", url: property.primary_image }]
+        : [{ id: "fallback", url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200" }];
+
+  const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
 
   return (
     <>
-      <div className="relative h-[50vh] md:h-[60vh]">
-        <Image
-          src={images[0]?.url || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200"}
-          alt={property.title}
-          fill
-          className="object-cover"
-          priority
-        />
-        <div className="absolute inset-0 bg-gradient-to-t from-navy-900/80 to-transparent" />
-        <div className="absolute bottom-0 left-0 right-0 p-6 md:p-12 max-w-7xl mx-auto">
+      <div className="bg-navy-800 text-white py-12 px-6">
+        <div className="max-w-7xl mx-auto">
           {property.badge_label && (
             <span className="badge-gold px-3 py-1 rounded text-xs mb-4 inline-block">{property.badge_label}</span>
           )}
-          <h1 className="font-serif text-3xl md:text-5xl font-bold text-white mb-2">{property.title}</h1>
+          <h1 className="font-serif text-3xl md:text-5xl font-bold mb-3">{property.title}</h1>
           <div className="flex items-center gap-2 text-gray-200">
             <MapPin className="w-4 h-4 text-gold-500" />
-            {property.address || `${property.neighborhood_name}, ${property.district_name}`}
+            {property.address || `${property.neighborhood_name || ""}${property.district_name ? `, ${property.district_name}` : ""}`}
           </div>
         </div>
       </div>
@@ -65,18 +65,24 @@ export default async function PropertyDetailPage({ params }: Props) {
       <section className="py-12 px-6">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-12">
           <div className="lg:col-span-2">
-            <div className="flex flex-wrap gap-6 text-sm border-b pb-6 mb-8">
-              {property.bedrooms != null && <span className="flex items-center gap-2"><Bed className="text-gold-500" /> {property.bedrooms} Beds</span>}
-              {property.bathrooms != null && <span className="flex items-center gap-2"><Bath className="text-gold-500" /> {property.bathrooms} Baths</span>}
-              {property.area_sqm && <span className="flex items-center gap-2"><Ruler className="text-gold-500" /> {property.area_sqm}m²</span>}
-            </div>
+            <PropertyGallery
+              images={images}
+              title={property.title}
+              latitude={property.latitude}
+              longitude={property.longitude}
+              address={property.address}
+            />
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-              {images.slice(0, 4).map((img) => (
-                <div key={img.id} className="relative h-32 rounded-lg overflow-hidden">
-                  <Image src={img.url} alt={property.title} fill className="object-cover" sizes="25vw" />
-                </div>
-              ))}
+            <div className="flex flex-wrap gap-6 text-sm border-b pb-6 mb-8">
+              {property.bedrooms != null && (
+                <span className="flex items-center gap-2"><Bed className="text-gold-500" /> {property.bedrooms} Beds</span>
+              )}
+              {property.bathrooms != null && (
+                <span className="flex items-center gap-2"><Bath className="text-gold-500" /> {property.bathrooms} Baths</span>
+              )}
+              {property.area_sqm && (
+                <span className="flex items-center gap-2"><Ruler className="text-gold-500" /> {property.area_sqm}m²</span>
+              )}
             </div>
 
             <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Description</h2>
@@ -104,14 +110,22 @@ export default async function PropertyDetailPage({ params }: Props) {
               )}
               <div className="space-y-3">
                 <Button asChild className="w-full rounded-full">
-                  <Link href="/contact"><CalendarCheck className="w-4 h-4" /> Schedule Viewing</Link>
+                  <a href="https://secure-guard.setmore.com/" target="_blank" rel="noopener noreferrer">
+                    <CalendarCheck className="w-4 h-4" /> Schedule Viewing
+                  </a>
                 </Button>
-                <Button asChild variant="outline" className="w-full rounded-full">
-                  <a href={`https://wa.me/250784806641?text=Interested in ${property.title}`} target="_blank" rel="noopener noreferrer">
-                    <MessageCircle className="w-4 h-4" /> WhatsApp Inquiry
+                <Button asChild variant="outline" className="w-full rounded-full gap-2">
+                  <a
+                    href={`https://wa.me/${whatsapp}?text=Interested in ${encodeURIComponent(property.title)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    <WhatsAppIcon className="w-5 h-5 text-[#25D366]" />
+                    WhatsApp Inquiry
                   </a>
                 </Button>
               </div>
+              <PropertyInquiryForm propertyId={property.id} propertyTitle={property.title} />
             </div>
           </div>
         </div>

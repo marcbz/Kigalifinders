@@ -38,11 +38,16 @@ const defaultForm = {
   has_title_deed: false,
   badge_label: "",
   address: "",
+  latitude: "",
+  longitude: "",
 };
+
+type ImageRow = { url: string; is_primary: boolean };
 
 export function PropertyFormModal({ property, open, onClose }: PropertyFormModalProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(defaultForm);
+  const [imageRows, setImageRows] = useState<ImageRow[]>([{ url: "", is_primary: true }]);
   const [error, setError] = useState("");
 
   const { data: districts = [] } = useQuery({
@@ -93,9 +98,16 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
         has_title_deed: property.has_title_deed,
         badge_label: property.badge_label || "",
         address: detail?.address || "",
+        latitude: detail?.latitude != null ? String(detail.latitude) : "",
+        longitude: detail?.longitude != null ? String(detail.longitude) : "",
       });
+      const imgs = detail?.images?.length
+        ? detail.images.map((img) => ({ url: img.url, is_primary: img.is_primary }))
+        : [{ url: property.primary_image || "", is_primary: true }];
+      setImageRows(imgs.length ? imgs : [{ url: "", is_primary: true }]);
     } else {
       setForm(defaultForm);
+      setImageRows([{ url: "", is_primary: true }]);
     }
     setError("");
   }, [open, property, propertyDetail]);
@@ -126,6 +138,15 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     has_title_deed: form.has_title_deed,
     badge_label: form.badge_label.trim() || undefined,
     address: form.address.trim() || undefined,
+    latitude: form.latitude ? parseFloat(form.latitude) : undefined,
+    longitude: form.longitude ? parseFloat(form.longitude) : undefined,
+    images: imageRows
+      .filter((img) => img.url.trim())
+      .map((img, i) => ({
+        url: img.url.trim(),
+        is_primary: img.is_primary,
+        sort_order: i,
+      })),
   });
 
   const saveMutation = useMutation({
@@ -255,6 +276,44 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">ADDRESS</label>
               <input className="lux-input mt-1" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">LATITUDE</label>
+              <input className="lux-input mt-1" placeholder="-1.944072" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">LONGITUDE</label>
+              <input className="lux-input mt-1" placeholder="30.058775" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+            </div>
+            <div className="md:col-span-2 space-y-3">
+              <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES (URLs)</label>
+              <p className="text-xs text-gray-400">Mark one as featured — it appears on the homepage catalogue. Others show on the detail page gallery.</p>
+              {imageRows.map((row, idx) => (
+                <div key={idx} className="flex gap-2 items-center">
+                  <input
+                    className="lux-input flex-1"
+                    placeholder="https://..."
+                    value={row.url}
+                    onChange={(e) => {
+                      const next = [...imageRows];
+                      next[idx] = { ...next[idx], url: e.target.value };
+                      setImageRows(next);
+                    }}
+                  />
+                  <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+                    <input
+                      type="radio"
+                      checked={row.is_primary}
+                      onChange={() => setImageRows(imageRows.map((r, i) => ({ ...r, is_primary: i === idx })))}
+                    />
+                    Featured
+                  </label>
+                  <button type="button" className="text-red-500 text-sm px-2" onClick={() => setImageRows(imageRows.filter((_, i) => i !== idx))}>×</button>
+                </div>
+              ))}
+              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setImageRows([...imageRows, { url: "", is_primary: false }])}>
+                Add image URL
+              </Button>
             </div>
             <div className="flex flex-wrap gap-4 md:col-span-2">
               <label className="flex items-center gap-2 text-sm">

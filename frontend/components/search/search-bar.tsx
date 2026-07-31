@@ -9,8 +9,8 @@ import { locationService } from "@/services/api";
 
 const tabs = [
   { id: "rent", label: "For Rent" },
-  { id: "furnished", label: "Furnished" },
-  { id: "sale", label: "Plots/Land" },
+  { id: "sale", label: "For Sale" },
+  { id: "plots", label: "Plots/Land" },
 ];
 
 const sortOptions = [
@@ -39,7 +39,11 @@ export function SearchBar() {
 
   const plotTypeId = propertyTypes.find((pt) => pt.slug === "plot")?.id;
 
-  const [activeTab, setActiveTab] = useState(searchParams.get("listing_type") || "rent");
+  const [activeTab, setActiveTab] = useState(() => {
+    const lt = searchParams.get("listing_type") || "rent";
+    if (lt === "sale" && searchParams.get("property_type_id")) return "plots";
+    return lt === "furnished" ? "rent" : lt;
+  });
   const [districtId, setDistrictId] = useState(searchParams.get("district_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
   const [bedrooms, setBedrooms] = useState(searchParams.get("bedrooms") || "");
@@ -57,12 +61,18 @@ export function SearchBar() {
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
-    if (activeTab) params.set("listing_type", activeTab);
+    if (activeTab) {
+      if (activeTab === "plots") {
+        params.set("listing_type", "sale");
+      } else {
+        params.set("listing_type", activeTab);
+      }
+    }
 
     if (districtId) params.set("district_id", districtId);
 
     let typeId = propertyTypeId;
-    if (activeTab === "sale" && !typeId && plotTypeId) {
+    if (activeTab === "plots" && !typeId && plotTypeId) {
       typeId = plotTypeId;
     }
     if (typeId) params.set("property_type_id", typeId);

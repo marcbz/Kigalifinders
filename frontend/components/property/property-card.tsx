@@ -3,6 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Bath, Bed, Heart, MapPin, Ruler, Share2, ArrowLeftRight } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import type { PropertyListItem } from "@/types";
 import { formatPrice } from "@/lib/utils";
@@ -81,9 +82,11 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
               {formatPrice(property.price, property.currency, property.listing_type !== "sale" ? property.price_period : null)}
             </div>
           </div>
-          <Link href={`/properties/${property.slug}`} className="text-navy-800 dark:text-gold-500 font-semibold text-sm inline-flex items-center gap-2 hover:text-gold-500">
-            View <ArrowRight className="w-4 h-4" />
-          </Link>
+          <Button asChild size="sm" className="rounded-full gap-2">
+            <Link href={`/properties/${property.slug}`}>
+              View in Catalogue <ArrowRight className="w-4 h-4" />
+            </Link>
+          </Button>
         </div>
       </div>
     </motion.article>

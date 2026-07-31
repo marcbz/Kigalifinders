@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import Link from "next/link";
 import Image from "next/image";
 import { Plus, Minus } from "lucide-react";
@@ -119,7 +120,24 @@ export function NewsletterSection() {
   );
 }
 
-export function MapSection({ address, phone, hours }: { address?: string; phone?: string; hours?: string }) {
+export function MapSection({
+  address,
+  phone,
+  hours,
+  latitude,
+  longitude,
+}: {
+  address?: string;
+  phone?: string;
+  hours?: string;
+  latitude?: number;
+  longitude?: number;
+}) {
+  const mapSrc =
+    latitude && longitude
+      ? `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d2000!2d${longitude}!3d${latitude}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2srw!4v1700000000000`
+      : "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.7956749506064!2d30.058775!3d-1.944072!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!2m1!1sKigali!5e0!3m2!1sen!2srw!4v1700000000000";
+
   return (
     <section className="py-20 px-6 bg-cream dark:bg-secondary">
       <div className="max-w-7xl mx-auto">
@@ -137,7 +155,7 @@ export function MapSection({ address, phone, hours }: { address?: string; phone?
           <div className="rounded-2xl overflow-hidden shadow-2xl h-[450px]">
             <iframe
               className="w-full h-full grayscale-[20%] contrast-105"
-              src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.7956749506064!2d30.058775!3d-1.944072!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!2m1!1sKigali!5e0!3m2!1sen!2srw!4v1700000000000"
+              src={mapSrc}
               loading="lazy"
               title="Kigalifinders Office Location"
             />
@@ -151,11 +169,17 @@ export function MapSection({ address, phone, hours }: { address?: string; phone?
 export function FloatingCTAs({ phone, whatsapp }: { phone?: string; whatsapp?: string }) {
   return (
     <>
-      <a href={`tel:${phone?.replace(/\s/g, "")}`} className="fixed bottom-[100px] right-6 z-[60] bg-navy-800 text-gold-500 w-14 h-14 rounded-full flex items-center justify-center shadow-xl" title="Call Now">
+      <a href={`tel:${phone?.replace(/\s/g, "")}`} className="fixed bottom-[100px] right-6 z-[60] bg-navy-800 text-gold-500 w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-xl" title="Call Now">
         📞
       </a>
-      <a href={`https://wa.me/${whatsapp}`} target="_blank" rel="noopener noreferrer" className="fixed bottom-6 right-6 z-[60] bg-[#25D366] text-white w-[60px] h-[60px] rounded-full flex items-center justify-center shadow-xl animate-float text-2xl" title="WhatsApp">
-        💬
+      <a
+        href={`https://wa.me/${whatsapp}`}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 right-6 z-[60] bg-[#25D366] text-white w-[60px] h-[60px] rounded-full flex items-center justify-center shadow-xl animate-float"
+        title="WhatsApp"
+      >
+        <WhatsAppIcon className="w-8 h-8" />
       </a>
     </>
   );

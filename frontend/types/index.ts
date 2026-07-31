@@ -100,6 +100,7 @@ export interface SiteStats {
 export interface HomepageData {
   stats: SiteStats;
   featured_properties: PropertyListItem[];
+  featured_furnished?: PropertyListItem[];
   featured_plots: PropertyListItem[];
   testimonials: Testimonial[];
   districts: District[];
@@ -120,6 +121,9 @@ export interface HomepageData {
     address?: string;
     hours?: string;
     booking_url?: string;
+    email?: string;
+    latitude?: number;
+    longitude?: number;
   };
 }
 

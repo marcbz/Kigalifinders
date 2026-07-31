@@ -7,11 +7,31 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_admin, require_staff
 from app.database.session import get_db
-from app.models import Property, PropertyStatusEnum, User
+from app.models import Property, PropertyImage, PropertyStatusEnum, User
 from app.repositories.property_repository import PropertyRepository
-from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyListItem, PropertySearchParams, PropertyUpdate
+from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
+
+
+async def _sync_property_images(db: AsyncSession, prop: Property, images: list[PropertyImageInput] | None) -> None:
+    if images is None:
+        return
+    for img in list(prop.images):
+        await db.delete(img)
+    await db.flush()
+    for i, img in enumerate(images):
+        if not img.url.strip():
+            continue
+        db.add(
+            PropertyImage(
+                property_id=prop.id,
+                url=img.url.strip(),
+                alt_text=img.alt_text,
+                is_primary=img.is_primary,
+                sort_order=img.sort_order if img.sort_order else i,
+            )
+        )
 
 
 def _search_params(
@@ -124,6 +144,7 @@ async def create_property(
     )
     db.add(prop)
     await db.flush()
+    await _sync_property_images(db, prop, data.images)
     repo = PropertyRepository(db)
     result = await repo.get_by_id(prop.id)
     return repo._to_list_item(result)
@@ -144,6 +165,7 @@ async def update_property(
         raise HTTPException(status_code=404, detail="Property not found")
 
     updates = data.model_dump(exclude_unset=True)
+    images = updates.pop("images", None)
     if "listing_type" in updates:
         updates["listing_type"] = ListingType(updates["listing_type"])
     if "status" in updates:
@@ -155,6 +177,8 @@ async def update_property(
         setattr(prop, field, value)
 
     await db.flush()
+    if images is not None:
+        await _sync_property_images(db, prop, images)
     result = await repo.get_by_id(property_id)
     return repo._to_list_item(result)
 

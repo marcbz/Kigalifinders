@@ -1,10 +1,10 @@
-import type { Metadata } from "next";
 import { Suspense } from "react";
-import { propertyService } from "@/services/api";
+import { getCachedProperties } from "@/lib/server-api";
 import { PropertyCard } from "@/components/property/property-card";
 import { SearchBar } from "@/components/search/search-bar";
+import { PropertyGridSkeleton } from "@/components/ui/shimmer";
 
-export const metadata: Metadata = {
+export const metadata = {
   title: "Properties",
   description: "Browse luxury houses, apartments, and plots for sale in Kigali.",
 };
@@ -15,8 +15,7 @@ interface Props {
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const params = await searchParams;
-
-  const data = await propertyService.list({
+  const data = await getCachedProperties({
     q: params.q,
     listing_type: params.listing_type,
     district_id: params.district_id,

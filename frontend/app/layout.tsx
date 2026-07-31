@@ -1,10 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Playfair_Display } from "next/font/google";
-import { TopBar } from "@/components/layout/top-bar";
-import { Navbar } from "@/components/layout/navbar";
-import { Footer } from "@/components/layout/footer";
+import { SiteChrome } from "@/components/layout/site-chrome";
 import { Providers } from "@/components/providers";
-import { FloatingCTAs } from "@/features/home/content-sections";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
@@ -32,11 +29,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" suppressHydrationWarning>
       <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         <Providers>
-          <TopBar />
-          <Navbar />
-          <main>{children}</main>
-          <Footer />
-          <FloatingCTAs phone="+250784806641" whatsapp="250784806641" />
+          <SiteChrome>{children}</SiteChrome>
         </Providers>
       </body>
     </html>

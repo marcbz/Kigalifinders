@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { PropertyFormModal } from "@/features/admin/property-form-modal";
 import type { PropertyListItem } from "@/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Shimmer, TableSkeleton } from "@/components/ui/shimmer";
 
 export default function AdminPropertiesPage() {
   const queryClient = useQueryClient();
@@ -54,7 +55,7 @@ export default function AdminPropertiesPage() {
       )}
 
       {isLoading ? (
-        <p className="text-gray-500">Loading properties...</p>
+        <TableSkeleton rows={8} />
       ) : (
         <div className="bg-white dark:bg-card rounded-xl border overflow-hidden">
           <table className="w-full text-sm">

@@ -52,6 +52,20 @@ export function PropertyGridSection({
   );
 }
 
+export function FurnishedSection({ properties }: { properties: PropertyListItem[] }) {
+  if (!properties.length) return null;
+  return (
+    <PropertyGridSection
+      title="Furnished Homes"
+      subtitle="Move-in ready furnished properties — ideal for expats and short-term stays."
+      eyebrow="FURNISHED CATALOGUE"
+      properties={properties}
+      viewAllHref="/properties?listing_type=furnished"
+      bgClass="bg-white dark:bg-background"
+    />
+  );
+}
+
 interface PlotsSectionProps {
   properties: PropertyListItem[];
 }

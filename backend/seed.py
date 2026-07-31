@@ -251,6 +251,17 @@ async def seed():
             "address": "KN 4 St, Kigali, Rwanda",
             "hours": "Mon - Sat: 8:00 AM - 7:00 PM",
             "booking_url": "https://secure-guard.setmore.com/",
+            "email": "hello@kigalifinders.com",
+            "latitude": -1.944072,
+            "longitude": 30.058775,
+        }, group="site"))
+        db.add(Setting(key="social", value={
+            "facebook": "", "instagram": "", "twitter": "", "linkedin": "", "youtube": "",
+        }, group="site"))
+        db.add(Setting(key="legal", value={
+            "privacy_policy": "Your privacy policy content...",
+            "terms_of_service": "Your terms of service content...",
+            "sitemap": "/properties, /blog, /contact, /agents",
         }, group="site"))
 
         await db.commit()

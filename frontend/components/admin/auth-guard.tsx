@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import { authService } from "@/services/api";
 import { clearAuthTokens, getAccessToken, isAdminRole } from "@/lib/auth";
+import { Shimmer } from "@/components/ui/shimmer";
 
 export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -40,8 +41,9 @@ export function AdminAuthGuard({ children }: { children: React.ReactNode }) {
 
   if (!ready) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-navy-900">
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gray-50 dark:bg-navy-900">
         <p className="text-gray-500">Verifying access...</p>
+        <Shimmer className="h-2 w-32 mt-4" />
       </div>
     );
   }
