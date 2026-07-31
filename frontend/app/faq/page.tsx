@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { fetchFaqs } from "@/lib/server-api";
+import { fetchFaqsSafe } from "@/lib/server-api";
 import { FAQSection } from "@/features/home/content-sections";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +10,6 @@ export const metadata: Metadata = {
 };
 
 export default async function FAQPage() {
-  const faqs = await fetchFaqs();
+  const faqs = await fetchFaqsSafe();
   return <FAQSection faqs={faqs} />;
 }

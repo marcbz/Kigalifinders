@@ -1,5 +1,4 @@
 import secrets
-import asyncio
 from datetime import datetime, timezone
 from typing import Optional
 from uuid import UUID
@@ -94,49 +93,13 @@ class HomepageService:
     async def get_homepage_data(self) -> HomepageData:
         prop_repo = PropertyRepository(self.db)
 
-        (
-            total_props_result,
-            settings_result,
-            featured,
-            furnished,
-            plots,
-            testimonials_result,
-            districts_result,
-            neighborhoods_result,
-            blog_result,
-            faq_result,
-        ) = await asyncio.gather(
-            self.db.execute(
+        total_props = (
+            await self.db.execute(
                 select(func.count()).select_from(Property).where(Property.status == PropertyStatusEnum.PUBLISHED)
-            ),
-            self.db.execute(select(Setting)),
-            prop_repo.get_featured(limit=6),
-            prop_repo.get_featured(limit=6, listing_type="furnished"),
-            prop_repo.search(PropertySearchParams(listing_type="sale", page=1, page_size=3)),
-            self.db.execute(
-                select(Testimonial).where(Testimonial.is_active == True, Testimonial.is_featured == True).limit(3)
-            ),
-            self.db.execute(
-                select(District).where(District.is_active == True).order_by(District.property_count.desc()).limit(8)
-            ),
-            self.db.execute(
-                select(Neighborhood)
-                .options(selectinload(Neighborhood.district))
-                .where(Neighborhood.is_active == True)
-                .order_by(Neighborhood.property_count.desc())
-                .limit(8)
-            ),
-            self.db.execute(
-                select(BlogPost)
-                .options(selectinload(BlogPost.category))
-                .where(BlogPost.is_published == True)
-                .order_by(BlogPost.published_at.desc())
-                .limit(3)
-            ),
-            self.db.execute(select(FAQ).where(FAQ.is_active == True).order_by(FAQ.sort_order).limit(10)),
-        )
+            )
+        ).scalar() or 0
 
-        total_props = total_props_result.scalar() or 0
+        settings_result = await self.db.execute(select(Setting))
         settings_map = {s.key: s.value for s in settings_result.scalars().all()}
 
         stats = SiteStats(
@@ -146,12 +109,29 @@ class HomepageService:
             client_rating=settings_map.get("stats", {}).get("client_rating", 4.9),
         )
 
+        featured = await prop_repo.get_featured(limit=6)
+        furnished = await prop_repo.get_featured(limit=6, listing_type="furnished")
+        plots = await prop_repo.search(PropertySearchParams(listing_type="sale", page=1, page_size=3))
+
+        testimonials_result = await self.db.execute(
+            select(Testimonial).where(Testimonial.is_active == True, Testimonial.is_featured == True).limit(3)
+        )
         testimonials = [
             TestimonialResponse.model_validate(t) for t in testimonials_result.scalars().all()
         ]
 
+        districts_result = await self.db.execute(
+            select(District).where(District.is_active == True).order_by(District.property_count.desc()).limit(8)
+        )
         districts = [DistrictResponse.model_validate(d) for d in districts_result.scalars().all()]
 
+        neighborhoods_result = await self.db.execute(
+            select(Neighborhood)
+            .options(selectinload(Neighborhood.district))
+            .where(Neighborhood.is_active == True)
+            .order_by(Neighborhood.property_count.desc())
+            .limit(8)
+        )
         neighborhoods = [
             NeighborhoodResponse(
                 id=n.id, name=n.name, slug=n.slug, image_url=n.image_url,
@@ -160,6 +140,13 @@ class HomepageService:
             for n in neighborhoods_result.scalars().all()
         ]
 
+        blog_result = await self.db.execute(
+            select(BlogPost)
+            .options(selectinload(BlogPost.category))
+            .where(BlogPost.is_published == True)
+            .order_by(BlogPost.published_at.desc())
+            .limit(3)
+        )
         blog_posts = [
             BlogPostListItem(
                 id=p.id, title=p.title, slug=p.slug, excerpt=p.excerpt,
@@ -170,6 +157,9 @@ class HomepageService:
             for p in blog_result.scalars().all()
         ]
 
+        faq_result = await self.db.execute(
+            select(FAQ).where(FAQ.is_active == True).order_by(FAQ.sort_order).limit(10)
+        )
         faqs = [FAQResponse.model_validate(f) for f in faq_result.scalars().all()]
 
         return HomepageData(

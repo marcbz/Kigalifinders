@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchBlogPosts } from "@/lib/server-api";
+import { fetchBlogPostsSafe } from "@/lib/server-api";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
 };
 
 export default async function BlogPage() {
-  const posts = await fetchBlogPosts();
+  const posts = await fetchBlogPostsSafe();
 
   return (
     <div className="py-20 px-6">

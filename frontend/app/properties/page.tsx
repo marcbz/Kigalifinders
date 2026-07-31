@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fetchProperties } from "@/lib/server-api";
+import { fetchPropertiesSafe } from "@/lib/server-api";
 import { PropertyCard } from "@/components/property/property-card";
 import { SearchBar } from "@/components/search/search-bar";
 
@@ -16,7 +16,7 @@ interface Props {
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const params = await searchParams;
-  const data = await fetchProperties({
+  const data = await fetchPropertiesSafe({
     q: params.q,
     listing_type: params.listing_type,
     district_id: params.district_id,

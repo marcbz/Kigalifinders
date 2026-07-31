@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { fetchHomepage } from "@/lib/server-api";
+import { fetchHomepageSafe } from "@/lib/server-api";
 import { HeroSection } from "@/features/home/hero-section";
 import { SearchBar } from "@/components/search/search-bar";
 import { StatsSection } from "@/features/home/stats-section";
@@ -15,14 +15,23 @@ import {
 
 export const dynamic = "force-dynamic";
 
+function ApiErrorBanner() {
+  return (
+    <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-sm text-center py-3 px-4">
+      We&apos;re having trouble loading live listings. Please refresh in a moment or check back shortly.
+    </div>
+  );
+}
+
 export default async function HomePage() {
-  const data = await fetchHomepage();
+  const { data, ok } = await fetchHomepageSafe();
 
   const settings = data.settings || {};
   const hero = data.hero || {};
 
   return (
     <>
+      {!ok && <ApiErrorBanner />}
       <HeroSection
         tagline={hero.tagline}
         title={hero.title}
