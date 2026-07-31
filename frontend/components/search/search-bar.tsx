@@ -1,9 +1,11 @@
 "use client";
 
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-import { Search } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
+import { RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { locationService } from "@/services/api";
 
 const tabs = [
   { id: "rent", label: "For Rent" },
@@ -11,26 +13,123 @@ const tabs = [
   { id: "sale", label: "Plots/Land" },
 ];
 
+const sortOptions = [
+  { value: "created_at-desc", label: "Newest", sort_by: "created_at", sort_order: "desc" },
+  { value: "created_at-asc", label: "Oldest", sort_by: "created_at", sort_order: "asc" },
+  { value: "price-asc", label: "Price: Low to High", sort_by: "price", sort_order: "asc" },
+  { value: "price-desc", label: "Price: High to Low", sort_by: "price", sort_order: "desc" },
+];
+
 export function SearchBar() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState("rent");
-  const [location, setLocation] = useState("");
-  const [propertyType, setPropertyType] = useState("");
-  const [bedrooms, setBedrooms] = useState("");
-  const [priceRange, setPriceRange] = useState("");
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isPropertiesPage = pathname === "/properties";
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSearch = () => {
+  const { data: districts = [] } = useQuery({
+    queryKey: ["districts"],
+    queryFn: locationService.districts,
+  });
+
+  const { data: propertyTypes = [] } = useQuery({
+    queryKey: ["property-types"],
+    queryFn: locationService.propertyTypes,
+  });
+
+  const plotTypeId = propertyTypes.find((pt) => pt.slug === "plot")?.id;
+
+  const [activeTab, setActiveTab] = useState(searchParams.get("listing_type") || "rent");
+  const [districtId, setDistrictId] = useState(searchParams.get("district_id") || "");
+  const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
+  const [bedrooms, setBedrooms] = useState(searchParams.get("bedrooms") || "");
+  const [priceRange, setPriceRange] = useState(() => {
+    const min = searchParams.get("min_price");
+    const max = searchParams.get("max_price");
+    if (!min && !max) return "";
+    return `${min || ""}-${max || ""}`;
+  });
+  const [sort, setSort] = useState(() => {
+    const sortBy = searchParams.get("sort_by") || "created_at";
+    const sortOrder = searchParams.get("sort_order") || "desc";
+    return `${sortBy}-${sortOrder}`;
+  });
+
+  const buildParams = useCallback(() => {
     const params = new URLSearchParams();
     if (activeTab) params.set("listing_type", activeTab);
-    if (location) params.set("q", location);
-    if (propertyType) params.set("property_type", propertyType);
+
+    if (districtId) params.set("district_id", districtId);
+
+    let typeId = propertyTypeId;
+    if (activeTab === "sale" && !typeId && plotTypeId) {
+      typeId = plotTypeId;
+    }
+    if (typeId) params.set("property_type_id", typeId);
+
     if (bedrooms) params.set("bedrooms", bedrooms.replace("+", ""));
+
     if (priceRange) {
       const [min, max] = priceRange.split("-");
       if (min) params.set("min_price", min);
       if (max) params.set("max_price", max);
     }
-    router.push(`/properties?${params.toString()}`);
+
+    const sortOption = sortOptions.find((o) => o.value === sort);
+    if (sortOption) {
+      params.set("sort_by", sortOption.sort_by);
+      params.set("sort_order", sortOption.sort_order);
+    }
+
+    return params;
+  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, sort, plotTypeId]);
+
+  const applySearch = useCallback(
+    (immediate = false) => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+
+      const navigate = () => {
+        const params = buildParams();
+        const query = params.toString();
+        router.push(query ? `/properties?${query}` : "/properties");
+      };
+
+      if (immediate) {
+        navigate();
+      } else {
+        debounceRef.current = setTimeout(navigate, 350);
+      }
+    },
+    [buildParams, router],
+  );
+
+  useEffect(() => {
+    if (!isPropertiesPage) return;
+    applySearch();
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
+  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, sort, applySearch, isPropertiesPage]);
+
+  const hasFilters = useMemo(
+    () =>
+      districtId ||
+      propertyTypeId ||
+      bedrooms ||
+      priceRange ||
+      sort !== "created_at-desc" ||
+      activeTab !== "rent",
+    [districtId, propertyTypeId, bedrooms, priceRange, sort, activeTab],
+  );
+
+  const handleReset = () => {
+    setActiveTab("rent");
+    setDistrictId("");
+    setPropertyTypeId("");
+    setBedrooms("");
+    setPriceRange("");
+    setSort("created_at-desc");
+    router.push("/properties");
   };
 
   return (
@@ -40,6 +139,7 @@ export function SearchBar() {
           {tabs.map((tab) => (
             <button
               key={tab.id}
+              type="button"
               onClick={() => setActiveTab(tab.id)}
               className={`px-5 py-2 rounded-t-md text-sm font-semibold transition ${
                 activeTab === tab.id
@@ -51,22 +151,22 @@ export function SearchBar() {
             </button>
           ))}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 p-4">
           <div>
-            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">LOCATION</label>
-            <select className="lux-input" value={location} onChange={(e) => setLocation(e.target.value)}>
+            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">DISTRICT</label>
+            <select className="lux-input" value={districtId} onChange={(e) => setDistrictId(e.target.value)}>
               <option value="">All Kigali</option>
-              {["Kicukiro", "Gasabo", "Nyarugenge", "Kibagabaga", "Nyarutarama"].map((l) => (
-                <option key={l} value={l}>{l}</option>
+              {districts.map((d: { id: string; name: string }) => (
+                <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
           </div>
           <div>
             <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">PROPERTY TYPE</label>
-            <select className="lux-input" value={propertyType} onChange={(e) => setPropertyType(e.target.value)}>
+            <select className="lux-input" value={propertyTypeId} onChange={(e) => setPropertyTypeId(e.target.value)}>
               <option value="">Any</option>
-              {["House", "Apartment", "Villa", "Plot"].map((t) => (
-                <option key={t} value={t.toLowerCase()}>{t}</option>
+              {propertyTypes.map((pt) => (
+                <option key={pt.id} value={pt.id}>{pt.name}</option>
               ))}
             </select>
           </div>
@@ -89,11 +189,32 @@ export function SearchBar() {
               <option value="5000-">$5,000+</option>
             </select>
           </div>
+          <div>
+            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">SORT BY</label>
+            <select className="lux-input" value={sort} onChange={(e) => setSort(e.target.value)}>
+              {sortOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
           <div className="flex items-end">
-            <Button onClick={handleSearch} className="w-full rounded-md">
-              <Search className="w-4 h-4" />
-              Search
-            </Button>
+            {isPropertiesPage ? (
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleReset}
+                disabled={!hasFilters}
+                className="w-full rounded-md gap-2"
+              >
+                <RotateCcw className="w-4 h-4" />
+                Reset
+              </Button>
+            ) : (
+              <Button type="button" onClick={() => applySearch(true)} className="w-full rounded-md gap-2">
+                <Search className="w-4 h-4" />
+                Search
+              </Button>
+            )}
           </div>
         </div>
       </div>

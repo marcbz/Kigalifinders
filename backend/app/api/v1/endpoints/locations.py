@@ -6,8 +6,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database.session import get_db
-from app.models import District, Neighborhood
-from app.schemas import DistrictResponse, NeighborhoodResponse
+from app.models import District, Neighborhood, PropertyType
+from app.schemas import DistrictResponse, NeighborhoodResponse, PropertyTypeResponse
 
 router = APIRouter(prefix="/locations", tags=["Locations"])
 
@@ -18,6 +18,14 @@ async def list_districts(db: Annotated[AsyncSession, Depends(get_db)]):
         select(District).where(District.is_active == True).order_by(District.property_count.desc())
     )
     return [DistrictResponse.model_validate(d) for d in result.scalars().all()]
+
+
+@router.get("/property-types", response_model=list[PropertyTypeResponse])
+async def list_property_types(db: Annotated[AsyncSession, Depends(get_db)]):
+    result = await db.execute(
+        select(PropertyType).where(PropertyType.is_active == True).order_by(PropertyType.name)
+    )
+    return [PropertyTypeResponse.model_validate(pt) for pt in result.scalars().all()]
 
 
 @router.get("/neighborhoods", response_model=list[NeighborhoodResponse])

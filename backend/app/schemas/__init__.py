@@ -149,6 +149,34 @@ class PropertyCreate(BaseModel):
     longitude: Optional[float] = None
 
 
+class PropertyUpdate(BaseModel):
+    title: Optional[str] = None
+    slug: Optional[str] = None
+    description: Optional[str] = None
+    short_description: Optional[str] = None
+    listing_type: Optional[str] = None
+    status: Optional[str] = None
+    price: Optional[float] = None
+    price_period: Optional[str] = None
+    currency: Optional[str] = None
+    bedrooms: Optional[int] = None
+    bathrooms: Optional[int] = None
+    area_sqm: Optional[float] = None
+    lot_size_sqm: Optional[float] = None
+    district_id: Optional[UUID] = None
+    neighborhood_id: Optional[UUID] = None
+    property_type_id: Optional[UUID] = None
+    agent_id: Optional[UUID] = None
+    is_featured: Optional[bool] = None
+    is_premium: Optional[bool] = None
+    is_furnished: Optional[bool] = None
+    has_title_deed: Optional[bool] = None
+    badge_label: Optional[str] = None
+    address: Optional[str] = None
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+
+
 class PropertySearchParams(BaseModel):
     q: Optional[str] = None
     listing_type: Optional[str] = None
@@ -223,6 +251,14 @@ class DistrictResponse(BaseModel):
     slug: str
     image_url: Optional[str] = None
     property_count: int
+
+
+class PropertyTypeResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    name: str
+    slug: str
 
 
 class NeighborhoodResponse(BaseModel):

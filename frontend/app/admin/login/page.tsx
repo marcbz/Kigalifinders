@@ -1,25 +1,60 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { authService } from "@/services/api";
+import { clearAuthTokens, getAccessToken, isAdminRole } from "@/lib/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (!token) return;
+
+    authService
+      .me()
+      .then((user) => {
+        if (isAdminRole(user.role)) router.replace("/admin");
+      })
+      .catch(() => clearAuthTokens());
+  }, [router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
+    setLoading(true);
+
     try {
-      const tokens = await authService.login(email, password);
+      if (!email.trim() || !password) {
+        setError("Email and password are required");
+        return;
+      }
+
+      const tokens = await authService.login(email.trim(), password);
       localStorage.setItem("access_token", tokens.access_token);
       localStorage.setItem("refresh_token", tokens.refresh_token);
+
+      const user = await authService.me();
+      if (!isAdminRole(user.role)) {
+        clearAuthTokens();
+        setError("Access denied. Admin credentials required.");
+        return;
+      }
+
       router.push("/admin");
-    } catch {
-      setError("Invalid credentials");
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
+        "Invalid email or password";
+      setError(typeof message === "string" ? message : "Invalid email or password");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -35,9 +70,28 @@ export default function AdminLoginPage() {
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}
-          <input type="email" placeholder="Email" className="lux-input" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input type="password" placeholder="Password" className="lux-input" value={password} onChange={(e) => setPassword(e.target.value)} required />
-          <Button type="submit" className="w-full rounded-full">Sign In</Button>
+          <input
+            type="email"
+            placeholder="Email"
+            className="lux-input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            required
+          />
+          <input
+            type="password"
+            placeholder="Password"
+            className="lux-input"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
+            required
+            minLength={8}
+          />
+          <Button type="submit" className="w-full rounded-full" disabled={loading}>
+            {loading ? "Signing in..." : "Sign In"}
+          </Button>
         </form>
       </div>
     </div>

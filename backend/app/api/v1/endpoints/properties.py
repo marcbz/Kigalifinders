@@ -9,7 +9,7 @@ from app.core.deps import get_current_user, require_admin, require_staff
 from app.database.session import get_db
 from app.models import Property, PropertyStatusEnum, User
 from app.repositories.property_repository import PropertyRepository
-from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyListItem, PropertySearchParams
+from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyListItem, PropertySearchParams, PropertyUpdate
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
@@ -46,6 +46,16 @@ async def list_properties(
 ):
     repo = PropertyRepository(db)
     return await repo.search(params)
+
+
+@router.get("/manage", response_model=PaginatedResponse[PropertyListItem])
+async def list_properties_admin(
+    params: Annotated[PropertySearchParams, Depends(_search_params)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_staff)],
+):
+    repo = PropertyRepository(db)
+    return await repo.search(params, published_only=False)
 
 
 @router.get("/featured", response_model=list[PropertyListItem])
@@ -116,6 +126,36 @@ async def create_property(
     await db.flush()
     repo = PropertyRepository(db)
     result = await repo.get_by_id(prop.id)
+    return repo._to_list_item(result)
+
+
+@router.patch("/{property_id}", response_model=PropertyListItem)
+async def update_property(
+    property_id: UUID,
+    data: PropertyUpdate,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_staff)],
+):
+    from app.models import ListingType
+
+    repo = PropertyRepository(db)
+    prop = await repo.get_by_id(property_id)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    updates = data.model_dump(exclude_unset=True)
+    if "listing_type" in updates:
+        updates["listing_type"] = ListingType(updates["listing_type"])
+    if "status" in updates:
+        updates["status"] = PropertyStatusEnum(updates["status"])
+    if "title" in updates and "slug" not in updates:
+        updates["slug"] = slugify(updates["title"])
+
+    for field, value in updates.items():
+        setattr(prop, field, value)
+
+    await db.flush()
+    result = await repo.get_by_id(property_id)
     return repo._to_list_item(result)
 
 

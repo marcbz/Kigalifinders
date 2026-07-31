@@ -1,26 +1,57 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { propertyService } from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { PropertyFormModal } from "@/features/admin/property-form-modal";
+import type { PropertyListItem } from "@/types";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 
 export default function AdminPropertiesPage() {
-  const { data, isLoading } = useQuery({
+  const queryClient = useQueryClient();
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editing, setEditing] = useState<PropertyListItem | null>(null);
+
+  const { data, isLoading, error } = useQuery({
     queryKey: ["admin-properties"],
-    queryFn: () => propertyService.list({ page_size: 50 }),
+    queryFn: () => propertyService.listAdmin({ page_size: 100 }),
     retry: false,
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => propertyService.delete(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-properties"] }),
+  });
+
+  const openCreate = () => {
+    setEditing(null);
+    setModalOpen(true);
+  };
+
+  const openEdit = (property: PropertyListItem) => {
+    setEditing(property);
+    setModalOpen(true);
+  };
+
+  const handleDelete = (property: PropertyListItem) => {
+    if (!window.confirm(`Delete "${property.title}"? This cannot be undone.`)) return;
+    deleteMutation.mutate(property.id);
+  };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
         <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Property Management</h2>
-        <Button className="rounded-full gap-2">
+        <Button className="rounded-full gap-2" onClick={openCreate}>
           <Plus className="w-4 h-4" /> Add Property
         </Button>
       </div>
+
+      {error && (
+        <p className="text-red-500 text-sm mb-4">Failed to load properties. Please sign in again.</p>
+      )}
 
       {isLoading ? (
         <p className="text-gray-500">Loading properties...</p>
@@ -53,8 +84,23 @@ export default function AdminPropertiesPage() {
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded-lg"><Pencil className="w-4 h-4" /></button>
-                      <button className="p-2 hover:bg-red-50 text-red-500 rounded-lg"><Trash2 className="w-4 h-4" /></button>
+                      <button
+                        type="button"
+                        onClick={() => openEdit(p)}
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-navy-700 rounded-lg"
+                        aria-label="Edit property"
+                      >
+                        <Pencil className="w-4 h-4" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDelete(p)}
+                        disabled={deleteMutation.isPending}
+                        className="p-2 hover:bg-red-50 text-red-500 rounded-lg"
+                        aria-label="Delete property"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -62,10 +108,19 @@ export default function AdminPropertiesPage() {
             </tbody>
           </table>
           {(!data?.items || data.items.length === 0) && (
-            <p className="text-center text-gray-500 py-12">No properties yet. Run the seed script or add via API.</p>
+            <p className="text-center text-gray-500 py-12">No properties yet. Add your first listing.</p>
           )}
         </div>
       )}
+
+      <PropertyFormModal
+        open={modalOpen}
+        property={editing}
+        onClose={() => {
+          setModalOpen(false);
+          setEditing(null);
+        }}
+      />
     </div>
   );
 }

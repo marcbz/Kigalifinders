@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { propertyService } from "@/services/api";
 import { PropertyCard } from "@/components/property/property-card";
 import { SearchBar } from "@/components/search/search-bar";
@@ -14,12 +15,18 @@ interface Props {
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const params = await searchParams;
+
   const data = await propertyService.list({
     q: params.q,
     listing_type: params.listing_type,
+    district_id: params.district_id,
+    neighborhood_id: params.neighborhood_id,
+    property_type_id: params.property_type_id,
     bedrooms: params.bedrooms ? parseInt(params.bedrooms) : undefined,
     min_price: params.min_price ? parseFloat(params.min_price) : undefined,
     max_price: params.max_price ? parseFloat(params.max_price) : undefined,
+    sort_by: params.sort_by || "created_at",
+    sort_order: params.sort_order || "desc",
     page: params.page ? parseInt(params.page) : 1,
     page_size: 12,
   }).catch(() => ({ items: [], total: 0, page: 1, page_size: 12, pages: 0 }));
@@ -32,7 +39,9 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <h1 className="font-serif text-4xl md:text-5xl font-bold mt-3">All Properties</h1>
         </div>
       </div>
-      <SearchBar />
+      <Suspense fallback={<div className="h-40 -mt-16" />}>
+        <SearchBar />
+      </Suspense>
       <section className="py-16 px-6">
         <div className="max-w-7xl mx-auto">
           <p className="text-gray-500 mb-8">{data.total} properties found</p>

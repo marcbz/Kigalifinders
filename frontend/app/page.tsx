@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { contentService } from "@/services/api";
 import { HeroSection } from "@/features/home/hero-section";
 import { SearchBar } from "@/components/search/search-bar";
@@ -48,7 +49,9 @@ export default async function HomePage() {
         ctaSecondary={hero.cta_secondary}
         bookingUrl={settings.booking_url}
       />
-      <SearchBar />
+      <Suspense fallback={<div className="h-40 -mt-16" />}>
+        <SearchBar />
+      </Suspense>
       <StatsSection stats={data.stats} />
       <PropertyGridSection
         title="Featured Properties"

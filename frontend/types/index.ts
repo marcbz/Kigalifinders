@@ -135,13 +135,22 @@ export interface PropertySearchParams {
   q?: string;
   listing_type?: string;
   district_id?: string;
+  neighborhood_id?: string;
+  property_type_id?: string;
   min_price?: number;
   max_price?: number;
   bedrooms?: number;
   bathrooms?: number;
   is_featured?: boolean;
+  is_furnished?: boolean;
   sort_by?: string;
   sort_order?: string;
   page?: number;
   page_size?: number;
+}
+
+export interface PropertyType {
+  id: string;
+  name: string;
+  slug: string;
 }
