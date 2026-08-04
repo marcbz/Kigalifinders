@@ -1,9 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 
@@ -21,6 +21,8 @@ function tabFromListingType(lt: string | null): string {
 
 export function SearchBar() {
   const router = useRouter();
+  const pathname = usePathname();
+  const isHomepage = pathname === "/";
   const searchParams = useSearchParams();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstAutoSearch = useRef(true);
@@ -112,6 +114,7 @@ export function SearchBar() {
   }, [buildParams, router]);
 
   useEffect(() => {
+    if (isHomepage) return;
     if (skipFirstAutoSearch.current) {
       skipFirstAutoSearch.current = false;
       return;
@@ -125,7 +128,7 @@ export function SearchBar() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, applySearch]);
+  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, applySearch, isHomepage]);
 
   const handleReset = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -133,6 +136,15 @@ export function SearchBar() {
     skipNextAutoSearch.current = 2;
     router.replace("/properties");
   };
+
+  const handleSearch = () => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    const params = buildParams();
+    const query = params.toString();
+    router.push(query ? `/properties?${query}` : "/properties");
+  };
+
+  const handleAction = isHomepage ? handleSearch : handleReset;
 
   return (
     <section className="relative -mt-16 z-30 px-6">
@@ -195,11 +207,20 @@ export function SearchBar() {
             <Button
               type="button"
               variant="outline"
-              onClick={handleReset}
+              onClick={handleAction}
               className="w-full rounded-md gap-2"
             >
-              <RotateCcw className="w-4 h-4" />
-              Reset
+              {isHomepage ? (
+                <>
+                  <Search className="w-4 h-4" />
+                  Search
+                </>
+              ) : (
+                <>
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </>
+              )}
             </Button>
           </div>
         </div>
