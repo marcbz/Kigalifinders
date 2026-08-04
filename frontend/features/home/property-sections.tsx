@@ -112,8 +112,7 @@ const AREA_GRADIENTS = [
 ];
 
 export function AreasSection({ neighborhoods }: AreasSectionProps) {
-  const hiddenSlugs = new Set(["nyamirambo", "kagarama"]);
-  const areas = neighborhoods.filter((area) => !hiddenSlugs.has(area.slug));
+  const areas = neighborhoodsForHomepageDisplay(neighborhoods);
 
   return (
     <section id="areas" className="py-20 px-6 bg-white dark:bg-background">
@@ -126,7 +125,7 @@ export function AreasSection({ neighborhoods }: AreasSectionProps) {
             From bustling city centers to tranquil hillside neighborhoods, we know Kigali inside and out.
           </p>
         </div>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
           {areas.map((area, index) => (
             <Link
               key={area.id}
