@@ -4,6 +4,8 @@ import { notFound } from "next/navigation";
 import { Bath, Bed, CalendarCheck, MapPin, Ruler } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
 import { PropertyGallery } from "@/components/property/property-gallery";
+import { PropertyDescription } from "@/components/property/property-description";
+import { PropertyMap } from "@/components/property/property-map";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
@@ -67,13 +69,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       <section className="py-12 px-6">
         <div className="max-w-7xl mx-auto grid lg:grid-cols-3 gap-12">
           <div className="lg:col-span-2">
-            <PropertyGallery
-              images={images}
-              title={property.title}
-              latitude={property.latitude}
-              longitude={property.longitude}
-              address={property.address}
-            />
+            <PropertyGallery images={images} title={property.title} />
 
             <div className="flex flex-wrap gap-6 text-sm border-b pb-6 mb-8">
               {property.bedrooms != null && (
@@ -88,7 +84,16 @@ export default async function PropertyDetailPage({ params }: Props) {
             </div>
 
             <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Description</h2>
-            <p className="text-gray-600 dark:text-gray-400 leading-relaxed mb-8">{property.description}</p>
+            <div className="mb-8">
+              <PropertyDescription content={property.description} />
+            </div>
+
+            <PropertyMap
+              latitude={property.latitude}
+              longitude={property.longitude}
+              address={property.address}
+              title={property.title}
+            />
 
             {property.amenities.length > 0 && (
               <>

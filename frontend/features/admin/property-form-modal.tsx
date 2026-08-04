@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import type { PropertyListItem } from "@/types";
 import {
   locationService,
@@ -125,7 +126,8 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
 
   const buildPayload = (): PropertyCreatePayload => ({
     title: form.title.trim(),
-    description: form.description.trim() || undefined,
+    description:
+      form.description.trim() && form.description.trim() !== "<p></p>" ? form.description.trim() : undefined,
     short_description: form.short_description.trim() || undefined,
     listing_type: form.listing_type,
     status: form.status,
@@ -276,7 +278,20 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             </div>
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">DESCRIPTION</label>
-              <textarea className="lux-input mt-1 min-h-[80px]" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+              <p className="text-xs text-gray-400 mt-0.5 mb-2">
+                Use bold, links, lists, and fonts. Add spacing with new paragraphs for a polished listing.
+              </p>
+              <RichTextEditor
+                value={form.description}
+                onChange={(html) => setForm({ ...form, description: html })}
+                placeholder="Describe the property — bedrooms layout, neighborhood perks, nearby amenities..."
+              />
+            </div>
+            <div className="md:col-span-2 pt-2">
+              <h4 className="text-sm font-semibold text-navy-800 dark:text-white mb-3">Map location</h4>
+              <p className="text-xs text-gray-400 mb-3">
+                Shown under the description on the property page. Use coordinates for the most accurate Google Map pin.
+              </p>
             </div>
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">ADDRESS</label>

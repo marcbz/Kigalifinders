@@ -116,4 +116,59 @@
   .gold-text {
     @apply text-gold-500;
   }
+
+  .property-description p {
+    @apply mb-4 last:mb-0;
+  }
+
+  .property-description h2 {
+    @apply font-serif text-xl font-bold text-navy-800 dark:text-white mt-6 mb-3;
+  }
+
+  .property-description h3 {
+    @apply font-serif text-lg font-semibold text-navy-800 dark:text-white mt-4 mb-2;
+  }
+
+  .property-description ul,
+  .property-description ol {
+    @apply mb-4 pl-6 space-y-1;
+  }
+
+  .property-description ul {
+    @apply list-disc;
+  }
+
+  .property-description ol {
+    @apply list-decimal;
+  }
+
+  .property-description a {
+    @apply text-gold-600 underline hover:text-gold-500;
+  }
+
+  .tiptap-editor p {
+    @apply mb-3 last:mb-0;
+  }
+
+  .tiptap-editor h2 {
+    @apply font-serif text-lg font-bold mb-2;
+  }
+
+  .tiptap-editor ul,
+  .tiptap-editor ol {
+    @apply mb-3 pl-5;
+  }
+
+  .tiptap-editor ul {
+    @apply list-disc;
+  }
+
+  .tiptap-editor ol {
+    @apply list-decimal;
+  }
+
+  .tiptap-editor p.is-editor-empty:first-child::before {
+    @apply text-gray-400 float-left h-0 pointer-events-none;
+    content: attr(data-placeholder);
+  }
 }
