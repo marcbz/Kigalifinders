@@ -1,11 +1,7 @@
-import DOMPurify from "isomorphic-dompurify";
+import { isRichHtml, sanitizePropertyHtml } from "@/lib/sanitize-html";
 
 interface PropertyDescriptionProps {
   content?: string | null;
-}
-
-function isRichHtml(text: string): boolean {
-  return /<(p|br|strong|em|a|h\d|ul|ol|li|span)\b/i.test(text);
 }
 
 export function PropertyDescription({ content }: PropertyDescriptionProps) {
@@ -21,10 +17,7 @@ export function PropertyDescription({ content }: PropertyDescriptionProps) {
     );
   }
 
-  const sanitized = DOMPurify.sanitize(content, {
-    ALLOWED_TAGS: ["p", "br", "strong", "b", "em", "i", "a", "ul", "ol", "li", "h2", "h3", "span", "s"],
-    ALLOWED_ATTR: ["href", "target", "rel", "class", "style"],
-  });
+  const sanitized = sanitizePropertyHtml(content);
 
   return (
     <div
