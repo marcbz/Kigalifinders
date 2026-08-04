@@ -297,11 +297,24 @@ class FAQUpdate(BaseModel):
     is_active: Optional[bool] = None
 
 
+class AdminBlogPostListItem(BlogPostListItem):
+    is_published: bool = False
+    is_featured: bool = False
+
+
+class AdminBlogPostDetail(AdminBlogPostListItem):
+    content: str
+    content_format: str = "html"
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
+
+
 class BlogPostCreate(BaseModel):
     title: str
     slug: Optional[str] = None
     excerpt: Optional[str] = None
     content: str
+    content_format: str = "html"
     featured_image: Optional[str] = None
     read_time_minutes: int = 5
     is_published: bool = False
@@ -315,12 +328,17 @@ class BlogPostUpdate(BaseModel):
     slug: Optional[str] = None
     excerpt: Optional[str] = None
     content: Optional[str] = None
+    content_format: Optional[str] = None
     featured_image: Optional[str] = None
     read_time_minutes: Optional[int] = None
     is_published: Optional[bool] = None
     is_featured: Optional[bool] = None
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
+
+
+class UploadResponse(BaseModel):
+    url: str
 
 
 class ContactMessageResponse(BaseModel):

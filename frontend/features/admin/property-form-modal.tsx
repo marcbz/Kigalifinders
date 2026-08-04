@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
+import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import type { PropertyListItem } from "@/types";
 import {
   locationService,
@@ -393,21 +394,26 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
               <input className="lux-input mt-1" placeholder="e.g. Nyarutarama, Gasabo, Kigali" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </div>
             <div className="md:col-span-2 space-y-3">
-              <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES (URLs)</label>
-              <p className="text-xs text-gray-400">Mark one as featured — it appears on the homepage catalogue. Others show on the detail page gallery.</p>
+              <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES</label>
+              <p className="text-xs text-gray-400">
+                Paste image URLs or upload from your device. Mark one as featured — it appears on the homepage catalogue.
+              </p>
               {imageRows.map((row, idx) => (
-                <div key={idx} className="flex gap-2 items-center">
-                  <input
-                    className="lux-input flex-1"
-                    placeholder="https://..."
-                    value={row.url}
-                    onChange={(e) => {
-                      const next = [...imageRows];
-                      next[idx] = { ...next[idx], url: e.target.value };
-                      setImageRows(next);
-                    }}
-                  />
-                  <label className="flex items-center gap-1 text-xs whitespace-nowrap">
+                <div key={idx} className="flex gap-2 items-start">
+                  <div className="flex-1">
+                    <ImageUrlOrUpload
+                      label=""
+                      folder="kigalifinders/properties"
+                      value={row.url}
+                      onChange={(url) => {
+                        const next = [...imageRows];
+                        next[idx] = { ...next[idx], url };
+                        setImageRows(next);
+                      }}
+                      previewClassName="h-16 w-24 rounded-lg object-cover border mt-2"
+                    />
+                  </div>
+                  <label className="flex items-center gap-1 text-xs whitespace-nowrap pt-2">
                     <input
                       type="radio"
                       checked={row.is_primary}
@@ -415,11 +421,23 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                     />
                     Featured
                   </label>
-                  <button type="button" className="text-red-500 text-sm px-2" onClick={() => setImageRows(imageRows.filter((_, i) => i !== idx))}>×</button>
+                  <button
+                    type="button"
+                    className="text-red-500 text-sm px-2 pt-2"
+                    onClick={() => setImageRows(imageRows.filter((_, i) => i !== idx))}
+                  >
+                    ×
+                  </button>
                 </div>
               ))}
-              <Button type="button" variant="outline" size="sm" className="rounded-full" onClick={() => setImageRows([...imageRows, { url: "", is_primary: false }])}>
-                Add image URL
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full"
+                onClick={() => setImageRows([...imageRows, { url: "", is_primary: false }])}
+              >
+                Add image
               </Button>
             </div>
             <div className="flex flex-wrap gap-4 md:col-span-2">

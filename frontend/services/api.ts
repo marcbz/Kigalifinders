@@ -139,9 +139,20 @@ export const adminService = {
   deleteMessage: (id: string) => api.delete(`/admin/messages/${id}`),
   deleteInquiry: (id: string) => api.delete(`/admin/inquiries/${id}`),
   blogPosts: () => api.get("/admin/blog").then((r) => r.data),
+  blogPost: (id: string) => api.get(`/admin/blog/${id}`).then((r) => r.data),
   createBlogPost: (data: Record<string, unknown>) => api.post("/admin/blog", data).then((r) => r.data),
   updateBlogPost: (id: string, data: Record<string, unknown>) => api.patch(`/admin/blog/${id}`, data).then((r) => r.data),
   deleteBlogPost: (id: string) => api.delete(`/admin/blog/${id}`),
+  uploadImage: (file: File, folder = "kigalifinders") => {
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("folder", folder);
+    return api
+      .post<{ url: string }>("/admin/upload", formData, {
+        headers: { "Content-Type": "multipart/form-data" },
+      })
+      .then((r) => r.data.url);
+  },
   faqs: () => api.get("/admin/faqs").then((r) => r.data),
   createFaq: (data: Record<string, unknown>) => api.post("/admin/faqs", data).then((r) => r.data),
   updateFaq: (id: string, data: Record<string, unknown>) => api.patch(`/admin/faqs/${id}`, data).then((r) => r.data),

@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { contentService } from "@/services/api";
+import { BlogPostContent } from "@/components/blog/blog-post-content";
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -43,9 +44,7 @@ export default async function BlogDetailPage({ params }: Props) {
             <Image src={post.featured_image} alt={post.title} fill className="object-cover" priority />
           </div>
         )}
-        <div className="prose dark:prose-invert max-w-none text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-          {post.content}
-        </div>
+        <BlogPostContent content={post.content} contentFormat={post.content_format} />
         {post.tags?.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-10 pt-8 border-t">
             {post.tags.map((tag: string) => (

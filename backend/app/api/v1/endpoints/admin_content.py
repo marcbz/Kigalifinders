@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -12,16 +12,19 @@ from app.core.deps import require_admin
 from app.database.session import get_db
 from app.models import BlogPost, ContactMessage, FAQ, Property, Setting, User, ViewingRequest
 from app.schemas import (
+    AdminBlogPostDetail,
+    AdminBlogPostListItem,
     BlogPostCreate,
-    BlogPostListItem,
     BlogPostUpdate,
     ContactMessageResponse,
     FAQCreate,
     FAQResponse,
     FAQUpdate,
     SettingUpdate,
+    UploadResponse,
     ViewingRequestResponse,
 )
+from app.services.media_upload import upload_image
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
@@ -101,7 +104,22 @@ async def delete_inquiry(
     await db.delete(req)
 
 
-@router.get("/blog", response_model=list[BlogPostListItem])
+@router.post("/upload", response_model=UploadResponse)
+async def upload_media(
+    user: Annotated[User, Depends(require_admin)],
+    file: UploadFile = File(...),
+    folder: str = Form("kigalifinders"),
+):
+    data = await file.read()
+    mime = file.content_type
+    try:
+        url = upload_image(data, file.filename or "image.jpg", folder=folder, mime_type=mime)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    return UploadResponse(url=url)
+
+
+@router.get("/blog", response_model=list[AdminBlogPostListItem])
 async def admin_list_blog(
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_admin)],
@@ -110,17 +128,41 @@ async def admin_list_blog(
         select(BlogPost).options(selectinload(BlogPost.category)).order_by(BlogPost.created_at.desc())
     )
     return [
-        BlogPostListItem(
+        AdminBlogPostListItem(
             id=p.id, title=p.title, slug=p.slug, excerpt=p.excerpt,
             featured_image=p.featured_image,
             category_name=p.category.name if p.category else None,
             read_time_minutes=p.read_time_minutes, published_at=p.published_at,
+            is_published=p.is_published, is_featured=p.is_featured,
         )
         for p in result.scalars().all()
     ]
 
 
-@router.post("/blog", response_model=BlogPostListItem, status_code=status.HTTP_201_CREATED)
+@router.get("/blog/{post_id}", response_model=AdminBlogPostDetail)
+async def admin_get_blog_post(
+    post_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_admin)],
+):
+    result = await db.execute(
+        select(BlogPost).options(selectinload(BlogPost.category)).where(BlogPost.id == post_id)
+    )
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+    return AdminBlogPostDetail(
+        id=post.id, title=post.title, slug=post.slug, excerpt=post.excerpt,
+        featured_image=post.featured_image,
+        category_name=post.category.name if post.category else None,
+        read_time_minutes=post.read_time_minutes, published_at=post.published_at,
+        is_published=post.is_published, is_featured=post.is_featured,
+        content=post.content, content_format=post.content_format,
+        meta_title=post.meta_title, meta_description=post.meta_description,
+    )
+
+
+@router.post("/blog", response_model=AdminBlogPostListItem, status_code=status.HTTP_201_CREATED)
 async def create_blog_post(
     data: BlogPostCreate,
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -131,6 +173,7 @@ async def create_blog_post(
         slug=data.slug or slugify(data.title),
         excerpt=data.excerpt,
         content=data.content,
+        content_format=data.content_format,
         featured_image=data.featured_image,
         read_time_minutes=data.read_time_minutes,
         is_published=data.is_published,
@@ -141,14 +184,15 @@ async def create_blog_post(
     )
     db.add(post)
     await db.flush()
-    return BlogPostListItem(
+    return AdminBlogPostListItem(
         id=post.id, title=post.title, slug=post.slug, excerpt=post.excerpt,
         featured_image=post.featured_image, category_name=None,
         read_time_minutes=post.read_time_minutes, published_at=post.published_at,
+        is_published=post.is_published, is_featured=post.is_featured,
     )
 
 
-@router.patch("/blog/{post_id}", response_model=BlogPostListItem)
+@router.patch("/blog/{post_id}", response_model=AdminBlogPostListItem)
 async def update_blog_post(
     post_id: UUID,
     data: BlogPostUpdate,
@@ -167,10 +211,11 @@ async def update_blog_post(
     for field, value in updates.items():
         setattr(post, field, value)
     await db.flush()
-    return BlogPostListItem(
+    return AdminBlogPostListItem(
         id=post.id, title=post.title, slug=post.slug, excerpt=post.excerpt,
         featured_image=post.featured_image, category_name=None,
         read_time_minutes=post.read_time_minutes, published_at=post.published_at,
+        is_published=post.is_published, is_featured=post.is_featured,
     )
 
 
