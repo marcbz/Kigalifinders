@@ -20,7 +20,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
   const listingType = params.listing_type;
   const data = await fetchPropertiesSafe({
     q: params.q,
-    listing_type: listingType,
+    listing_type: listingType && listingType !== "all" ? listingType : undefined,
     district_id: params.district_id,
     neighborhood_id: params.neighborhood_id,
     neighborhood_slug: params.neighborhood_slug,

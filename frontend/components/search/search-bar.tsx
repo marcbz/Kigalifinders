@@ -8,9 +8,16 @@ import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 
 const tabs = [
+  { id: "all", label: "All" },
   { id: "rent", label: "For Rent" },
   { id: "sale", label: "For Sale" },
 ];
+
+function tabFromListingType(lt: string | null): string {
+  if (!lt) return "all";
+  if (lt === "furnished") return "furnished";
+  return lt;
+}
 
 export function SearchBar() {
   const router = useRouter();
@@ -30,10 +37,7 @@ export function SearchBar() {
     queryFn: locationService.propertyTypes,
   });
 
-  const [activeTab, setActiveTab] = useState(() => {
-    const lt = searchParams.get("listing_type") || "rent";
-    return lt === "furnished" ? "furnished" : lt;
-  });
+  const [activeTab, setActiveTab] = useState(() => tabFromListingType(searchParams.get("listing_type")));
   const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhood_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
   const [bedrooms, setBedrooms] = useState(searchParams.get("bedrooms") || "");
@@ -49,7 +53,7 @@ export function SearchBar() {
       if (!searchParams.toString()) {
         resetLock.current = false;
         skipNextAutoSearch.current = 2;
-        setActiveTab("rent");
+        setActiveTab("all");
         setNeighborhoodId("");
         setPropertyTypeId("");
         setBedrooms("");
@@ -59,7 +63,7 @@ export function SearchBar() {
     }
 
     const lt = searchParams.get("listing_type");
-    setActiveTab(lt === "furnished" ? "furnished" : lt || "rent");
+    setActiveTab(tabFromListingType(lt));
     setPropertyTypeId(searchParams.get("property_type_id") || "");
     setBedrooms(searchParams.get("bedrooms") || "");
     const min = searchParams.get("min_price");
@@ -83,13 +87,7 @@ export function SearchBar() {
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
     const propertyTypeSlug = searchParams.get("property_type_slug");
-    const hasOtherFilters =
-      neighborhoodId ||
-      propertyTypeId ||
-      bedrooms ||
-      priceRange ||
-      propertyTypeSlug;
-    if (activeTab && (hasOtherFilters || activeTab !== "rent")) {
+    if (activeTab && activeTab !== "all") {
       params.set("listing_type", activeTab);
     }
     if (neighborhoodId) params.set("neighborhood_id", neighborhoodId);
