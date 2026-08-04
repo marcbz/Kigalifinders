@@ -118,6 +118,14 @@ class PropertyRepository:
             query = query.where(Property.district_id == params.district_id)
         if params.neighborhood_id:
             query = query.where(Property.neighborhood_id == params.neighborhood_id)
+        if params.neighborhood_slug:
+            slug = params.neighborhood_slug.lower()
+            hood_result = await self.db.execute(
+                select(Neighborhood.id).where(Neighborhood.slug == slug)
+            )
+            hood_id = hood_result.scalar_one_or_none()
+            if hood_id:
+                query = query.where(Property.neighborhood_id == hood_id)
         if params.property_type_id:
             type_id = params.property_type_id
             type_id_str = str(type_id)

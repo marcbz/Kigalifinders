@@ -218,6 +218,7 @@ class PropertySearchParams(BaseModel):
     listing_type: Optional[str] = None
     district_id: Optional[UUID] = None
     neighborhood_id: Optional[UUID] = None
+    neighborhood_slug: Optional[str] = None
     property_type_id: Optional[UUID] = None
     property_type_slug: Optional[str] = None
     min_price: Optional[float] = None
@@ -452,6 +453,7 @@ class HomepageData(BaseModel):
     faqs: List[FAQResponse]
     hero: Optional[dict] = None
     settings: Optional[dict] = None
+    links: Optional[dict] = None
 
 
 class DashboardStats(BaseModel):

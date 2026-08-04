@@ -83,16 +83,20 @@ async def seed():
         await db.flush()
 
         neighborhoods_data = [
-            ("Nyarutarama", "nyarutarama", districts["Gasabo"].id, 68),
-            ("Kiyovu", "kiyovu", districts["Nyarugenge"].id, 40),
-            ("Gacuriro", "gacuriro", districts["Gasabo"].id, 55),
-            ("Kibagabaga", "kibagabaga", districts["Gasabo"].id, 87),
-            ("Kimihurura", "kimihurura", districts["Gasabo"].id, 48),
             ("Rebero", "rebero", districts["Kicukiro"].id, 42),
-            ("Kacyiru", "kacyiru", districts["Gasabo"].id, 73),
-            ("Kagugu", "kagugu", districts["Gasabo"].id, 36),
-            ("Kagarama", "kagarama", districts["Kicukiro"].id, 34),
+            ("Nyarutarama", "nyarutarama", districts["Gasabo"].id, 68),
+            ("Kibagabaga", "kibagabaga", districts["Gasabo"].id, 87),
+            ("Kiyovu", "kiyovu", districts["Nyarugenge"].id, 40),
             ("Gisozi", "gisozi", districts["Gasabo"].id, 45),
+            ("Remera", "remera", districts["Gasabo"].id, 50),
+            ("Gacuriro", "gacuriro", districts["Gasabo"].id, 55),
+            ("Kacyiru", "kacyiru", districts["Gasabo"].id, 73),
+            ("Kimihurura", "kimihurura", districts["Gasabo"].id, 48),
+            ("Kagarama", "kagarama", districts["Kicukiro"].id, 34),
+            ("Kimironko", "kimironko", districts["Gasabo"].id, 52),
+            ("Gasabo", "gasabo", districts["Gasabo"].id, 30),
+            ("Nyarugenge", "nyarugenge", districts["Nyarugenge"].id, 28),
+            ("Kicukiro", "kicukiro", districts["Kicukiro"].id, 35),
         ]
         neighborhoods = {}
         for name, slug, dist_id, count in neighborhoods_data:
@@ -259,6 +263,12 @@ async def seed():
             "email": "hello@kigalifinders.com",
             "latitude": -1.944072,
             "longitude": 30.058775,
+        }, group="site"))
+        db.add(Setting(key="links", value={
+            "booking_url": "https://secure-guard.setmore.com/",
+            "book_consultation_url": "https://secure-guard.setmore.com/",
+            "phone": "+250 784 806 641",
+            "whatsapp": "250784806641",
         }, group="site"))
         db.add(Setting(key="social", value={
             "facebook": "", "instagram": "", "twitter": "", "linkedin": "", "youtube": "",

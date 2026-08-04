@@ -20,9 +20,9 @@ export function SearchBar() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstAutoSearch = useRef(true);
 
-  const { data: districts = [] } = useQuery({
-    queryKey: ["districts"],
-    queryFn: locationService.districts,
+  const { data: neighborhoods = [] } = useQuery({
+    queryKey: ["neighborhoods"],
+    queryFn: locationService.neighborhoods,
   });
 
   const { data: propertyTypes = [] } = useQuery({
@@ -34,7 +34,7 @@ export function SearchBar() {
     const lt = searchParams.get("listing_type") || "rent";
     return lt === "furnished" ? "furnished" : lt;
   });
-  const [districtId, setDistrictId] = useState(searchParams.get("district_id") || "");
+  const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhood_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
   const [bedrooms, setBedrooms] = useState(searchParams.get("bedrooms") || "");
   const [priceRange, setPriceRange] = useState(() => {
@@ -44,10 +44,31 @@ export function SearchBar() {
     return `${min || ""}-${max || ""}`;
   });
 
+  useEffect(() => {
+    const lt = searchParams.get("listing_type") || "rent";
+    setActiveTab(lt === "furnished" ? "furnished" : lt);
+    setPropertyTypeId(searchParams.get("property_type_id") || "");
+    setBedrooms(searchParams.get("bedrooms") || "");
+    const min = searchParams.get("min_price");
+    const max = searchParams.get("max_price");
+    if (!min && !max) setPriceRange("");
+    else setPriceRange(`${min || ""}-${max || ""}`);
+  }, [searchParams]);
+
+  useEffect(() => {
+    const slug = searchParams.get("neighborhood_slug");
+    if (slug && neighborhoods.length) {
+      const match = neighborhoods.find((n: { slug: string }) => n.slug === slug);
+      if (match) setNeighborhoodId(match.id);
+    } else if (!slug) {
+      setNeighborhoodId(searchParams.get("neighborhood_id") || "");
+    }
+  }, [searchParams, neighborhoods]);
+
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
     if (activeTab) params.set("listing_type", activeTab);
-    if (districtId) params.set("district_id", districtId);
+    if (neighborhoodId) params.set("neighborhood_id", neighborhoodId);
     if (propertyTypeId) params.set("property_type_id", propertyTypeId);
     if (bedrooms) params.set("bedrooms", bedrooms.replace("+", ""));
     if (priceRange) {
@@ -55,8 +76,10 @@ export function SearchBar() {
       if (min) params.set("min_price", min);
       if (max) params.set("max_price", max);
     }
+    const slug = searchParams.get("property_type_slug");
+    if (slug) params.set("property_type_slug", slug);
     return params;
-  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange]);
+  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, searchParams]);
 
   const applySearch = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -76,16 +99,16 @@ export function SearchBar() {
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, applySearch]);
+  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, applySearch]);
 
   const hasFilters = useMemo(
-    () => districtId || propertyTypeId || bedrooms || priceRange || activeTab !== "rent",
-    [districtId, propertyTypeId, bedrooms, priceRange, activeTab],
+    () => neighborhoodId || propertyTypeId || bedrooms || priceRange || activeTab !== "rent",
+    [neighborhoodId, propertyTypeId, bedrooms, priceRange, activeTab],
   );
 
   const handleReset = () => {
     setActiveTab("rent");
-    setDistrictId("");
+    setNeighborhoodId("");
     setPropertyTypeId("");
     setBedrooms("");
     setPriceRange("");
@@ -113,11 +136,11 @@ export function SearchBar() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 p-4">
           <div>
-            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">DISTRICT</label>
-            <select className="lux-input" value={districtId} onChange={(e) => setDistrictId(e.target.value)}>
-              <option value="">All Kigali</option>
-              {districts.map((d: { id: string; name: string }) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
+            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">NEIGHBORHOOD</label>
+            <select className="lux-input" value={neighborhoodId} onChange={(e) => setNeighborhoodId(e.target.value)}>
+              <option value="">All neighborhoods</option>
+              {neighborhoods.map((n: { id: string; name: string }) => (
+                <option key={n.id} value={n.id}>{n.name}</option>
               ))}
             </select>
           </div>

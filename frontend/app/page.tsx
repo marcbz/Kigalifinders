@@ -27,7 +27,12 @@ export default async function HomePage() {
   const { data, ok } = await fetchHomepageSafe();
 
   const settings = data.settings || {};
+  const links = data.links || {};
   const hero = data.hero || {};
+  const bookingUrl = links.booking_url || settings.booking_url;
+  const consultationUrl = links.book_consultation_url || bookingUrl;
+  const phone = links.phone || settings.phone;
+  const whatsapp = links.whatsapp || settings.whatsapp;
 
   return (
     <>
@@ -39,7 +44,7 @@ export default async function HomePage() {
         backgroundImage={hero.background_image}
         ctaPrimary={hero.cta_primary}
         ctaSecondary={hero.cta_secondary}
-        bookingUrl={settings.booking_url}
+        bookingUrl={bookingUrl}
       />
       <Suspense fallback={<div className="h-40 -mt-16" />}>
         <SearchBar />
@@ -57,14 +62,14 @@ export default async function HomePage() {
       <AreasSection neighborhoods={data.neighborhoods.length ? data.neighborhoods : data.districts} />
       <MapSection
         address={settings.address}
-        phone={settings.phone}
+        phone={phone}
         hours={settings.hours}
         latitude={settings.latitude}
         longitude={settings.longitude}
       />
       <BlogSection posts={data.blog_posts} />
       <FAQSection faqs={data.faqs} />
-      <CTASection bookingUrl={settings.booking_url} whatsapp={settings.whatsapp} />
+      <CTASection bookingUrl={consultationUrl} whatsapp={whatsapp} />
       <NewsletterSection />
     </>
   );

@@ -14,7 +14,7 @@ export function Footer({
   whatsapp = "250784806641",
   address = "KN 4 St, Kigali, Rwanda",
   hours = "Mon-Sat: 8AM-7PM",
-  bookingUrl = "https://secure-guard.setmore.com/",
+  bookingUrl,
 }: FooterProps) {
   return (
     <footer className="pt-16 pb-8 px-6 bg-navy-900 text-slate-300">
@@ -55,19 +55,25 @@ export function Footer({
             <h4 className="text-white font-semibold mb-5 tracking-wider text-sm">AREAS</h4>
             <ul className="space-y-2 text-sm">
               {[
-                "Nyarutarama, Gasabo",
-                "Kiyovu, Nyarugenge",
-                "Gacuriro, Gasabo",
-                "Kibagabaga, Gasabo",
-                "Kimihurura, Gasabo",
-                "Rebero, Kicukiro",
-                "Kacyiru, Gasabo",
-                "Kagugu, Gasabo",
-                "Kagarama, Kicukiro",
-                "Gisozi, Gasabo",
+                "Rebero",
+                "Nyarutarama",
+                "Kibagabaga",
+                "Kiyovu",
+                "Gisozi",
+                "Remera",
+                "Gacuriro",
+                "Kacyiru",
+                "Kimihurura",
+                "Kagarama",
+                "Bugesera",
+                "Musanze",
+                "Kimironko",
+                "Gasabo",
+                "Nyarugenge",
+                "Kicukiro",
               ].map((area) => (
                 <li key={area}>
-                  <Link href={`/properties?q=${encodeURIComponent(area.split(",")[0].trim())}`} className="hover:text-gold-500 transition">
+                  <Link href={`/properties?neighborhood_slug=${area.toLowerCase()}`} className="hover:text-gold-500 transition">
                     {area}
                   </Link>
                 </li>
@@ -82,7 +88,13 @@ export function Footer({
               <li className="flex gap-3"><Phone className="w-4 h-4 text-gold-500 mt-0.5 shrink-0" /><a href={`tel:${phone.replace(/\s/g, "")}`} className="hover:text-gold-500">{phone}</a></li>
               <li className="flex gap-3"><span className="text-gold-500">WA</span><a href={`https://wa.me/${whatsapp}`} className="hover:text-gold-500">WhatsApp Us</a></li>
               <li className="flex gap-3"><Clock className="w-4 h-4 text-gold-500 mt-0.5 shrink-0" /><span>{hours}</span></li>
-              <li className="flex gap-3"><CalendarCheck className="w-4 h-4 text-gold-500 mt-0.5 shrink-0" /><a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500">Book a Visit</a></li>
+              <li className="flex gap-3"><CalendarCheck className="w-4 h-4 text-gold-500 mt-0.5 shrink-0" />
+                {bookingUrl ? (
+                  <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500">Book a Visit</a>
+                ) : (
+                  <span>Book a Visit</span>
+                )}
+              </li>
             </ul>
           </div>
         </div>

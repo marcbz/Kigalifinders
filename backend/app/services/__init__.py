@@ -90,6 +90,18 @@ class HomepageService:
     def __init__(self, db: AsyncSession):
         self.db = db
 
+    @staticmethod
+    def _merge_site_links(settings_map: dict) -> dict:
+        site = settings_map.get("site") or {}
+        links = settings_map.get("links") or {}
+        booking_url = links.get("booking_url") or site.get("booking_url")
+        return {
+            "booking_url": booking_url,
+            "book_consultation_url": links.get("book_consultation_url") or booking_url,
+            "phone": links.get("phone") or site.get("phone"),
+            "whatsapp": links.get("whatsapp") or site.get("whatsapp"),
+        }
+
     async def get_homepage_data(self) -> HomepageData:
         await sync_location_counts(self.db)
         prop_repo = PropertyRepository(self.db)
@@ -174,6 +186,7 @@ class HomepageService:
             faqs=faqs,
             hero=settings_map.get("hero"),
             settings=settings_map.get("site"),
+            links=HomepageService._merge_site_links(settings_map),
         )
 
 

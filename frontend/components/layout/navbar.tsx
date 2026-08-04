@@ -21,7 +21,7 @@ interface NavbarProps {
   bookingUrl?: string;
 }
 
-export function Navbar({ bookingUrl = "https://secure-guard.setmore.com/" }: NavbarProps) {
+export function Navbar({ bookingUrl }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
@@ -48,12 +48,14 @@ export function Navbar({ bookingUrl = "https://secure-guard.setmore.com/" }: Nav
 
           <div className="flex items-center gap-3">
             <ThemeToggle />
+            {bookingUrl && (
             <Button asChild className="hidden md:inline-flex rounded-full" size="sm">
               <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
                 <CalendarCheck className="w-4 h-4" />
                 Book Visit
               </a>
             </Button>
+            )}
             <button
               className="lg:hidden text-navy-800 dark:text-white"
               onClick={() => setMobileOpen(true)}
@@ -85,9 +87,11 @@ export function Navbar({ bookingUrl = "https://secure-guard.setmore.com/" }: Nav
               {link.label}
             </Link>
           ))}
+          {bookingUrl && (
           <Button asChild className="rounded-full mt-4">
             <a href={bookingUrl} target="_blank" rel="noopener noreferrer">Book Visit</a>
           </Button>
+          )}
         </nav>
       </div>
     </>

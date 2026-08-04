@@ -78,6 +78,7 @@ def _search_params(
     listing_type: Optional[str] = None,
     district_id: Optional[UUID] = None,
     neighborhood_id: Optional[UUID] = None,
+    neighborhood_slug: Optional[str] = None,
     property_type_id: Optional[UUID] = None,
     property_type_slug: Optional[str] = None,
     min_price: Optional[float] = None,
@@ -93,7 +94,7 @@ def _search_params(
 ) -> PropertySearchParams:
     return PropertySearchParams(
         q=q, listing_type=listing_type, district_id=district_id, neighborhood_id=neighborhood_id,
-        property_type_id=property_type_id, property_type_slug=property_type_slug, min_price=min_price, max_price=max_price,
+        neighborhood_slug=neighborhood_slug, property_type_id=property_type_id, property_type_slug=property_type_slug, min_price=min_price, max_price=max_price,
         bedrooms=bedrooms, bathrooms=bathrooms, is_featured=is_featured, is_furnished=is_furnished,
         sort_by=sort_by, sort_order=sort_order, page=page, page_size=page_size,
     )

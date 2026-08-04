@@ -134,6 +134,12 @@ export interface HomepageData {
     latitude?: number;
     longitude?: number;
   };
+  links?: {
+    booking_url?: string;
+    book_consultation_url?: string;
+    phone?: string;
+    whatsapp?: string;
+  };
 }
 
 export interface PaginatedResponse<T> {

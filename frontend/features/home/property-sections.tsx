@@ -102,7 +102,6 @@ interface AreasSectionProps {
 }
 
 const areaImages: Record<string, string> = {
-  kicukiro: "https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=600",
   gasabo: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=600",
   nyarugenge: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=600",
   nyarutarama: "https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?w=600",
@@ -114,6 +113,11 @@ const areaImages: Record<string, string> = {
   kimihurura: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600",
   kagugu: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600",
   kagarama: "https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=600",
+  remera: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600",
+  bugesera: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600",
+  musanze: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=600",
+  kimironko: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600",
+  kicukiro: "https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=600",
   gisozi: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=600",
 };
 
@@ -131,7 +135,7 @@ export function AreasSection({ neighborhoods }: AreasSectionProps) {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
           {neighborhoods.map((area) => (
-            <Link key={area.id} href={`/properties?neighborhood_id=${area.id}`} className="area-card group">
+            <Link key={area.id} href={`/properties?neighborhood_slug=${area.slug}`} className="area-card group">
               <Image
                 src={area.image_url || areaImages[area.slug] || areaImages.gasabo}
                 alt={area.name}
