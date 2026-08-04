@@ -15,6 +15,7 @@ const emptyHomepage = (): HomepageData => ({
   hero: {},
   settings: {},
   links: {},
+  social: {},
 });
 
 /** Fetch fresh data from the API. Returns null on failure instead of throwing. */

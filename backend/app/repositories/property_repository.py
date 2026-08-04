@@ -10,6 +10,7 @@ from app.models import (
     Amenity,
     Agent,
     District,
+    ListingType,
     Neighborhood,
     Property,
     PropertyImage,
@@ -136,7 +137,16 @@ class PropertyRepository:
                 or_(Property.title.ilike(term), Property.description.ilike(term), Property.address.ilike(term))
             )
         if params.listing_type:
-            query = query.where(Property.listing_type == params.listing_type)
+            lt = params.listing_type.lower()
+            if lt == ListingType.FURNISHED.value:
+                query = query.where(
+                    or_(
+                        Property.listing_type == ListingType.FURNISHED,
+                        Property.is_furnished.is_(True),
+                    )
+                )
+            else:
+                query = query.where(Property.listing_type == ListingType(lt))
         if params.district_id:
             query = query.where(Property.district_id == params.district_id)
         neighborhood_ids = await self._resolve_neighborhood_ids(

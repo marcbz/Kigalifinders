@@ -84,7 +84,8 @@ export function TestimonialsSection({ testimonials }: { testimonials: Testimonia
                   alt={t.name}
                   width={48}
                   height={48}
-                  className="rounded-full object-cover ring-2 ring-gold-500/30"
+                  sizes="48px"
+                  className="rounded-full object-cover w-12 h-12 shrink-0 ring-2 ring-gold-500/30"
                 />
                 <div>
                   <div className="font-semibold text-navy-800 dark:text-white">{t.name}</div>

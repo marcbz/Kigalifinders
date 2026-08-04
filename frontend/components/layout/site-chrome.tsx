@@ -14,6 +14,7 @@ export function SiteChrome({
   hours,
   bookingUrl,
   consultationUrl,
+  social,
 }: {
   children: React.ReactNode;
   phone?: string;
@@ -22,6 +23,7 @@ export function SiteChrome({
   hours?: string;
   bookingUrl?: string;
   consultationUrl?: string;
+  social?: Record<string, string>;
 }) {
   const pathname = usePathname();
   const isAdmin = pathname?.startsWith("/admin");
@@ -32,7 +34,7 @@ export function SiteChrome({
 
   return (
     <>
-      <TopBar address={address} hours={hours} phone={phone} />
+      <TopBar address={address} hours={hours} phone={phone} social={social} />
       <Navbar bookingUrl={bookingUrl} />
       <main>{children}</main>
       <Footer phone={phone} whatsapp={whatsapp} address={address} hours={hours} bookingUrl={bookingUrl} />

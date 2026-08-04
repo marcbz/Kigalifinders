@@ -1,19 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { Facebook, Instagram, Linkedin, MapPin, Clock, Phone } from "lucide-react";
+import { Facebook, Instagram, Linkedin, MapPin, Clock, Phone, Youtube } from "lucide-react";
 
 interface TopBarProps {
   address?: string;
   hours?: string;
   phone?: string;
+  social?: Record<string, string>;
 }
 
 export function TopBar({
   address = "KN 4 St, Kigali, Rwanda",
   hours = "Mon - Sat: 8:00 AM - 7:00 PM",
   phone = "+250 784 806 641",
+  social = {},
 }: TopBarProps) {
+  const facebook = social.facebook || "#";
+  const instagram = social.instagram || "#";
+  const linkedin = social.linkedin || "#";
+  const youtube = social.youtube || "https://www.youtube.com";
+
   return (
     <div className="topbar hidden md:block bg-navy-900 text-slate-300 text-[13px]">
       <div className="max-w-7xl mx-auto px-6 py-2 flex justify-between items-center">
@@ -32,17 +39,19 @@ export function TopBar({
             <Phone className="w-3.5 h-3.5" />
             {phone}
           </a>
-          <div className="flex gap-3 text-xs">
-            <Link href="/en" className="hover:text-gold-500">EN</Link>
-            <span className="text-gray-600">|</span>
-            <Link href="/fr" className="hover:text-gold-500">FR</Link>
-            <span className="text-gray-600">|</span>
-            <Link href="/rw" className="hover:text-gold-500">RW</Link>
-          </div>
           <div className="flex gap-3">
-            <a href="#" className="hover:text-gold-500"><Facebook className="w-3.5 h-3.5" /></a>
-            <a href="#" className="hover:text-gold-500"><Instagram className="w-3.5 h-3.5" /></a>
-            <a href="#" className="hover:text-gold-500"><Linkedin className="w-3.5 h-3.5" /></a>
+            <a href={facebook} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500" aria-label="Facebook">
+              <Facebook className="w-3.5 h-3.5" />
+            </a>
+            <a href={instagram} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500" aria-label="Instagram">
+              <Instagram className="w-3.5 h-3.5" />
+            </a>
+            <a href={linkedin} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500" aria-label="LinkedIn">
+              <Linkedin className="w-3.5 h-3.5" />
+            </a>
+            <a href={youtube} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500" aria-label="YouTube">
+              <Youtube className="w-3.5 h-3.5" />
+            </a>
           </div>
         </div>
       </div>

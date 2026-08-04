@@ -140,6 +140,7 @@ export interface HomepageData {
     phone?: string;
     whatsapp?: string;
   };
+  social?: Record<string, string>;
 }
 
 export interface PaginatedResponse<T> {

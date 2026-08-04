@@ -187,6 +187,7 @@ class HomepageService:
             hero=settings_map.get("hero"),
             settings=settings_map.get("site"),
             links=HomepageService._merge_site_links(settings_map),
+            social=settings_map.get("social") or {},
         )
 
 

@@ -17,6 +17,7 @@ export async function SiteChromeWithSettings({ children }: { children: React.Rea
   let hours = defaults.hours;
   let bookingUrl = defaults.bookingUrl;
   let consultationUrl = defaults.consultationUrl;
+  let social: Record<string, string> = {};
 
   try {
     const { data } = await fetchHomepageSafe();
@@ -29,6 +30,7 @@ export async function SiteChromeWithSettings({ children }: { children: React.Rea
     if (links.booking_url || site.booking_url) bookingUrl = links.booking_url || site.booking_url || bookingUrl;
     if (links.book_consultation_url) consultationUrl = links.book_consultation_url;
     else if (links.booking_url || site.booking_url) consultationUrl = links.booking_url || site.booking_url || consultationUrl;
+    if (data.social) social = data.social as Record<string, string>;
   } catch {
     // use defaults
   }
@@ -41,6 +43,7 @@ export async function SiteChromeWithSettings({ children }: { children: React.Rea
       hours={hours}
       bookingUrl={bookingUrl}
       consultationUrl={consultationUrl}
+      social={social}
     >
       {children}
     </SiteChrome>

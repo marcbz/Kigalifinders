@@ -17,9 +17,10 @@ interface Props {
 
 export default async function PropertiesPage({ searchParams }: Props) {
   const params = await searchParams;
+  const listingType = params.listing_type;
   const data = await fetchPropertiesSafe({
     q: params.q,
-    listing_type: params.listing_type,
+    listing_type: listingType,
     district_id: params.district_id,
     neighborhood_id: params.neighborhood_id,
     neighborhood_slug: params.neighborhood_slug,
@@ -31,7 +32,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     sort_by: params.sort_by || "created_at",
     sort_order: params.sort_order || "desc",
     page: params.page ? parseInt(params.page) : 1,
-    page_size: 12,
+    page_size: listingType === "furnished" ? 100 : 12,
   });
 
   return (

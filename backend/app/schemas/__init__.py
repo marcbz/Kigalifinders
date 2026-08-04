@@ -454,6 +454,7 @@ class HomepageData(BaseModel):
     hero: Optional[dict] = None
     settings: Optional[dict] = None
     links: Optional[dict] = None
+    social: Optional[dict] = None
 
 
 class DashboardStats(BaseModel):
