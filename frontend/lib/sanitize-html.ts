@@ -1,6 +1,6 @@
 import sanitizeHtml from "sanitize-html";
 
-const PROPERTY_DESCRIPTION_OPTIONS: sanitizeHtml.IOptions = {
+const PROPERTY_DESCRIPTION_OPTIONS = {
   allowedTags: ["p", "br", "strong", "b", "em", "i", "a", "ul", "ol", "li", "h2", "h3", "span", "s"],
   allowedAttributes: {
     a: ["href", "target", "rel"],
