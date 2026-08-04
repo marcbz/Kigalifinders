@@ -84,12 +84,13 @@ def upgrade() -> None:
     conn.execute(
         text(
             """
-            INSERT INTO settings (id, key, value, "group")
+            INSERT INTO settings (id, key, value, "group", updated_at)
             VALUES (
                 gen_random_uuid(),
                 'links',
                 '{"booking_url":"https://secure-guard.setmore.com/","book_consultation_url":"https://secure-guard.setmore.com/","phone":"+250 784 806 641","whatsapp":"250784806641"}'::jsonb,
-                'site'
+                'site',
+                NOW()
             )
             ON CONFLICT (key) DO NOTHING
             """
