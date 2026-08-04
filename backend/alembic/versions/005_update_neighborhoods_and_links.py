@@ -84,7 +84,7 @@ def upgrade() -> None:
     conn.execute(
         text(
             """
-            INSERT INTO settings (id, key, value, group)
+            INSERT INTO settings (id, key, value, "group")
             VALUES (
                 gen_random_uuid(),
                 'links',
