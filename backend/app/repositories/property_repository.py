@@ -17,7 +17,7 @@ from app.models import (
     PropertyType,
 )
 from app.schemas import PaginatedResponse, PropertyDetail, PropertyListItem, PropertySearchParams
-from app.services.neighborhood_groups import expanded_neighborhood_slugs
+from app.core.neighborhood_groups import expanded_neighborhood_slugs
 
 
 class PropertyRepository:
