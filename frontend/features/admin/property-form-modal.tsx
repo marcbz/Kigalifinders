@@ -11,6 +11,7 @@ import {
   type PropertyCreatePayload,
   type PropertyUpdatePayload,
 } from "@/services/api";
+import { getApiErrorMessage } from "@/lib/utils";
 
 interface PropertyFormModalProps {
   property?: PropertyListItem | null;
@@ -129,7 +130,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     listing_type: form.listing_type,
     status: form.status,
     price: parseFloat(form.price),
-    price_period: form.price_period || undefined,
+    price_period: form.price_period ? form.price_period : undefined,
     currency: form.currency,
     bedrooms: form.bedrooms ? parseInt(form.bedrooms) : undefined,
     bathrooms: form.bathrooms ? parseInt(form.bathrooms) : undefined,
@@ -170,8 +171,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       onClose();
     },
     onError: (err: unknown) => {
-      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      setError(typeof detail === "string" ? detail : "Failed to save property");
+      setError(getApiErrorMessage(err, "Failed to save property"));
     },
   });
 

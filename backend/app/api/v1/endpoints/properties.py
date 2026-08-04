@@ -1,8 +1,10 @@
-from typing import Annotated, Optional
+from datetime import datetime, timezone
+from typing import Annotated, Any, Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from slugify import slugify
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_admin, require_staff
@@ -14,10 +16,31 @@ from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, Prope
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
 
+def _normalize_images(images: list[Any] | None) -> list[PropertyImageInput] | None:
+    if images is None:
+        return None
+    return [img if isinstance(img, PropertyImageInput) else PropertyImageInput(**img) for img in images]
+
+
+async def _unique_slug(db: AsyncSession, base_slug: str, exclude_id: UUID | None = None) -> str:
+    slug = base_slug
+    counter = 1
+    while True:
+        query = select(Property.id).where(Property.slug == slug)
+        if exclude_id:
+            query = query.where(Property.id != exclude_id)
+        existing = await db.execute(query)
+        if existing.scalar_one_or_none() is None:
+            return slug
+        slug = f"{base_slug}-{counter}"
+        counter += 1
+
+
 async def _sync_property_images(db: AsyncSession, prop: Property, images: list[PropertyImageInput] | None) -> None:
     if images is None:
         return
-    for img in list(prop.images):
+    result = await db.execute(select(PropertyImage).where(PropertyImage.property_id == prop.id))
+    for img in result.scalars().all():
         await db.delete(img)
     await db.flush()
     for i, img in enumerate(images):
@@ -115,15 +138,21 @@ async def create_property(
 ):
     from app.models import ListingType
 
+    slug = data.slug or slugify(data.title)
+    slug = await _unique_slug(db, slug)
+    status_enum = PropertyStatusEnum(data.status)
+    published_at = datetime.now(timezone.utc) if status_enum == PropertyStatusEnum.PUBLISHED else None
+
     prop = Property(
         title=data.title,
-        slug=data.slug or slugify(data.title),
+        slug=slug,
         description=data.description,
         short_description=data.short_description,
         listing_type=ListingType(data.listing_type),
-        status=PropertyStatusEnum(data.status),
+        status=status_enum,
         price=data.price,
-        price_period=data.price_period,
+        price_period=data.price_period or None,
+        published_at=published_at,
         currency=data.currency,
         bedrooms=data.bedrooms,
         bathrooms=data.bathrooms,
@@ -165,13 +194,20 @@ async def update_property(
         raise HTTPException(status_code=404, detail="Property not found")
 
     updates = data.model_dump(exclude_unset=True)
-    images = updates.pop("images", None)
+    images = _normalize_images(updates.pop("images", None))
     if "listing_type" in updates:
         updates["listing_type"] = ListingType(updates["listing_type"])
     if "status" in updates:
-        updates["status"] = PropertyStatusEnum(updates["status"])
+        status_enum = PropertyStatusEnum(updates["status"])
+        updates["status"] = status_enum
+        if status_enum == PropertyStatusEnum.PUBLISHED and not prop.published_at:
+            updates["published_at"] = datetime.now(timezone.utc)
     if "title" in updates and "slug" not in updates:
-        updates["slug"] = slugify(updates["title"])
+        updates["slug"] = await _unique_slug(db, slugify(updates["title"]), exclude_id=property_id)
+    if "slug" in updates:
+        updates["slug"] = await _unique_slug(db, updates["slug"], exclude_id=property_id)
+    if "price_period" in updates and not updates["price_period"]:
+        updates["price_period"] = None
 
     for field, value in updates.items():
         setattr(prop, field, value)
