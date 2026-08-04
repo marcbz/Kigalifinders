@@ -58,6 +58,7 @@ class PropertyRepository:
             district_name=prop.district.name if prop.district else None,
             neighborhood_name=prop.neighborhood.name if prop.neighborhood else None,
             property_type_name=prop.property_type.name if prop.property_type else None,
+            property_type_ids=[str(x) for x in (prop.property_type_ids or [])],
             primary_image=primary,
             latitude=prop.latitude,
             longitude=prop.longitude,
@@ -117,7 +118,14 @@ class PropertyRepository:
         if params.neighborhood_id:
             query = query.where(Property.neighborhood_id == params.neighborhood_id)
         if params.property_type_id:
-            query = query.where(Property.property_type_id == params.property_type_id)
+            type_id = params.property_type_id
+            type_id_str = str(type_id)
+            query = query.where(
+                or_(
+                    Property.property_type_id == type_id,
+                    Property.property_type_ids.contains([type_id_str]),
+                )
+            )
         if params.min_price is not None:
             query = query.where(Property.price >= params.min_price)
         if params.max_price is not None:
@@ -175,15 +183,16 @@ class PropertyRepository:
         return [self._to_list_item(p) for p in result.scalars().all()]
 
     async def get_related(self, prop: Property, limit: int = 4) -> Sequence[PropertyListItem]:
+        conditions = [Property.district_id == prop.district_id]
+        if prop.property_type_id:
+            conditions.append(Property.property_type_id == prop.property_type_id)
+            conditions.append(Property.property_type_ids.contains([str(prop.property_type_id)]))
         query = (
             self._base_query()
             .where(
                 Property.status == PropertyStatusEnum.PUBLISHED,
                 Property.id != prop.id,
-                or_(
-                    Property.district_id == prop.district_id,
-                    Property.property_type_id == prop.property_type_id,
-                ),
+                or_(*conditions),
             )
             .limit(limit)
         )

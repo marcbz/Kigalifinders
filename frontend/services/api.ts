@@ -57,6 +57,7 @@ export interface PropertyCreatePayload {
   district_id?: string;
   neighborhood_id?: string;
   property_type_id?: string;
+  property_type_ids?: string[];
   is_featured?: boolean;
   is_furnished?: boolean;
   has_title_deed?: boolean;

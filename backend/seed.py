@@ -84,10 +84,15 @@ async def seed():
 
         neighborhoods_data = [
             ("Nyarutarama", "nyarutarama", districts["Gasabo"].id, 68),
+            ("Kiyovu", "kiyovu", districts["Nyarugenge"].id, 40),
+            ("Gacuriro", "gacuriro", districts["Gasabo"].id, 55),
             ("Kibagabaga", "kibagabaga", districts["Gasabo"].id, 87),
-            ("Kacyiru", "kacyiru", districts["Gasabo"].id, 73),
-            ("Remera", "remera", districts["Gasabo"].id, 54),
+            ("Kimihurura", "kimihurura", districts["Gasabo"].id, 48),
             ("Rebero", "rebero", districts["Kicukiro"].id, 42),
+            ("Kacyiru", "kacyiru", districts["Gasabo"].id, 73),
+            ("Kagugu", "kagugu", districts["Gasabo"].id, 36),
+            ("Kagarama", "kagarama", districts["Kicukiro"].id, 34),
+            ("Gisozi", "gisozi", districts["Gasabo"].id, 45),
         ]
         neighborhoods = {}
         for name, slug, dist_id, count in neighborhoods_data:

@@ -105,8 +105,13 @@ const areaImages: Record<string, string> = {
   nyarutarama: "https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?w=600",
   kibagabaga: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600",
   kacyiru: "https://images.unsplash.com/photo-1564013434775-f71db0030976?w=600",
-  remera: "https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=600",
   rebero: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600",
+  kiyovu: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=600",
+  gacuriro: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600",
+  kimihurura: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600",
+  kagugu: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600",
+  kagarama: "https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=600",
+  gisozi: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=600",
 };
 
 export function AreasSection({ neighborhoods }: AreasSectionProps) {

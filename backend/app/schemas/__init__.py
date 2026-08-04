@@ -96,6 +96,7 @@ class PropertyListItem(BaseModel):
     district_name: Optional[str] = None
     neighborhood_name: Optional[str] = None
     property_type_name: Optional[str] = None
+    property_type_ids: List[str] = []
     primary_image: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
@@ -153,6 +154,7 @@ class PropertyCreate(BaseModel):
     district_id: Optional[UUID] = None
     neighborhood_id: Optional[UUID] = None
     property_type_id: Optional[UUID] = None
+    property_type_ids: List[str] = []
     agent_id: Optional[UUID] = None
     is_featured: bool = False
     is_premium: bool = False
@@ -190,6 +192,7 @@ class PropertyUpdate(BaseModel):
     district_id: Optional[UUID] = None
     neighborhood_id: Optional[UUID] = None
     property_type_id: Optional[UUID] = None
+    property_type_ids: Optional[List[str]] = None
     agent_id: Optional[UUID] = None
     is_featured: Optional[bool] = None
     is_premium: Optional[bool] = None

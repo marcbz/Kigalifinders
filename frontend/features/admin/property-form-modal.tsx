@@ -35,7 +35,6 @@ const defaultForm = {
   lot_size_sqm: "",
   district_id: "",
   neighborhood_id: "",
-  property_type_id: "",
   realtor_name: "",
   is_furnished_yn: "",
   has_balcony: "",
@@ -49,8 +48,7 @@ const defaultForm = {
   has_title_deed: false,
   badge_label: "",
   address: "",
-  latitude: "",
-  longitude: "",
+  property_type_ids: [] as string[],
 };
 
 type ImageRow = { url: string; is_primary: boolean };
@@ -141,7 +139,12 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
         lot_size_sqm: property.lot_size_sqm != null ? String(property.lot_size_sqm) : "",
         district_id: "",
         neighborhood_id: "",
-        property_type_id: "",
+        property_type_ids:
+          detail?.property_type_ids?.length
+            ? detail.property_type_ids
+            : property.property_type_ids?.length
+              ? property.property_type_ids
+              : [],
         realtor_name: detail?.realtor_name || "",
         is_furnished_yn: boolToYesNo(property.is_furnished),
         has_balcony: boolToYesNo(detail?.has_balcony),
@@ -155,8 +158,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
         has_title_deed: property.has_title_deed,
         badge_label: property.badge_label || "",
         address: detail?.address || "",
-        latitude: detail?.latitude != null ? String(detail.latitude) : "",
-        longitude: detail?.longitude != null ? String(detail.longitude) : "",
       });
       const imgs = detail?.images?.length
         ? detail.images.map((img) => ({ url: img.url, is_primary: img.is_primary }))
@@ -191,7 +192,8 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     lot_size_sqm: form.lot_size_sqm ? parseFloat(form.lot_size_sqm) : undefined,
     district_id: form.district_id || undefined,
     neighborhood_id: form.neighborhood_id || undefined,
-    property_type_id: form.property_type_id || undefined,
+    property_type_ids: form.property_type_ids.length ? form.property_type_ids : undefined,
+    property_type_id: form.property_type_ids[0] || undefined,
     realtor_name: form.realtor_name.trim() || undefined,
     is_furnished: yesNoToBool(form.is_furnished_yn) ?? false,
     has_balcony: yesNoToBool(form.has_balcony) ?? false,
@@ -205,8 +207,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     has_title_deed: form.has_title_deed,
     badge_label: form.badge_label.trim() || undefined,
     address: form.address.trim() || undefined,
-    latitude: form.latitude ? parseFloat(form.latitude) : undefined,
-    longitude: form.longitude ? parseFloat(form.longitude) : undefined,
     images: imageRows
       .filter((img) => img.url.trim())
       .map((img, i) => ({
@@ -306,19 +306,34 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
               <label className="text-xs font-semibold text-gray-500">NEIGHBORHOOD</label>
               <select className="lux-input mt-1" value={form.neighborhood_id} onChange={(e) => setForm({ ...form, neighborhood_id: e.target.value })}>
                 <option value="">Select neighborhood</option>
-                {filteredNeighborhoods.map((n: { id: string; name: string }) => (
-                  <option key={n.id} value={n.id}>{n.name}</option>
+                {filteredNeighborhoods.map((n: { id: string; name: string; district_name?: string }) => (
+                  <option key={n.id} value={n.id}>{n.name}{n.district_name ? ` — ${n.district_name}` : ""}</option>
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500">PROPERTY TYPE</label>
-              <select className="lux-input mt-1" value={form.property_type_id} onChange={(e) => setForm({ ...form, property_type_id: e.target.value })}>
-                <option value="">Select type</option>
-                {propertyTypes.map((pt) => (
-                  <option key={pt.id} value={pt.id}>{pt.name}</option>
-                ))}
-              </select>
+            <div className="md:col-span-2">
+              <label className="text-xs font-semibold text-gray-500">PROPERTY TYPES</label>
+              <p className="text-xs text-gray-400 mt-0.5 mb-2">Select all that apply — e.g. House + Villa so it appears in both searches.</p>
+              <div className="flex flex-wrap gap-3">
+                {propertyTypes.map((pt) => {
+                  const checked = form.property_type_ids.includes(pt.id);
+                  return (
+                    <label key={pt.id} className="flex items-center gap-2 text-sm border rounded-full px-3 py-1.5 cursor-pointer hover:border-gold-500">
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => {
+                          const next = checked
+                            ? form.property_type_ids.filter((id) => id !== pt.id)
+                            : [...form.property_type_ids, pt.id];
+                          setForm({ ...form, property_type_ids: next });
+                        }}
+                      />
+                      {pt.name}
+                    </label>
+                  );
+                })}
+              </div>
             </div>
             <div className="md:col-span-2 pt-2">
               <h4 className="text-sm font-semibold text-navy-800 dark:text-white mb-1">Property features</h4>
@@ -370,20 +385,12 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div className="md:col-span-2 pt-2">
               <h4 className="text-sm font-semibold text-navy-800 dark:text-white mb-3">Map location</h4>
               <p className="text-xs text-gray-400 mb-3">
-                Shown under the description on the property page. Use coordinates for the most accurate Google Map pin.
+                Shown at the bottom of the property page. Enter the street address for the Google Map pin.
               </p>
             </div>
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">ADDRESS</label>
-              <input className="lux-input mt-1" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500">LATITUDE</label>
-              <input className="lux-input mt-1" placeholder="-1.944072" value={form.latitude} onChange={(e) => setForm({ ...form, latitude: e.target.value })} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500">LONGITUDE</label>
-              <input className="lux-input mt-1" placeholder="30.058775" value={form.longitude} onChange={(e) => setForm({ ...form, longitude: e.target.value })} />
+              <input className="lux-input mt-1" placeholder="e.g. Nyarutarama, Gasabo, Kigali" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </div>
             <div className="md:col-span-2 space-y-3">
               <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES (URLs)</label>

@@ -10,7 +10,6 @@ import { locationService } from "@/services/api";
 const tabs = [
   { id: "rent", label: "For Rent" },
   { id: "sale", label: "For Sale" },
-  { id: "plots", label: "Plots/Land" },
 ];
 
 export function SearchBar() {
@@ -31,11 +30,8 @@ export function SearchBar() {
     queryFn: locationService.propertyTypes,
   });
 
-  const plotTypeId = propertyTypes.find((pt) => pt.slug === "plot")?.id;
-
   const [activeTab, setActiveTab] = useState(() => {
     const lt = searchParams.get("listing_type") || "rent";
-    if (lt === "sale" && searchParams.get("property_type_id")) return "plots";
     return lt === "furnished" ? "rent" : lt;
   });
   const [districtId, setDistrictId] = useState(searchParams.get("district_id") || "");
@@ -50,36 +46,20 @@ export function SearchBar() {
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
-    if (activeTab) {
-      if (activeTab === "plots") {
-        params.set("listing_type", "sale");
-      } else {
-        params.set("listing_type", activeTab);
-      }
-    }
-
+    if (activeTab) params.set("listing_type", activeTab);
     if (districtId) params.set("district_id", districtId);
-
-    let typeId = propertyTypeId;
-    if (activeTab === "plots" && !typeId && plotTypeId) {
-      typeId = plotTypeId;
-    }
-    if (typeId) params.set("property_type_id", typeId);
-
+    if (propertyTypeId) params.set("property_type_id", propertyTypeId);
     if (bedrooms) params.set("bedrooms", bedrooms.replace("+", ""));
-
     if (priceRange) {
       const [min, max] = priceRange.split("-");
       if (min) params.set("min_price", min);
       if (max) params.set("max_price", max);
     }
-
     return params;
-  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, plotTypeId]);
+  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange]);
 
   const applySearch = useCallback(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-
     debounceRef.current = setTimeout(() => {
       const params = buildParams();
       const query = params.toString();

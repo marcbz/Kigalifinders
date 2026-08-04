@@ -274,6 +274,7 @@ class Property(Base):
     district_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("districts.id"))
     neighborhood_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("neighborhoods.id"))
     property_type_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("property_types.id"))
+    property_type_ids: Mapped[list | None] = mapped_column(JSONB, default=list)
     category_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("categories.id"))
     agent_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("agents.id"))
 

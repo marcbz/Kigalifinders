@@ -1,19 +1,36 @@
 import type { PropertyDetail, PropertyListItem } from "@/types";
 
-export type ListingBadge = "Sale" | "Furnished" | "Unfurnished";
+export type ListingBadge = "For Sale" | "Furnished" | "Unfurnished";
 
 export function getListingBadge(
-  property: Pick<PropertyListItem, "listing_type" | "is_furnished" | "property_type_name" | "lot_size_sqm">,
+  property: Pick<PropertyListItem, "listing_type" | "is_furnished" | "property_type_name">,
 ): ListingBadge {
   const typeName = property.property_type_name?.toLowerCase() ?? "";
   const isPlot = typeName.includes("plot") || typeName.includes("land");
   if (property.listing_type === "sale" || isPlot) {
-    return "Sale";
+    return "For Sale";
   }
   if (property.listing_type === "furnished" || property.is_furnished) {
     return "Furnished";
   }
   return "Unfurnished";
+}
+
+export function getPropertyAreaLabel(
+  property: Pick<PropertyListItem, "listing_type" | "property_type_name" | "area_sqm" | "lot_size_sqm">,
+): string | null {
+  const typeName = property.property_type_name?.toLowerCase() ?? "";
+  const isLand = typeName.includes("plot") || typeName.includes("land");
+  if ((isLand || property.listing_type === "sale") && property.lot_size_sqm) {
+    return `${property.lot_size_sqm} m²`;
+  }
+  if (property.area_sqm) {
+    return `${property.area_sqm} m²`;
+  }
+  if (property.lot_size_sqm) {
+    return `${property.lot_size_sqm} m²`;
+  }
+  return null;
 }
 
 export function formatYesNo(value?: boolean | null): string | null {

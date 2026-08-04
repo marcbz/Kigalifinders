@@ -54,8 +54,23 @@ export function Footer({
           <div>
             <h4 className="text-white font-semibold mb-5 tracking-wider text-sm">AREAS</h4>
             <ul className="space-y-2 text-sm">
-              {["Kicukiro", "Gasabo", "Nyarugenge", "Nyarutarama", "Kibagabaga"].map((area) => (
-                <li key={area}><Link href={`/properties?location=${area.toLowerCase()}`} className="hover:text-gold-500 transition">Houses in {area}</Link></li>
+              {[
+                "Nyarutarama, Gasabo",
+                "Kiyovu, Nyarugenge",
+                "Gacuriro, Gasabo",
+                "Kibagabaga, Gasabo",
+                "Kimihurura, Gasabo",
+                "Rebero, Kicukiro",
+                "Kacyiru, Gasabo",
+                "Kagugu, Gasabo",
+                "Kagarama, Kicukiro",
+                "Gisozi, Gasabo",
+              ].map((area) => (
+                <li key={area}>
+                  <Link href={`/properties?q=${encodeURIComponent(area.split(",")[0].trim())}`} className="hover:text-gold-500 transition">
+                    {area}
+                  </Link>
+                </li>
               ))}
             </ul>
           </div>

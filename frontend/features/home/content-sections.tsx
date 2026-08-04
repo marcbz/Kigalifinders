@@ -152,13 +152,15 @@ export function MapSection({
               <div><strong className="text-navy-800 dark:text-white">Hours</strong><br />{hours}</div>
             </div>
           </div>
-          <div className="rounded-2xl overflow-hidden shadow-2xl h-[450px]">
+          <div className="w-full max-w-md">
+            <div className="rounded-xl overflow-hidden shadow-lg aspect-square max-h-[320px] border border-gray-200 dark:border-border">
             <iframe
-              className="w-full h-full grayscale-[20%] contrast-105"
+              className="w-full h-full grayscale-[20%] contrast-105 border-0"
               src={mapSrc}
               loading="lazy"
               title="Kigalifinders Office Location"
             />
+            </div>
           </div>
         </div>
       </div>

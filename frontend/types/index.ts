@@ -20,6 +20,7 @@ export interface PropertyListItem {
   district_name?: string;
   neighborhood_name?: string;
   property_type_name?: string;
+  property_type_ids?: string[];
   primary_image?: string;
   latitude?: number;
   longitude?: number;

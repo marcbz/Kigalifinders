@@ -36,6 +36,21 @@ async def _unique_slug(db: AsyncSession, base_slug: str, exclude_id: UUID | None
         counter += 1
 
 
+def _resolve_property_types(
+    property_type_id: UUID | None,
+    property_type_ids: list[str] | None,
+) -> tuple[UUID | None, list[str]]:
+    ids = [str(x) for x in property_type_ids or []]
+    primary = property_type_id
+    if primary:
+        pid = str(primary)
+        if pid not in ids:
+            ids = [pid, *ids]
+    elif ids:
+        primary = UUID(ids[0])
+    return primary, ids
+
+
 async def _sync_property_images(db: AsyncSession, prop: Property, images: list[PropertyImageInput] | None) -> None:
     if images is None:
         return
@@ -142,6 +157,7 @@ async def create_property(
     slug = await _unique_slug(db, slug)
     status_enum = PropertyStatusEnum(data.status)
     published_at = datetime.now(timezone.utc) if status_enum == PropertyStatusEnum.PUBLISHED else None
+    primary_type_id, type_ids = _resolve_property_types(data.property_type_id, data.property_type_ids)
 
     prop = Property(
         title=data.title,
@@ -160,7 +176,8 @@ async def create_property(
         lot_size_sqm=data.lot_size_sqm,
         district_id=data.district_id,
         neighborhood_id=data.neighborhood_id,
-        property_type_id=data.property_type_id,
+        property_type_id=primary_type_id,
+        property_type_ids=type_ids,
         agent_id=data.agent_id,
         is_featured=data.is_featured,
         is_premium=data.is_premium,
@@ -216,6 +233,13 @@ async def update_property(
         updates["slug"] = await _unique_slug(db, updates["slug"], exclude_id=property_id)
     if "price_period" in updates and not updates["price_period"]:
         updates["price_period"] = None
+    if "property_type_ids" in updates or "property_type_id" in updates:
+        primary_type_id, type_ids = _resolve_property_types(
+            updates.get("property_type_id", prop.property_type_id),
+            updates.get("property_type_ids", prop.property_type_ids),
+        )
+        updates["property_type_id"] = primary_type_id
+        updates["property_type_ids"] = type_ids
 
     for field, value in updates.items():
         setattr(prop, field, value)

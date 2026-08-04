@@ -10,6 +10,7 @@ import { PropertyFeaturesTable } from "@/components/property/property-features-t
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
+import { getListingBadge } from "@/lib/property-features";
 import { fetchProperty, fetchRelated } from "@/lib/server-api";
 import { Button } from "@/components/ui/button";
 
@@ -51,14 +52,13 @@ export default async function PropertyDetailPage({ params }: Props) {
         : [{ id: "fallback", url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200" }];
 
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
+  const listingBadge = getListingBadge(property);
 
   return (
     <>
       <div className="bg-navy-800 text-white py-12 px-6">
         <div className="max-w-7xl mx-auto">
-          {property.badge_label && (
-            <span className="badge-gold px-3 py-1 rounded text-xs mb-4 inline-block">{property.badge_label}</span>
-          )}
+          <span className="badge-gold px-3 py-1 rounded text-xs mb-4 inline-block">{listingBadge}</span>
           <h1 className="font-serif text-3xl md:text-5xl font-bold mb-3">{property.title}</h1>
           <div className="flex items-center gap-2 text-gray-200">
             <MapPin className="w-4 h-4 text-gold-500" />
@@ -84,19 +84,14 @@ export default async function PropertyDetailPage({ params }: Props) {
               )}
             </div>
 
+            <PropertyFeaturesTable property={property} />
+
             <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Description</h2>
             <div className="mb-8">
               <PropertyDescription content={property.description} />
             </div>
 
-            <PropertyMap
-              latitude={property.latitude}
-              longitude={property.longitude}
-              address={property.address}
-              title={property.title}
-            />
-
-            <PropertyFeaturesTable property={property} />
+            <PropertyMap address={property.address} title={property.title} />
 
             {(property.amenities?.length ?? 0) > 0 && (
               <>
