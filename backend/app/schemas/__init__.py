@@ -219,6 +219,7 @@ class PropertySearchParams(BaseModel):
     district_id: Optional[UUID] = None
     neighborhood_id: Optional[UUID] = None
     property_type_id: Optional[UUID] = None
+    property_type_slug: Optional[str] = None
     min_price: Optional[float] = None
     max_price: Optional[float] = None
     bedrooms: Optional[int] = None

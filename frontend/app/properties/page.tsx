@@ -22,6 +22,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
     district_id: params.district_id,
     neighborhood_id: params.neighborhood_id,
     property_type_id: params.property_type_id,
+    property_type_slug: params.property_type_slug,
     bedrooms: params.bedrooms ? parseInt(params.bedrooms) : undefined,
     min_price: params.min_price ? parseFloat(params.min_price) : undefined,
     max_price: params.max_price ? parseFloat(params.max_price) : undefined,

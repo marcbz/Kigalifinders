@@ -7,6 +7,7 @@ from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
+from sqlalchemy.orm.attributes import flag_modified
 
 from app.core.deps import require_admin
 from app.database.session import get_db
@@ -303,6 +304,7 @@ async def update_settings(
         setting = result.scalar_one_or_none()
         if setting:
             setting.value = item.value
+            flag_modified(setting, "value")
         else:
             db.add(Setting(key=item.key, value=item.value))
     await db.flush()

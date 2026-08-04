@@ -10,6 +10,7 @@ interface PropertyGridProps {
   eyebrow?: string;
   properties: PropertyListItem[];
   viewAllHref?: string;
+  viewAllLabel?: string;
   bgClass?: string;
 }
 
@@ -19,6 +20,7 @@ export function PropertyGridSection({
   eyebrow = "EXCLUSIVE LISTINGS",
   properties,
   viewAllHref = "/properties",
+  viewAllLabel = "View All Properties",
   bgClass = "bg-cream dark:bg-secondary",
 }: PropertyGridProps) {
   return (
@@ -37,13 +39,13 @@ export function PropertyGridSection({
           ))}
         </div>
 
-        {viewAllHref && (
+        {viewAllHref && properties.length > 0 && (
           <div className="text-center mt-12">
             <Link
               href={viewAllHref}
               className="inline-flex items-center gap-3 border-2 border-navy-800 dark:border-gold-500 text-navy-800 dark:text-gold-500 hover:bg-navy-800 hover:text-gold-500 dark:hover:bg-gold-500 dark:hover:text-navy-900 px-8 py-3.5 rounded-full font-semibold transition"
             >
-              View All Properties <ArrowRight className="w-4 h-4" />
+              {viewAllLabel} <ArrowRight className="w-4 h-4" />
             </Link>
           </div>
         )}
@@ -61,6 +63,7 @@ export function FurnishedSection({ properties }: { properties: PropertyListItem[
       eyebrow="FURNISHED CATALOGUE"
       properties={properties}
       viewAllHref="/properties?listing_type=furnished"
+      viewAllLabel="View All Furnished Homes"
       bgClass="bg-white dark:bg-background"
     />
   );
@@ -80,8 +83,8 @@ export function PlotsSection({ properties }: PlotsSectionProps) {
             <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3">Premium Plots for Sale</h2>
             <div className="section-divider mt-4" />
           </div>
-          <Link href="/properties?listing_type=sale" className="text-gold-500 font-semibold inline-flex items-center gap-2">
-            All Plots <ArrowRight className="w-4 h-4" />
+          <Link href="/properties?listing_type=sale&property_type_slug=plot" className="text-gold-500 font-semibold inline-flex items-center gap-2">
+            View All Plots <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -128,7 +131,7 @@ export function AreasSection({ neighborhoods }: AreasSectionProps) {
         </div>
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
           {neighborhoods.map((area) => (
-            <Link key={area.id} href={`/properties?location=${area.slug}`} className="area-card group">
+            <Link key={area.id} href={`/properties?neighborhood_id=${area.id}`} className="area-card group">
               <Image
                 src={area.image_url || areaImages[area.slug] || areaImages.gasabo}
                 alt={area.name}

@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, require_admin, require_staff
 from app.database.session import get_db
 from app.models import Property, PropertyImage, PropertyStatusEnum, User
+from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
 from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
 
@@ -78,6 +79,7 @@ def _search_params(
     district_id: Optional[UUID] = None,
     neighborhood_id: Optional[UUID] = None,
     property_type_id: Optional[UUID] = None,
+    property_type_slug: Optional[str] = None,
     min_price: Optional[float] = None,
     max_price: Optional[float] = None,
     bedrooms: Optional[int] = None,
@@ -91,7 +93,7 @@ def _search_params(
 ) -> PropertySearchParams:
     return PropertySearchParams(
         q=q, listing_type=listing_type, district_id=district_id, neighborhood_id=neighborhood_id,
-        property_type_id=property_type_id, min_price=min_price, max_price=max_price,
+        property_type_id=property_type_id, property_type_slug=property_type_slug, min_price=min_price, max_price=max_price,
         bedrooms=bedrooms, bathrooms=bathrooms, is_featured=is_featured, is_furnished=is_furnished,
         sort_by=sort_by, sort_order=sort_order, page=page, page_size=page_size,
     )
@@ -199,6 +201,7 @@ async def create_property(
     db.add(prop)
     await db.flush()
     await _sync_property_images(db, prop, data.images)
+    await sync_location_counts(db)
     repo = PropertyRepository(db)
     result = await repo.get_by_id(prop.id)
     return repo._to_list_item(result)
@@ -247,6 +250,7 @@ async def update_property(
     await db.flush()
     if images is not None:
         await _sync_property_images(db, prop, images)
+    await sync_location_counts(db)
     result = await repo.get_by_id(property_id)
     return repo._to_list_item(result)
 
@@ -262,3 +266,4 @@ async def delete_property(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     await db.delete(prop)
+    await sync_location_counts(db)

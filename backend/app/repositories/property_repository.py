@@ -14,6 +14,7 @@ from app.models import (
     Property,
     PropertyImage,
     PropertyStatusEnum,
+    PropertyType,
 )
 from app.schemas import PaginatedResponse, PropertyDetail, PropertyListItem, PropertySearchParams
 
@@ -126,6 +127,20 @@ class PropertyRepository:
                     Property.property_type_ids.contains([type_id_str]),
                 )
             )
+        if params.property_type_slug:
+            slug = params.property_type_slug.lower()
+            type_result = await self.db.execute(
+                select(PropertyType.id).where(PropertyType.slug == slug)
+            )
+            type_id = type_result.scalar_one_or_none()
+            if type_id:
+                type_id_str = str(type_id)
+                query = query.where(
+                    or_(
+                        Property.property_type_id == type_id,
+                        Property.property_type_ids.contains([type_id_str]),
+                    )
+                )
         if params.min_price is not None:
             query = query.where(Property.price >= params.min_price)
         if params.max_price is not None:
@@ -178,7 +193,54 @@ class PropertyRepository:
             .limit(limit)
         )
         if listing_type:
-            query = query.where(Property.listing_type == listing_type)
+            from app.models import ListingType
+            query = query.where(Property.listing_type == ListingType(listing_type))
+        result = await self.db.execute(query)
+        return [self._to_list_item(p) for p in result.scalars().all()]
+
+    async def get_featured_furnished(self, limit: int = 6) -> Sequence[PropertyListItem]:
+        from app.models import ListingType
+
+        query = (
+            self._base_query()
+            .where(
+                Property.status == PropertyStatusEnum.PUBLISHED,
+                Property.is_featured == True,
+                or_(
+                    Property.listing_type == ListingType.FURNISHED,
+                    Property.is_furnished == True,
+                ),
+            )
+            .order_by(Property.created_at.desc())
+            .limit(limit)
+        )
+        result = await self.db.execute(query)
+        return [self._to_list_item(p) for p in result.scalars().all()]
+
+    async def get_featured_plots(self, limit: int = 6) -> Sequence[PropertyListItem]:
+        from app.models import ListingType
+
+        plot_type = (
+            await self.db.execute(select(PropertyType.id).where(PropertyType.slug == "plot"))
+        ).scalar_one_or_none()
+        if not plot_type:
+            return []
+
+        plot_id_str = str(plot_type)
+        query = (
+            self._base_query()
+            .where(
+                Property.status == PropertyStatusEnum.PUBLISHED,
+                Property.is_featured == True,
+                Property.listing_type == ListingType.SALE,
+                or_(
+                    Property.property_type_id == plot_type,
+                    Property.property_type_ids.contains([plot_id_str]),
+                ),
+            )
+            .order_by(Property.created_at.desc())
+            .limit(limit)
+        )
         result = await self.db.execute(query)
         return [self._to_list_item(p) for p in result.scalars().all()]
 

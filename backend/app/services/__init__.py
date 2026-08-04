@@ -23,6 +23,7 @@ from app.models import (
     Testimonial,
     User,
 )
+from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
 from app.schemas import (
     BlogPostListItem,
@@ -32,7 +33,6 @@ from app.schemas import (
     HomepageData,
     NeighborhoodResponse,
     PropertyListItem,
-    PropertySearchParams,
     SiteStats,
     TestimonialResponse,
     UserCreate,
@@ -91,6 +91,7 @@ class HomepageService:
         self.db = db
 
     async def get_homepage_data(self) -> HomepageData:
+        await sync_location_counts(self.db)
         prop_repo = PropertyRepository(self.db)
 
         total_props = (
@@ -109,9 +110,9 @@ class HomepageService:
             client_rating=settings_map.get("stats", {}).get("client_rating", 4.9),
         )
 
-        featured = await prop_repo.get_featured(limit=6)
-        furnished = await prop_repo.get_featured(limit=6, listing_type="furnished")
-        plots = await prop_repo.search(PropertySearchParams(listing_type="sale", page=1, page_size=3))
+        featured = await prop_repo.get_featured(limit=9)
+        furnished = await prop_repo.get_featured_furnished(limit=6)
+        plots = await prop_repo.get_featured_plots(limit=6)
 
         testimonials_result = await self.db.execute(
             select(Testimonial).where(Testimonial.is_active == True, Testimonial.is_featured == True).limit(3)
@@ -130,7 +131,6 @@ class HomepageService:
             .options(selectinload(Neighborhood.district))
             .where(Neighborhood.is_active == True)
             .order_by(Neighborhood.property_count.desc())
-            .limit(8)
         )
         neighborhoods = [
             NeighborhoodResponse(
@@ -143,7 +143,7 @@ class HomepageService:
         blog_result = await self.db.execute(
             select(BlogPost)
             .options(selectinload(BlogPost.category))
-            .where(BlogPost.is_published == True)
+            .where(BlogPost.is_published == True, BlogPost.is_featured == True)
             .order_by(BlogPost.published_at.desc())
             .limit(3)
         )
@@ -166,7 +166,7 @@ class HomepageService:
             stats=stats,
             featured_properties=featured,
             featured_furnished=furnished,
-            featured_plots=plots.items,
+            featured_plots=plots,
             testimonials=testimonials,
             districts=districts,
             neighborhoods=neighborhoods,

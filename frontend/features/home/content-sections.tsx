@@ -4,7 +4,7 @@ import { useState } from "react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import Link from "next/link";
 import Image from "next/image";
-import { Plus, Minus } from "lucide-react";
+import { ArrowRight, Plus, Minus } from "lucide-react";
 import type { BlogPost, FAQ } from "@/types";
 
 export function FAQSection({ faqs }: { faqs: FAQ[] }) {
@@ -68,12 +68,24 @@ export function BlogSection({ posts }: { posts: BlogPost[] }) {
             </Link>
           ))}
         </div>
+        {posts.length > 0 && (
+          <div className="text-center mt-12">
+            <Link
+              href="/blog"
+              className="inline-flex items-center gap-3 border-2 border-navy-800 dark:border-gold-500 text-navy-800 dark:text-gold-500 hover:bg-navy-800 hover:text-gold-500 dark:hover:bg-gold-500 dark:hover:text-navy-900 px-8 py-3.5 rounded-full font-semibold transition"
+            >
+              View All Posts <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
+        )}
       </div>
     </section>
   );
 }
 
 export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; whatsapp?: string }) {
+  const resolvedBookingUrl = bookingUrl?.trim() || "https://secure-guard.setmore.com/";
+  const resolvedWhatsapp = whatsapp?.trim() || "250784806641";
   return (
     <section id="contact" className="py-24 px-6 relative bg-gradient-to-br from-navy-800 to-navy-700">
       <div
@@ -93,10 +105,10 @@ export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; what
           Speak to a Kigalifinders advisor today. Book a free consultation and start your real estate journey.
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
-          <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
+          <a href={resolvedBookingUrl} target="_blank" rel="noopener noreferrer" className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             Book Free Consultation
           </a>
-          <a href={`https://wa.me/${whatsapp}?text=Hello%20Kigalifinders`} className="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
+          <a href={`https://wa.me/${resolvedWhatsapp}?text=Hello%20Kigalifinders`} className="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             WhatsApp Us
           </a>
         </div>

@@ -32,7 +32,7 @@ export function SearchBar() {
 
   const [activeTab, setActiveTab] = useState(() => {
     const lt = searchParams.get("listing_type") || "rent";
-    return lt === "furnished" ? "rent" : lt;
+    return lt === "furnished" ? "furnished" : lt;
   });
   const [districtId, setDistrictId] = useState(searchParams.get("district_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");

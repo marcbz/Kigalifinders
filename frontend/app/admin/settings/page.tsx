@@ -9,12 +9,32 @@ import { Plus, Trash2 } from "lucide-react";
 
 type SettingsMap = Record<string, Record<string, unknown>>;
 
+function parseSitePayload(site: Record<string, string>): Record<string, unknown> {
+  const payload: Record<string, unknown> = { ...site };
+  if (site.latitude?.trim()) {
+    const lat = parseFloat(site.latitude);
+    if (!Number.isNaN(lat)) payload.latitude = lat;
+  } else {
+    delete payload.latitude;
+  }
+  if (site.longitude?.trim()) {
+    const lng = parseFloat(site.longitude);
+    if (!Number.isNaN(lng)) payload.longitude = lng;
+  } else {
+    delete payload.longitude;
+  }
+  return payload;
+}
+
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
   const [site, setSite] = useState<Record<string, string>>({});
+  const [hero, setHero] = useState<Record<string, string>>({});
   const [social, setSocial] = useState<Record<string, string>>({});
   const [legal, setLegal] = useState<Record<string, string>>({});
   const [faqForm, setFaqForm] = useState({ question: "", answer: "" });
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-settings"],
@@ -29,7 +49,26 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     if (!settings) return;
     const s = settings as SettingsMap;
-    setSite((s.site as Record<string, string>) || {});
+    const siteData = (s.site as Record<string, unknown>) || {};
+    setSite({
+      phone: String(siteData.phone || ""),
+      whatsapp: String(siteData.whatsapp || ""),
+      address: String(siteData.address || ""),
+      hours: String(siteData.hours || ""),
+      booking_url: String(siteData.booking_url || ""),
+      email: String(siteData.email || ""),
+      latitude: siteData.latitude != null ? String(siteData.latitude) : "",
+      longitude: siteData.longitude != null ? String(siteData.longitude) : "",
+    });
+    const heroData = (s.hero as Record<string, unknown>) || {};
+    setHero({
+      tagline: String(heroData.tagline || ""),
+      title: String(heroData.title || ""),
+      subtitle: String(heroData.subtitle || ""),
+      background_image: String(heroData.background_image || ""),
+      cta_primary: String(heroData.cta_primary || ""),
+      cta_secondary: String(heroData.cta_secondary || ""),
+    });
     setSocial((s.social as Record<string, string>) || {});
     setLegal((s.legal as Record<string, string>) || {});
   }, [settings]);
@@ -37,11 +76,20 @@ export default function AdminSettingsPage() {
   const saveSettings = useMutation({
     mutationFn: () =>
       adminService.updateSettings([
-        { key: "site", value: site },
+        { key: "site", value: parseSitePayload(site) },
+        { key: "hero", value: hero },
         { key: "social", value: social },
         { key: "legal", value: legal },
       ]),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["admin-settings"] }),
+    onSuccess: () => {
+      setSaveMessage("Settings saved. Refresh the homepage to see updates.");
+      setSaveError(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+    },
+    onError: () => {
+      setSaveError("Failed to save settings. Please try again.");
+      setSaveMessage(null);
+    },
   });
 
   const createFaq = useMutation({
@@ -68,7 +116,24 @@ export default function AdminSettingsPage() {
 
   return (
     <div className="space-y-10 max-w-3xl">
-      <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Site Settings</h2>
+      <div>
+        <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Site Settings</h2>
+        <p className="text-sm text-gray-500 mt-1">Updates apply to the homepage hero, contact section, map, and CTAs.</p>
+      </div>
+
+      <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
+        <h3 className="font-semibold">Homepage Hero</h3>
+        {["tagline", "title", "subtitle", "background_image", "cta_primary", "cta_secondary"].map((key) => (
+          <input
+            key={key}
+            className="lux-input"
+            placeholder={key.replace(/_/g, " ")}
+            value={hero[key] || ""}
+            onChange={(e) => setHero({ ...hero, [key]: e.target.value })}
+          />
+        ))}
+        <p className="text-xs text-gray-500">Booking button uses the booking URL from Contact & Office below.</p>
+      </section>
 
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
         <h3 className="font-semibold">Contact & Office</h3>
@@ -76,7 +141,7 @@ export default function AdminSettingsPage() {
           <input
             key={key}
             className="lux-input"
-            placeholder={key.replace("_", " ")}
+            placeholder={key.replace(/_/g, " ")}
             value={site[key] || ""}
             onChange={(e) => setSite({ ...site, [key]: e.target.value })}
           />
@@ -107,6 +172,9 @@ export default function AdminSettingsPage() {
         <textarea className="lux-input min-h-[120px]" placeholder="Terms of Service" value={legal.terms_of_service || ""} onChange={(e) => setLegal({ ...legal, terms_of_service: e.target.value })} />
         <textarea className="lux-input min-h-[80px]" placeholder="Sitemap notes / URLs" value={legal.sitemap || ""} onChange={(e) => setLegal({ ...legal, sitemap: e.target.value })} />
       </section>
+
+      {saveMessage && <p className="text-sm text-green-600">{saveMessage}</p>}
+      {saveError && <p className="text-sm text-red-500">{saveError}</p>}
 
       <Button className="rounded-full" onClick={() => saveSettings.mutate()} disabled={saveSettings.isPending}>
         {saveSettings.isPending ? "Saving..." : "Save Settings"}
