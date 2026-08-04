@@ -17,7 +17,8 @@ export function SearchBar() {
   const searchParams = useSearchParams();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstAutoSearch = useRef(true);
-  const skipNextAutoSearch = useRef(false);
+  const skipNextAutoSearch = useRef(0);
+  const resetLock = useRef(false);
 
   const { data: neighborhoods = [] } = useQuery({
     queryKey: ["neighborhoods"],
@@ -44,8 +45,21 @@ export function SearchBar() {
   });
 
   useEffect(() => {
-    const lt = searchParams.get("listing_type") || "rent";
-    setActiveTab(lt === "furnished" ? "furnished" : lt);
+    if (resetLock.current) {
+      if (!searchParams.toString()) {
+        resetLock.current = false;
+        skipNextAutoSearch.current = 2;
+        setActiveTab("rent");
+        setNeighborhoodId("");
+        setPropertyTypeId("");
+        setBedrooms("");
+        setPriceRange("");
+      }
+      return;
+    }
+
+    const lt = searchParams.get("listing_type");
+    setActiveTab(lt === "furnished" ? "furnished" : lt || "rent");
     setPropertyTypeId(searchParams.get("property_type_id") || "");
     setBedrooms(searchParams.get("bedrooms") || "");
     const min = searchParams.get("min_price");
@@ -55,6 +69,8 @@ export function SearchBar() {
   }, [searchParams]);
 
   useEffect(() => {
+    if (resetLock.current) return;
+
     const slug = searchParams.get("neighborhood_slug");
     if (slug && neighborhoods.length) {
       const match = neighborhoods.find((n: { slug: string }) => n.slug === slug);
@@ -66,7 +82,16 @@ export function SearchBar() {
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
-    if (activeTab) params.set("listing_type", activeTab);
+    const propertyTypeSlug = searchParams.get("property_type_slug");
+    const hasOtherFilters =
+      neighborhoodId ||
+      propertyTypeId ||
+      bedrooms ||
+      priceRange ||
+      propertyTypeSlug;
+    if (activeTab && (hasOtherFilters || activeTab !== "rent")) {
+      params.set("listing_type", activeTab);
+    }
     if (neighborhoodId) params.set("neighborhood_id", neighborhoodId);
     if (propertyTypeId) params.set("property_type_id", propertyTypeId);
     if (bedrooms) params.set("bedrooms", bedrooms.replace("+", ""));
@@ -75,8 +100,7 @@ export function SearchBar() {
       if (min) params.set("min_price", min);
       if (max) params.set("max_price", max);
     }
-    const slug = searchParams.get("property_type_slug");
-    if (slug) params.set("property_type_slug", slug);
+    if (propertyTypeSlug) params.set("property_type_slug", propertyTypeSlug);
     return params;
   }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, searchParams]);
 
@@ -94,8 +118,9 @@ export function SearchBar() {
       skipFirstAutoSearch.current = false;
       return;
     }
-    if (skipNextAutoSearch.current) {
-      skipNextAutoSearch.current = false;
+    if (resetLock.current) return;
+    if (skipNextAutoSearch.current > 0) {
+      skipNextAutoSearch.current -= 1;
       return;
     }
     applySearch();
@@ -105,13 +130,10 @@ export function SearchBar() {
   }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, applySearch]);
 
   const handleReset = () => {
-    skipNextAutoSearch.current = true;
-    setActiveTab("rent");
-    setNeighborhoodId("");
-    setPropertyTypeId("");
-    setBedrooms("");
-    setPriceRange("");
-    router.push("/properties");
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    resetLock.current = true;
+    skipNextAutoSearch.current = 2;
+    router.replace("/properties");
   };
 
   return (
