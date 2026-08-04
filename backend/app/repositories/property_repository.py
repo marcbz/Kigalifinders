@@ -270,19 +270,30 @@ class PropertyRepository:
         result = await self.db.execute(query)
         return [self._to_list_item(p) for p in result.scalars().all()]
 
-    async def get_related(self, prop: Property, limit: int = 4) -> Sequence[PropertyListItem]:
-        conditions = [Property.district_id == prop.district_id]
-        if prop.property_type_id:
-            conditions.append(Property.property_type_id == prop.property_type_id)
-            conditions.append(Property.property_type_ids.contains([str(prop.property_type_id)]))
+    async def get_related(
+        self, prop: Property, page: int = 1, page_size: int = 12
+    ) -> PaginatedResponse[PropertyListItem]:
+        """All published listings (rent + sale) except the current property."""
         query = (
             self._base_query()
             .where(
                 Property.status == PropertyStatusEnum.PUBLISHED,
                 Property.id != prop.id,
-                or_(*conditions),
             )
-            .limit(limit)
+            .order_by(Property.created_at.desc())
         )
-        result = await self.db.execute(query)
-        return [self._to_list_item(p) for p in result.scalars().all()]
+
+        count_q = select(func.count()).select_from(query.subquery())
+        total = (await self.db.execute(count_q)).scalar() or 0
+
+        offset = (page - 1) * page_size
+        result = await self.db.execute(query.offset(offset).limit(page_size))
+        items = [self._to_list_item(p) for p in result.scalars().all()]
+
+        return PaginatedResponse(
+            items=items,
+            total=total,
+            page=page,
+            page_size=page_size,
+            pages=ceil(total / page_size) if page_size else 0,
+        )

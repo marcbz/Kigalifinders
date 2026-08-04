@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { Shield, Handshake, Headphones, MapPin, Quote, Star } from "lucide-react";
 import type { Testimonial } from "@/types";
+import { testimonialAvatarUrl } from "@/lib/testimonial-avatars";
 
 const features = [
   { icon: Shield, title: "Verified Listings", desc: "Every property is personally inspected and verified by our team." },
@@ -79,11 +80,11 @@ export function TestimonialsSection({ testimonials }: { testimonials: Testimonia
               <p className="text-gray-700 dark:text-gray-300 mb-6 leading-relaxed">&quot;{t.content}&quot;</p>
               <div className="flex items-center gap-4">
                 <Image
-                  src={t.avatar_url || `https://i.pravatar.cc/60?u=${t.id}`}
+                  src={testimonialAvatarUrl(t.name, t.avatar_url)}
                   alt={t.name}
                   width={48}
                   height={48}
-                  className="rounded-full"
+                  className="rounded-full object-cover ring-2 ring-gold-500/30"
                 />
                 <div>
                   <div className="font-semibold text-navy-800 dark:text-white">{t.name}</div>

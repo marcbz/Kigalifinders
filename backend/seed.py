@@ -206,15 +206,41 @@ async def seed():
             db.add(PropertyImage(property_id=prop.id, url=pdata["image"], is_primary=True, alt_text=pdata["title"]))
 
         testimonials = [
-            ("Aline Mukamana", "Homeowner", "Nyarutarama",
-             "Kigalifinders made finding our family home stress-free. Professional, responsive, and they truly understand the Kigali market."),
-            ("James Carter", "Expat Tenant", "Kibagabaga",
-             "As an expat moving to Kigali, I needed a partner I could trust. The team went above and beyond."),
-            ("Patrick Niyonzima", "Investor", "Kicukiro",
-             "I bought a plot through Kigalifinders. Transparent process, all documents verified, and zero surprises."),
+            (
+                "Aline Mukamana",
+                "Homeowner",
+                "Nyarutarama",
+                "Kigalifinders made finding our family home stress-free. Professional, responsive, and they truly understand the Kigali market.",
+                "https://images.unsplash.com/photo-1573497019940-1c056c886f2e?w=200&h=200&fit=crop&crop=face",
+            ),
+            (
+                "James Carter",
+                "Expat Tenant",
+                "Kibagabaga",
+                "As an expat moving to Kigali, I needed a partner I could trust. The team went above and beyond.",
+                "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=200&h=200&fit=crop&crop=face",
+            ),
+            (
+                "Patrick Niyonzima",
+                "Investor",
+                "Kicukiro",
+                "I bought a plot through Kigalifinders. Transparent process, all documents verified, and zero surprises.",
+                "https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=200&h=200&fit=crop&crop=face",
+            ),
         ]
-        for i, (name, role, loc, content) in enumerate(testimonials):
-            db.add(Testimonial(name=name, role=role, location=loc, content=content, rating=5, is_featured=True, sort_order=i))
+        for i, (name, role, loc, content, avatar) in enumerate(testimonials):
+            db.add(
+                Testimonial(
+                    name=name,
+                    role=role,
+                    location=loc,
+                    content=content,
+                    avatar_url=avatar,
+                    rating=5,
+                    is_featured=True,
+                    sort_order=i,
+                )
+            )
 
         faqs = [
             ("Where can I rent a house in Kigali?",

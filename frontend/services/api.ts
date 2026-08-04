@@ -95,8 +95,12 @@ export const propertyService = {
     api.get<PropertyListItem[]>("/properties/featured", { params: { limit, listing_type } }).then((r) => r.data),
   getBySlug: (slug: string) =>
     api.get<PropertyDetail>(`/properties/${slug}`).then((r) => r.data),
-  related: (slug: string) =>
-    api.get<PropertyListItem[]>(`/properties/${slug}/related`).then((r) => r.data),
+  related: (slug: string, page = 1, pageSize = 12) =>
+    api
+      .get<PaginatedResponse<PropertyListItem>>(`/properties/${slug}/related`, {
+        params: { page, page_size: pageSize },
+      })
+      .then((r) => r.data),
   create: (data: PropertyCreatePayload) =>
     api.post<PropertyListItem>("/properties", data).then((r) => r.data),
   update: (id: string, data: PropertyUpdatePayload) =>

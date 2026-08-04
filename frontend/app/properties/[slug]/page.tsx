@@ -1,17 +1,16 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Bath, Bed, CalendarCheck, MapPin, Ruler } from "lucide-react";
-import { PropertyCard } from "@/components/property/property-card";
 import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyDescription } from "@/components/property/property-description";
 import { PropertyMap } from "@/components/property/property-map";
 import { PropertyFeaturesTable } from "@/components/property/property-features-table";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
+import { RelatedPropertiesSection } from "@/components/property/related-properties-section";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
 import { getListingBadge } from "@/lib/property-features";
-import { fetchProperty, fetchRelated, fetchHomepageSafe } from "@/lib/server-api";
+import { fetchProperty, fetchHomepageSafe } from "@/lib/server-api";
 import { Button } from "@/components/ui/button";
 
 interface Props {
@@ -37,9 +36,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function PropertyDetailPage({ params }: Props) {
   const { slug } = await params;
   let property;
-  let related = [];
   try {
-    [property, related] = await Promise.all([fetchProperty(slug), fetchRelated(slug)]);
+    property = await fetchProperty(slug);
   } catch {
     notFound();
   }
@@ -141,16 +139,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         </div>
       </section>
 
-      {related.length > 0 && (
-        <section className="py-16 px-6 bg-cream dark:bg-secondary">
-          <div className="max-w-7xl mx-auto">
-            <h2 className="font-serif text-3xl font-bold text-navy-800 dark:text-white mb-8">Related Properties</h2>
-            <div className="grid md:grid-cols-3 gap-8">
-              {related.map((p, i) => <PropertyCard key={p.id} property={p} index={i} />)}
-            </div>
-          </div>
-        </section>
-      )}
+      <RelatedPropertiesSection slug={slug} />
 
       <script
         type="application/ld+json"

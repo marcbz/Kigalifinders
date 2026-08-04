@@ -1,6 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, MapPin } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
 import type { PropertyListItem } from "@/types";
 
@@ -101,27 +100,20 @@ interface AreasSectionProps {
   neighborhoods: { id: string; name: string; slug: string; image_url?: string; property_count: number }[];
 }
 
-const areaImages: Record<string, string> = {
-  gasabo: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=600",
-  nyarugenge: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=600",
-  nyarutarama: "https://images.unsplash.com/photo-1518481612222-68bbe828ecd1?w=600",
-  kibagabaga: "https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=600",
-  kacyiru: "https://images.unsplash.com/photo-1564013434775-f71db0030976?w=600",
-  rebero: "https://images.unsplash.com/photo-1600585154526-990dced4db0d?w=600",
-  kiyovu: "https://images.unsplash.com/photo-1480714378408-67cf0d13bc1b?w=600",
-  gacuriro: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600",
-  kimihurura: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600",
-  kagugu: "https://images.unsplash.com/photo-1613977257363-707ba9348227?w=600",
-  kagarama: "https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=600",
-  remera: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?w=600",
-  bugesera: "https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=600",
-  musanze: "https://images.unsplash.com/photo-1542273917363-3b1817f69a2d?w=600",
-  kimironko: "https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=600",
-  kicukiro: "https://images.unsplash.com/photo-1605276374104-dee2a0ed3cd6?w=600",
-  gisozi: "https://images.unsplash.com/photo-1582407947304-fd86f028f716?w=600",
-};
+const AREA_GRADIENTS = [
+  "from-gold-400 to-amber-600",
+  "from-navy-600 to-navy-900",
+  "from-amber-500 to-orange-600",
+  "from-slate-600 to-slate-800",
+  "from-emerald-500 to-teal-700",
+  "from-violet-500 to-purple-700",
+  "from-rose-400 to-rose-600",
+  "from-cyan-500 to-blue-700",
+];
 
 export function AreasSection({ neighborhoods }: AreasSectionProps) {
+  const areas = neighborhoods.filter((area) => area.slug !== "nyamirambo");
+
   return (
     <section id="areas" className="py-20 px-6 bg-white dark:bg-background">
       <div className="max-w-7xl mx-auto">
@@ -133,19 +125,25 @@ export function AreasSection({ neighborhoods }: AreasSectionProps) {
             From bustling city centers to tranquil hillside neighborhoods, we know Kigali inside and out.
           </p>
         </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-5">
-          {neighborhoods.map((area) => (
-            <Link key={area.id} href={`/properties?neighborhood_slug=${area.slug}`} className="area-card group">
-              <Image
-                src={area.image_url || areaImages[area.slug] || areaImages.gasabo}
-                alt={area.name}
-                fill
-                className="object-cover transition-transform duration-700 group-hover:scale-110"
-                sizes="(max-width: 768px) 50vw, 25vw"
-              />
-              <div className="absolute bottom-5 left-5 z-10 text-white">
-                <div className="font-serif text-2xl font-bold">{area.name}</div>
-                <div className="text-xs text-gold-400 tracking-wider">{area.property_count} Properties</div>
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 md:gap-5">
+          {areas.map((area, index) => (
+            <Link
+              key={area.id}
+              href={`/properties?neighborhood_slug=${area.slug}`}
+              className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-gold-500/15 bg-cream/40 dark:bg-secondary/40 hover:border-gold-500/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
+            >
+              <div
+                className={`w-16 h-16 rounded-full bg-gradient-to-br ${AREA_GRADIENTS[index % AREA_GRADIENTS.length]} flex items-center justify-center shadow-md ring-4 ring-white dark:ring-background group-hover:scale-105 transition-transform`}
+              >
+                <MapPin className="w-7 h-7 text-white drop-shadow-sm" />
+              </div>
+              <div className="text-center min-w-0">
+                <div className="font-serif text-base md:text-lg font-bold text-navy-800 dark:text-white leading-tight">
+                  {area.name}
+                </div>
+                <div className="text-xs text-gold-600 dark:text-gold-400 tracking-wide mt-1 font-medium">
+                  {area.property_count} Properties
+                </div>
               </div>
             </Link>
           ))}

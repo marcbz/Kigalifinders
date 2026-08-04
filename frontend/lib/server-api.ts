@@ -64,13 +64,17 @@ export function fetchProperty(slug: string) {
   return fetchApi<PropertyDetail>(`/properties/${slug}`);
 }
 
-export async function fetchRelatedSafe(slug: string) {
-  const data = await fetchApiSafe<PropertyListItem[]>(`/properties/${slug}/related`);
-  return data ?? [];
+export async function fetchRelatedSafe(slug: string, page = 1, pageSize = 12) {
+  const data = await fetchApiSafe<PaginatedResponse<PropertyListItem>>(
+    `/properties/${slug}/related?page=${page}&page_size=${pageSize}`,
+  );
+  return data ?? { items: [], total: 0, page: 1, page_size: pageSize, pages: 0 };
 }
 
-export function fetchRelated(slug: string) {
-  return fetchApi<PropertyListItem[]>(`/properties/${slug}/related`);
+export function fetchRelated(slug: string, page = 1, pageSize = 12) {
+  return fetchApi<PaginatedResponse<PropertyListItem>>(
+    `/properties/${slug}/related?page=${page}&page_size=${pageSize}`,
+  );
 }
 
 export async function fetchPropertiesSafe(params: Record<string, string | number | undefined>) {

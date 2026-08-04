@@ -138,14 +138,19 @@ async def get_property(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     return prop
 
 
-@router.get("/{slug}/related", response_model=list[PropertyListItem])
-async def related_properties(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
+@router.get("/{slug}/related", response_model=PaginatedResponse[PropertyListItem])
+async def related_properties(
+    slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    page: int = Query(1, ge=1),
+    page_size: int = Query(12, ge=1, le=24),
+):
     repo = PropertyRepository(db)
     prop = await repo.get_by_slug(slug)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     db_prop = await repo.get_by_id(prop.id)
-    return await repo.get_related(db_prop)
+    return await repo.get_related(db_prop, page=page, page_size=page_size)
 
 
 @router.post("", response_model=PropertyListItem, status_code=status.HTTP_201_CREATED)
