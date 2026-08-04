@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
+import { neighborhoodsForHomepageDisplay } from "@/lib/homepage-areas";
 import type { PropertyListItem } from "@/types";
 
 interface PropertyGridProps {
