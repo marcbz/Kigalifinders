@@ -17,6 +17,7 @@ from app.models import (
     PropertyType,
 )
 from app.schemas import PaginatedResponse, PropertyDetail, PropertyListItem, PropertySearchParams
+from app.services.neighborhood_groups import expanded_neighborhood_slugs
 
 
 class PropertyRepository:
@@ -101,6 +102,28 @@ class PropertyRepository:
             created_at=prop.created_at,
         )
 
+    async def _resolve_neighborhood_ids(
+        self,
+        neighborhood_id: UUID | None,
+        neighborhood_slug: str | None,
+    ) -> list[UUID] | None:
+        slug = neighborhood_slug.lower() if neighborhood_slug else None
+        if neighborhood_id and not slug:
+            result = await self.db.execute(
+                select(Neighborhood.slug).where(Neighborhood.id == neighborhood_id)
+            )
+            slug = result.scalar_one_or_none()
+
+        if not slug:
+            return [neighborhood_id] if neighborhood_id else None
+
+        slugs = expanded_neighborhood_slugs(slug)
+        result = await self.db.execute(
+            select(Neighborhood.id).where(Neighborhood.slug.in_(slugs), Neighborhood.is_active == True)
+        )
+        ids = list(result.scalars().all())
+        return ids if ids else None
+
     async def search(self, params: PropertySearchParams, published_only: bool = True) -> PaginatedResponse[PropertyListItem]:
         query = self._base_query()
 
@@ -116,16 +139,11 @@ class PropertyRepository:
             query = query.where(Property.listing_type == params.listing_type)
         if params.district_id:
             query = query.where(Property.district_id == params.district_id)
-        if params.neighborhood_id:
-            query = query.where(Property.neighborhood_id == params.neighborhood_id)
-        if params.neighborhood_slug:
-            slug = params.neighborhood_slug.lower()
-            hood_result = await self.db.execute(
-                select(Neighborhood.id).where(Neighborhood.slug == slug)
-            )
-            hood_id = hood_result.scalar_one_or_none()
-            if hood_id:
-                query = query.where(Property.neighborhood_id == hood_id)
+        neighborhood_ids = await self._resolve_neighborhood_ids(
+            params.neighborhood_id, params.neighborhood_slug
+        )
+        if neighborhood_ids:
+            query = query.where(Property.neighborhood_id.in_(neighborhood_ids))
         if params.property_type_id:
             type_id = params.property_type_id
             type_id_str = str(type_id)

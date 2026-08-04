@@ -19,7 +19,7 @@ export function Footer({
   return (
     <footer className="pt-16 pb-8 px-6 bg-navy-900 text-slate-300">
       <div className="max-w-7xl mx-auto">
-        <div className="grid md:grid-cols-4 gap-10 mb-12">
+        <div className="grid md:grid-cols-3 gap-10 mb-12">
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-11 h-11 rounded-full bg-gold-500 flex items-center justify-center">
@@ -47,36 +47,6 @@ export function Footer({
             <ul className="space-y-2 text-sm">
               {["Houses for Rent", "Furnished Houses", "Plots for Sale", "Luxury Homes"].map((item) => (
                 <li key={item}><Link href="/properties" className="hover:text-gold-500 transition">{item}</Link></li>
-              ))}
-            </ul>
-          </div>
-
-          <div>
-            <h4 className="text-white font-semibold mb-5 tracking-wider text-sm">AREAS</h4>
-            <ul className="space-y-2 text-sm">
-              {[
-                "Rebero",
-                "Nyarutarama",
-                "Kibagabaga",
-                "Kiyovu",
-                "Gisozi",
-                "Remera",
-                "Gacuriro",
-                "Kacyiru",
-                "Kimihurura",
-                "Kagarama",
-                "Bugesera",
-                "Musanze",
-                "Kimironko",
-                "Gasabo",
-                "Nyarugenge",
-                "Kicukiro",
-              ].map((area) => (
-                <li key={area}>
-                  <Link href={`/properties?neighborhood_slug=${area.toLowerCase()}`} className="hover:text-gold-500 transition">
-                    {area}
-                  </Link>
-                </li>
               ))}
             </ul>
           </div>

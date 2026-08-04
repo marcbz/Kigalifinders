@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams, usePathname } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,7 @@ const tabs = [
 
 export function SearchBar() {
   const router = useRouter();
-  const pathname = usePathname();
   const searchParams = useSearchParams();
-  const isPropertiesPage = pathname === "/properties";
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstAutoSearch = useRef(true);
 
@@ -101,11 +99,6 @@ export function SearchBar() {
     };
   }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, applySearch]);
 
-  const hasFilters = useMemo(
-    () => neighborhoodId || propertyTypeId || bedrooms || priceRange || activeTab !== "rent",
-    [neighborhoodId, propertyTypeId, bedrooms, priceRange, activeTab],
-  );
-
   const handleReset = () => {
     setActiveTab("rent");
     setNeighborhoodId("");
@@ -177,7 +170,6 @@ export function SearchBar() {
               type="button"
               variant="outline"
               onClick={handleReset}
-              disabled={!hasFilters && isPropertiesPage}
               className="w-full rounded-md gap-2"
             >
               <RotateCcw className="w-4 h-4" />

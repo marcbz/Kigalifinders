@@ -3,6 +3,7 @@
 import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { locationService } from "@/services/api";
+import { neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
 
 export function ActivePropertyFilters() {
   const searchParams = useSearchParams();
@@ -16,14 +17,18 @@ export function ActivePropertyFilters() {
     queryFn: locationService.neighborhoods,
   });
 
-  const neighborhoodName =
-    neighborhoods.find((n: { id: string }) => n.id === neighborhoodId)?.name ||
+  const matched =
+    neighborhoods.find((n: { id: string }) => n.id === neighborhoodId) ||
     (neighborhoodSlug
-      ? neighborhoods.find((n: { slug: string }) => n.slug === neighborhoodSlug)?.name
+      ? neighborhoods.find((n: { slug: string }) => n.slug === neighborhoodSlug)
       : undefined);
 
   const chips: string[] = [];
-  if (neighborhoodName) chips.push(`Neighborhood: ${neighborhoodName}`);
+  if (matched) {
+    chips.push(
+      `Neighborhood: ${neighborhoodFilterLabel(matched.name, matched.slug)}`,
+    );
+  }
   if (listingType === "furnished") chips.push("Furnished");
   if (listingType === "sale") chips.push("For Sale");
   if (listingType === "rent") chips.push("For Rent");
