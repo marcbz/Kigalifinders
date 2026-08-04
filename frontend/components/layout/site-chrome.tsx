@@ -37,7 +37,7 @@ export function SiteChrome({
       <TopBar address={address} hours={hours} phone={phone} social={social} />
       <Navbar bookingUrl={bookingUrl} />
       <main>{children}</main>
-      <Footer phone={phone} whatsapp={whatsapp} address={address} hours={hours} bookingUrl={bookingUrl} />
+      <Footer phone={phone} whatsapp={whatsapp} address={address} hours={hours} bookingUrl={bookingUrl} social={social} />
       <FloatingCTAs phone={phone} whatsapp={whatsapp} />
     </>
   );

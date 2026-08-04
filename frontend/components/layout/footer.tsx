@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Facebook, Instagram, Linkedin, MapPin, Phone, Clock, CalendarCheck } from "lucide-react";
+import { Facebook, Instagram, Linkedin, MapPin, Phone, Clock, CalendarCheck, Youtube } from "lucide-react";
 
 interface FooterProps {
   phone?: string;
@@ -7,7 +7,15 @@ interface FooterProps {
   address?: string;
   hours?: string;
   bookingUrl?: string;
+  social?: Record<string, string>;
 }
+
+const SOCIAL_ICONS = [
+  { key: "facebook", Icon: Facebook, label: "Facebook" },
+  { key: "instagram", Icon: Instagram, label: "Instagram" },
+  { key: "linkedin", Icon: Linkedin, label: "LinkedIn" },
+  { key: "youtube", Icon: Youtube, label: "YouTube" },
+] as const;
 
 export function Footer({
   phone = "+250 784 806 641",
@@ -15,7 +23,10 @@ export function Footer({
   address = "KN 4 St, Kigali, Rwanda",
   hours = "Mon-Sat: 8AM-7PM",
   bookingUrl,
+  social = {},
 }: FooterProps) {
+  const defaultYoutube = "https://www.youtube.com";
+
   return (
     <footer className="pt-16 pb-8 px-6 bg-navy-900 text-slate-300">
       <div className="max-w-7xl mx-auto">
@@ -34,11 +45,23 @@ export function Footer({
               Rwanda&apos;s most trusted luxury real estate agency. Helping families and investors find their perfect property in Kigali since 2014.
             </p>
             <div className="flex gap-3">
-              {[Facebook, Instagram, Linkedin].map((Icon, i) => (
-                <a key={i} href="#" className="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gold-500 hover:border-gold-500 hover:text-navy-900 transition">
-                  <Icon className="w-4 h-4" />
-                </a>
-              ))}
+              {SOCIAL_ICONS.map(({ key, Icon, label }) => {
+                const href =
+                  social[key] ||
+                  (key === "youtube" ? defaultYoutube : "#");
+                return (
+                  <a
+                    key={key}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    className="w-9 h-9 rounded-full border border-gray-700 flex items-center justify-center hover:bg-gold-500 hover:border-gold-500 hover:text-navy-900 transition"
+                  >
+                    <Icon className="w-4 h-4" />
+                  </a>
+                );
+              })}
             </div>
           </div>
 

@@ -17,6 +17,7 @@ export function SearchBar() {
   const searchParams = useSearchParams();
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstAutoSearch = useRef(true);
+  const skipNextAutoSearch = useRef(false);
 
   const { data: neighborhoods = [] } = useQuery({
     queryKey: ["neighborhoods"],
@@ -93,6 +94,10 @@ export function SearchBar() {
       skipFirstAutoSearch.current = false;
       return;
     }
+    if (skipNextAutoSearch.current) {
+      skipNextAutoSearch.current = false;
+      return;
+    }
     applySearch();
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -100,6 +105,7 @@ export function SearchBar() {
   }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, applySearch]);
 
   const handleReset = () => {
+    skipNextAutoSearch.current = true;
     setActiveTab("rent");
     setNeighborhoodId("");
     setPropertyTypeId("");

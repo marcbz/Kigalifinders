@@ -218,7 +218,7 @@ async def seed():
                 "Expat Tenant",
                 "Kibagabaga",
                 "As an expat moving to Kigali, I needed a partner I could trust. The team went above and beyond.",
-                "https://images.unsplash.com/photo-1619895862022-09114b41f16a?w=120&h=120&fit=crop&crop=faces&auto=format&q=80",
+                "https://images.unsplash.com/photo-1507591064344-4c6ce005b128?w=96&h=96&fit=crop&crop=entropy&auto=format&q=80",
             ),
             (
                 "Patrick Niyonzima",
