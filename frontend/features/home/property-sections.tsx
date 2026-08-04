@@ -112,7 +112,8 @@ const AREA_GRADIENTS = [
 ];
 
 export function AreasSection({ neighborhoods }: AreasSectionProps) {
-  const areas = neighborhoods.filter((area) => area.slug !== "nyamirambo");
+  const hiddenSlugs = new Set(["nyamirambo", "kagarama"]);
+  const areas = neighborhoods.filter((area) => !hiddenSlugs.has(area.slug));
 
   return (
     <section id="areas" className="py-20 px-6 bg-white dark:bg-background">
@@ -140,9 +141,6 @@ export function AreasSection({ neighborhoods }: AreasSectionProps) {
               <div className="text-center min-w-0">
                 <div className="font-serif text-base md:text-lg font-bold text-navy-800 dark:text-white leading-tight">
                   {area.name}
-                </div>
-                <div className="text-xs text-gold-600 dark:text-gold-400 tracking-wide mt-1 font-medium">
-                  {area.property_count} Properties
                 </div>
               </div>
             </Link>
