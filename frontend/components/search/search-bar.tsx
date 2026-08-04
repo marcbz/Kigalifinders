@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { RotateCcw, Search } from "lucide-react";
+import { RotateCcw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 
@@ -13,19 +13,13 @@ const tabs = [
   { id: "plots", label: "Plots/Land" },
 ];
 
-const sortOptions = [
-  { value: "created_at-desc", label: "Newest", sort_by: "created_at", sort_order: "desc" },
-  { value: "created_at-asc", label: "Oldest", sort_by: "created_at", sort_order: "asc" },
-  { value: "price-asc", label: "Price: Low to High", sort_by: "price", sort_order: "asc" },
-  { value: "price-desc", label: "Price: High to Low", sort_by: "price", sort_order: "desc" },
-];
-
 export function SearchBar() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const isPropertiesPage = pathname === "/properties";
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const skipFirstAutoSearch = useRef(true);
 
   const { data: districts = [] } = useQuery({
     queryKey: ["districts"],
@@ -52,11 +46,6 @@ export function SearchBar() {
     const max = searchParams.get("max_price");
     if (!min && !max) return "";
     return `${min || ""}-${max || ""}`;
-  });
-  const [sort, setSort] = useState(() => {
-    const sortBy = searchParams.get("sort_by") || "created_at";
-    const sortOrder = searchParams.get("sort_order") || "desc";
-    return `${sortBy}-${sortOrder}`;
   });
 
   const buildParams = useCallback(() => {
@@ -85,51 +74,33 @@ export function SearchBar() {
       if (max) params.set("max_price", max);
     }
 
-    const sortOption = sortOptions.find((o) => o.value === sort);
-    if (sortOption) {
-      params.set("sort_by", sortOption.sort_by);
-      params.set("sort_order", sortOption.sort_order);
-    }
-
     return params;
-  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, sort, plotTypeId]);
+  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, plotTypeId]);
 
-  const applySearch = useCallback(
-    (immediate = false) => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+  const applySearch = useCallback(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
 
-      const navigate = () => {
-        const params = buildParams();
-        const query = params.toString();
-        router.push(query ? `/properties?${query}` : "/properties");
-      };
-
-      if (immediate) {
-        navigate();
-      } else {
-        debounceRef.current = setTimeout(navigate, 350);
-      }
-    },
-    [buildParams, router],
-  );
+    debounceRef.current = setTimeout(() => {
+      const params = buildParams();
+      const query = params.toString();
+      router.push(query ? `/properties?${query}` : "/properties");
+    }, 350);
+  }, [buildParams, router]);
 
   useEffect(() => {
-    if (!isPropertiesPage) return;
+    if (skipFirstAutoSearch.current) {
+      skipFirstAutoSearch.current = false;
+      return;
+    }
     applySearch();
     return () => {
       if (debounceRef.current) clearTimeout(debounceRef.current);
     };
-  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, sort, applySearch, isPropertiesPage]);
+  }, [activeTab, districtId, propertyTypeId, bedrooms, priceRange, applySearch]);
 
   const hasFilters = useMemo(
-    () =>
-      districtId ||
-      propertyTypeId ||
-      bedrooms ||
-      priceRange ||
-      sort !== "created_at-desc" ||
-      activeTab !== "rent",
-    [districtId, propertyTypeId, bedrooms, priceRange, sort, activeTab],
+    () => districtId || propertyTypeId || bedrooms || priceRange || activeTab !== "rent",
+    [districtId, propertyTypeId, bedrooms, priceRange, activeTab],
   );
 
   const handleReset = () => {
@@ -138,7 +109,6 @@ export function SearchBar() {
     setPropertyTypeId("");
     setBedrooms("");
     setPriceRange("");
-    setSort("created_at-desc");
     router.push("/properties");
   };
 
@@ -161,7 +131,7 @@ export function SearchBar() {
             </button>
           ))}
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-3 p-4">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-3 p-4">
           <div>
             <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">DISTRICT</label>
             <select className="lux-input" value={districtId} onChange={(e) => setDistrictId(e.target.value)}>
@@ -199,32 +169,17 @@ export function SearchBar() {
               <option value="5000-">$5,000+</option>
             </select>
           </div>
-          <div>
-            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">SORT BY</label>
-            <select className="lux-input" value={sort} onChange={(e) => setSort(e.target.value)}>
-              {sortOptions.map((opt) => (
-                <option key={opt.value} value={opt.value}>{opt.label}</option>
-              ))}
-            </select>
-          </div>
           <div className="flex items-end">
-            {isPropertiesPage ? (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleReset}
-                disabled={!hasFilters}
-                className="w-full rounded-md gap-2"
-              >
-                <RotateCcw className="w-4 h-4" />
-                Reset
-              </Button>
-            ) : (
-              <Button type="button" onClick={() => applySearch(true)} className="w-full rounded-md gap-2">
-                <Search className="w-4 h-4" />
-                Search
-              </Button>
-            )}
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleReset}
+              disabled={!hasFilters && isPropertiesPage}
+              className="w-full rounded-md gap-2"
+            >
+              <RotateCcw className="w-4 h-4" />
+              Reset
+            </Button>
           </div>
         </div>
       </div>

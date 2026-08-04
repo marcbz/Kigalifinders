@@ -23,6 +23,14 @@ export interface PropertyListItem {
   primary_image?: string;
   latitude?: number;
   longitude?: number;
+  realtor_name?: string;
+  has_balcony?: boolean;
+  has_kitchen?: boolean;
+  has_pool?: boolean;
+  has_parking?: boolean;
+  has_jacuzzi?: boolean;
+  has_garden?: boolean;
+  pets_allowed?: boolean;
 }
 
 export interface PropertyDetail extends PropertyListItem {

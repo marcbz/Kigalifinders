@@ -6,6 +6,7 @@ import { PropertyCard } from "@/components/property/property-card";
 import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyDescription } from "@/components/property/property-description";
 import { PropertyMap } from "@/components/property/property-map";
+import { PropertyFeaturesTable } from "@/components/property/property-features-table";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
@@ -95,7 +96,9 @@ export default async function PropertyDetailPage({ params }: Props) {
               title={property.title}
             />
 
-            {property.amenities.length > 0 && (
+            <PropertyFeaturesTable property={property} />
+
+            {(property.amenities?.length ?? 0) > 0 && (
               <>
                 <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Amenities</h2>
                 <div className="flex flex-wrap gap-3 mb-8">

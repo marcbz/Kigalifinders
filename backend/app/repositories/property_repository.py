@@ -61,6 +61,14 @@ class PropertyRepository:
             primary_image=primary,
             latitude=prop.latitude,
             longitude=prop.longitude,
+            realtor_name=prop.realtor_name,
+            has_balcony=prop.has_balcony,
+            has_kitchen=prop.has_kitchen,
+            has_pool=prop.has_pool,
+            has_parking=prop.has_parking,
+            has_jacuzzi=prop.has_jacuzzi,
+            has_garden=prop.has_garden,
+            pets_allowed=prop.pets_allowed,
         )
 
     def _to_detail(self, prop: Property) -> PropertyDetail:

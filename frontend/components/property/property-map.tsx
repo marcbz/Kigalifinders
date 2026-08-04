@@ -30,29 +30,30 @@ export function PropertyMap({ latitude, longitude, address, title }: PropertyMap
   return (
     <section className="mb-8">
       <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Location on Map</h2>
-      <div className="rounded-2xl overflow-hidden border border-gray-200 dark:border-border shadow-sm">
-        <div className="relative w-full aspect-[16/10] min-h-[280px] bg-gray-100 dark:bg-navy-900">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-5">
+        <div className="relative w-52 h-52 md:w-60 md:h-60 rounded-full overflow-hidden border-4 border-gold-500/25 shadow-lg shrink-0 bg-gray-100 dark:bg-navy-900">
           <iframe
             title={`Map location for ${title}`}
             src={embedUrl}
-            className="absolute inset-0 w-full h-full border-0"
+            className="absolute inset-0 w-full h-full border-0 scale-[1.4] origin-center"
             loading="lazy"
             allowFullScreen
             referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
+        <div className="text-sm text-gray-600 dark:text-gray-400">
+          {address && <p className="mb-3 leading-relaxed">{address}</p>}
+          <a
+            href={openUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 font-semibold text-gold-600 hover:text-gold-500 transition-colors"
+          >
+            <MapPin className="w-4 h-4" />
+            Open in Google Maps
+          </a>
+        </div>
       </div>
-      {(address || hasCoords) && (
-        <a
-          href={openUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-gold-600 hover:text-gold-500 transition-colors"
-        >
-          <MapPin className="w-4 h-4" />
-          {address || "Open in Google Maps"}
-        </a>
-      )}
     </section>
   );
 }

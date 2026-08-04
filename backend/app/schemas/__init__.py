@@ -99,6 +99,14 @@ class PropertyListItem(BaseModel):
     primary_image: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    realtor_name: Optional[str] = None
+    has_balcony: bool = False
+    has_kitchen: bool = False
+    has_pool: bool = False
+    has_parking: bool = False
+    has_jacuzzi: bool = False
+    has_garden: bool = False
+    pets_allowed: bool = False
 
 
 class PropertyDetail(PropertyListItem):
@@ -154,6 +162,14 @@ class PropertyCreate(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    realtor_name: Optional[str] = None
+    has_balcony: bool = False
+    has_kitchen: bool = False
+    has_pool: bool = False
+    has_parking: bool = False
+    has_jacuzzi: bool = False
+    has_garden: bool = False
+    pets_allowed: bool = False
     images: List[PropertyImageInput] = []
 
 
@@ -183,6 +199,14 @@ class PropertyUpdate(BaseModel):
     address: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
+    realtor_name: Optional[str] = None
+    has_balcony: Optional[bool] = None
+    has_kitchen: Optional[bool] = None
+    has_pool: Optional[bool] = None
+    has_parking: Optional[bool] = None
+    has_jacuzzi: Optional[bool] = None
+    has_garden: Optional[bool] = None
+    pets_allowed: Optional[bool] = None
     images: Optional[List[PropertyImageInput]] = None
 
 

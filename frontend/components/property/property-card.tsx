@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { motion } from "framer-motion";
 import type { PropertyListItem } from "@/types";
 import { formatPrice } from "@/lib/utils";
+import { getListingBadge } from "@/lib/property-features";
 
 interface PropertyCardProps {
   property: PropertyListItem;
@@ -15,6 +16,8 @@ interface PropertyCardProps {
 
 export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
   const isPlot = property.listing_type === "sale" && property.lot_size_sqm;
+
+  const listingBadge = getListingBadge(property);
 
   return (
     <motion.article
@@ -32,11 +35,12 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
           className="object-cover transition-transform duration-500 group-hover:scale-105"
           sizes="(max-width: 768px) 100vw, 33vw"
         />
-        {property.badge_label && (
-          <span className="absolute top-4 left-4 badge-gold px-3 py-1 rounded z-10">
-            {property.badge_label}
-          </span>
-        )}
+        <div className="absolute top-4 left-4 flex flex-col gap-2 z-10 max-w-[70%]">
+          <span className="badge-gold px-3 py-1 rounded">{listingBadge}</span>
+          {property.badge_label && property.badge_label !== listingBadge && (
+            <span className="badge-gold px-3 py-1 rounded opacity-90">{property.badge_label}</span>
+          )}
+        </div>
         <div className="absolute top-3.5 right-3.5 flex gap-2 z-10">
           {[Heart, ArrowLeftRight, Share2].map((Icon, i) => (
             <button

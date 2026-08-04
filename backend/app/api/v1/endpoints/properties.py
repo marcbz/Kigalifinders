@@ -170,6 +170,14 @@ async def create_property(
         address=data.address,
         latitude=data.latitude,
         longitude=data.longitude,
+        realtor_name=data.realtor_name,
+        has_balcony=data.has_balcony,
+        has_kitchen=data.has_kitchen,
+        has_pool=data.has_pool,
+        has_parking=data.has_parking,
+        has_jacuzzi=data.has_jacuzzi,
+        has_garden=data.has_garden,
+        pets_allowed=data.pets_allowed,
     )
     db.add(prop)
     await db.flush()

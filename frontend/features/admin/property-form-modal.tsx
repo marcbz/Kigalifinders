@@ -32,11 +32,20 @@ const defaultForm = {
   bedrooms: "",
   bathrooms: "",
   area_sqm: "",
+  lot_size_sqm: "",
   district_id: "",
   neighborhood_id: "",
   property_type_id: "",
+  realtor_name: "",
+  is_furnished_yn: "",
+  has_balcony: "",
+  has_kitchen: "",
+  has_pool: "",
+  has_parking: "",
+  has_jacuzzi: "",
+  has_garden: "",
+  pets_allowed: "",
   is_featured: false,
-  is_furnished: false,
   has_title_deed: false,
   badge_label: "",
   address: "",
@@ -45,6 +54,39 @@ const defaultForm = {
 };
 
 type ImageRow = { url: string; is_primary: boolean };
+
+function boolToYesNo(value?: boolean): string {
+  if (value === true) return "yes";
+  if (value === false) return "no";
+  return "";
+}
+
+function yesNoToBool(value: string): boolean | undefined {
+  if (value === "yes") return true;
+  if (value === "no") return false;
+  return undefined;
+}
+
+function YesNoField({
+  label,
+  value,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div>
+      <label className="text-xs font-semibold text-gray-500">{label}</label>
+      <select className="lux-input mt-1" value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="">—</option>
+        <option value="yes">Yes</option>
+        <option value="no">No</option>
+      </select>
+    </div>
+  );
+}
 
 export function PropertyFormModal({ property, open, onClose }: PropertyFormModalProps) {
   const queryClient = useQueryClient();
@@ -96,11 +138,20 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
         bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
         bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
         area_sqm: property.area_sqm != null ? String(property.area_sqm) : "",
+        lot_size_sqm: property.lot_size_sqm != null ? String(property.lot_size_sqm) : "",
         district_id: "",
         neighborhood_id: "",
         property_type_id: "",
+        realtor_name: detail?.realtor_name || "",
+        is_furnished_yn: boolToYesNo(property.is_furnished),
+        has_balcony: boolToYesNo(detail?.has_balcony),
+        has_kitchen: boolToYesNo(detail?.has_kitchen),
+        has_pool: boolToYesNo(detail?.has_pool),
+        has_parking: boolToYesNo(detail?.has_parking),
+        has_jacuzzi: boolToYesNo(detail?.has_jacuzzi),
+        has_garden: boolToYesNo(detail?.has_garden),
+        pets_allowed: boolToYesNo(detail?.pets_allowed),
         is_featured: property.is_featured,
-        is_furnished: property.is_furnished,
         has_title_deed: property.has_title_deed,
         badge_label: property.badge_label || "",
         address: detail?.address || "",
@@ -137,11 +188,20 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     bedrooms: form.bedrooms ? parseInt(form.bedrooms) : undefined,
     bathrooms: form.bathrooms ? parseInt(form.bathrooms) : undefined,
     area_sqm: form.area_sqm ? parseFloat(form.area_sqm) : undefined,
+    lot_size_sqm: form.lot_size_sqm ? parseFloat(form.lot_size_sqm) : undefined,
     district_id: form.district_id || undefined,
     neighborhood_id: form.neighborhood_id || undefined,
     property_type_id: form.property_type_id || undefined,
+    realtor_name: form.realtor_name.trim() || undefined,
+    is_furnished: yesNoToBool(form.is_furnished_yn) ?? false,
+    has_balcony: yesNoToBool(form.has_balcony) ?? false,
+    has_kitchen: yesNoToBool(form.has_kitchen) ?? false,
+    has_pool: yesNoToBool(form.has_pool) ?? false,
+    has_parking: yesNoToBool(form.has_parking) ?? false,
+    has_jacuzzi: yesNoToBool(form.has_jacuzzi) ?? false,
+    has_garden: yesNoToBool(form.has_garden) ?? false,
+    pets_allowed: yesNoToBool(form.pets_allowed) ?? false,
     is_featured: form.is_featured,
-    is_furnished: form.is_furnished,
     has_title_deed: form.has_title_deed,
     badge_label: form.badge_label.trim() || undefined,
     address: form.address.trim() || undefined,
@@ -260,18 +320,38 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                 ))}
               </select>
             </div>
+            <div className="md:col-span-2 pt-2">
+              <h4 className="text-sm font-semibold text-navy-800 dark:text-white mb-1">Property features</h4>
+              <p className="text-xs text-gray-400 mb-3">Shown in a clean table on the property page for buyers.</p>
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">REALTOR</label>
+              <input className="lux-input mt-1" placeholder="e.g. Ishimwe Marcel" value={form.realtor_name} onChange={(e) => setForm({ ...form, realtor_name: e.target.value })} />
+            </div>
+            <YesNoField label="FURNISHED" value={form.is_furnished_yn} onChange={(v) => setForm({ ...form, is_furnished_yn: v })} />
+            <YesNoField label="BALCONY" value={form.has_balcony} onChange={(v) => setForm({ ...form, has_balcony: v })} />
+            <div>
+              <label className="text-xs font-semibold text-gray-500">PLOT AREA (m²)</label>
+              <input type="number" min="0" className="lux-input mt-1" value={form.lot_size_sqm} onChange={(e) => setForm({ ...form, lot_size_sqm: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">LIVING AREA (m²)</label>
+              <input type="number" min="0" className="lux-input mt-1" value={form.area_sqm} onChange={(e) => setForm({ ...form, area_sqm: e.target.value })} />
+            </div>
+            <YesNoField label="KITCHEN" value={form.has_kitchen} onChange={(v) => setForm({ ...form, has_kitchen: v })} />
             <div>
               <label className="text-xs font-semibold text-gray-500">BEDROOMS</label>
               <input type="number" min="0" className="lux-input mt-1" value={form.bedrooms} onChange={(e) => setForm({ ...form, bedrooms: e.target.value })} />
             </div>
+            <YesNoField label="POOL" value={form.has_pool} onChange={(v) => setForm({ ...form, has_pool: v })} />
             <div>
               <label className="text-xs font-semibold text-gray-500">BATHROOMS</label>
               <input type="number" min="0" className="lux-input mt-1" value={form.bathrooms} onChange={(e) => setForm({ ...form, bathrooms: e.target.value })} />
             </div>
-            <div>
-              <label className="text-xs font-semibold text-gray-500">AREA (m²)</label>
-              <input type="number" min="0" className="lux-input mt-1" value={form.area_sqm} onChange={(e) => setForm({ ...form, area_sqm: e.target.value })} />
-            </div>
+            <YesNoField label="PARKING" value={form.has_parking} onChange={(v) => setForm({ ...form, has_parking: v })} />
+            <YesNoField label="JACUZZI" value={form.has_jacuzzi} onChange={(v) => setForm({ ...form, has_jacuzzi: v })} />
+            <YesNoField label="GARDEN" value={form.has_garden} onChange={(v) => setForm({ ...form, has_garden: v })} />
+            <YesNoField label="PETS ALLOWED" value={form.pets_allowed} onChange={(v) => setForm({ ...form, pets_allowed: v })} />
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">SHORT DESCRIPTION</label>
               <input className="lux-input mt-1" value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
@@ -339,10 +419,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.is_featured} onChange={(e) => setForm({ ...form, is_featured: e.target.checked })} />
                 Featured
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={form.is_furnished} onChange={(e) => setForm({ ...form, is_furnished: e.target.checked })} />
-                Furnished
               </label>
               <label className="flex items-center gap-2 text-sm">
                 <input type="checkbox" checked={form.has_title_deed} onChange={(e) => setForm({ ...form, has_title_deed: e.target.checked })} />

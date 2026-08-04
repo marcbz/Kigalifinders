@@ -64,6 +64,14 @@ export interface PropertyCreatePayload {
   address?: string;
   latitude?: number;
   longitude?: number;
+  realtor_name?: string;
+  has_balcony?: boolean;
+  has_kitchen?: boolean;
+  has_pool?: boolean;
+  has_parking?: boolean;
+  has_jacuzzi?: boolean;
+  has_garden?: boolean;
+  pets_allowed?: boolean;
   images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];
 }
 

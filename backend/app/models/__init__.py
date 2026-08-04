@@ -286,6 +286,15 @@ class Property(Base):
     tour_360_url: Mapped[str | None] = mapped_column(String(500))
     badge_label: Mapped[str | None] = mapped_column(String(50))
 
+    realtor_name: Mapped[str | None] = mapped_column(String(120))
+    has_balcony: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_kitchen: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_pool: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_parking: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_jacuzzi: Mapped[bool] = mapped_column(Boolean, default=False)
+    has_garden: Mapped[bool] = mapped_column(Boolean, default=False)
+    pets_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+
     views_count: Mapped[int] = mapped_column(Integer, default=0)
     meta_title: Mapped[str | None] = mapped_column(String(255))
     meta_description: Mapped[str | None] = mapped_column(String(500))
