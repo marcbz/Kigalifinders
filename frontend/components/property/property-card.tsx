@@ -8,6 +8,7 @@ import { motion } from "framer-motion";
 import type { PropertyListItem } from "@/types";
 import { formatPrice } from "@/lib/utils";
 import { getListingBadge, getPropertyAreaLabel } from "@/lib/property-features";
+import { blockPropertyImageContextMenu } from "@/lib/property-image-protect";
 
 interface PropertyCardProps {
   property: PropertyListItem;
@@ -27,13 +28,17 @@ export function PropertyCard({ property, index = 0 }: PropertyCardProps) {
       transition={{ duration: 0.6, delay: index * 0.1 }}
       className="property-card"
     >
-      <div className="relative overflow-hidden h-64">
+      <div
+        className="relative overflow-hidden h-64 select-none"
+        onContextMenu={blockPropertyImageContextMenu}
+      >
         <Image
           src={property.primary_image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800"}
           alt={property.title}
           fill
-          className="object-cover transition-transform duration-500 group-hover:scale-105"
+          className="object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
           sizes="(max-width: 768px) 100vw, 33vw"
+          draggable={false}
         />
         <span className="absolute top-4 left-4 badge-gold px-3 py-1 rounded z-10">
           {listingBadge}

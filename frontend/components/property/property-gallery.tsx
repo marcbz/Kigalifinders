@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { blockPropertyImageContextMenu } from "@/lib/property-image-protect";
 
 interface GalleryImage {
   id: string;
@@ -85,15 +86,17 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
           {images.map((img, index) => (
             <div
               key={img.id}
-              className="relative flex-shrink-0 w-full md:w-[85%] lg:w-[70%] h-[320px] md:h-[480px] lg:h-[560px] rounded-2xl overflow-hidden snap-center"
+              className="relative flex-shrink-0 w-full md:w-[85%] lg:w-[70%] h-[320px] md:h-[480px] lg:h-[560px] rounded-2xl overflow-hidden snap-center select-none"
+              onContextMenu={blockPropertyImageContextMenu}
             >
               <Image
                 src={img.url}
                 alt={img.alt_text || title}
                 fill
-                className="object-cover"
+                className="object-cover pointer-events-none"
                 sizes="(max-width: 768px) 100vw, 70vw"
                 priority={index === 0}
+                draggable={false}
               />
             </div>
           ))}
