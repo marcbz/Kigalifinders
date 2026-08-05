@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { RotateCcw, Search } from "lucide-react";
+import { Loader2, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 
@@ -39,6 +39,7 @@ export function SearchBar() {
     queryFn: locationService.propertyTypes,
   });
 
+  const [isResetting, setIsResetting] = useState(false);
   const [activeTab, setActiveTab] = useState(() => tabFromListingType(searchParams.get("listing_type")));
   const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhood_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
@@ -60,6 +61,7 @@ export function SearchBar() {
         setPropertyTypeId("");
         setBedrooms("");
         setPriceRange("");
+        setIsResetting(false);
       }
       return;
     }
@@ -132,6 +134,7 @@ export function SearchBar() {
 
   const handleReset = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    setIsResetting(true);
     resetLock.current = true;
     skipNextAutoSearch.current = 2;
     router.replace("/properties");
