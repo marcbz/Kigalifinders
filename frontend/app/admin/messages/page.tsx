@@ -1,14 +1,18 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { adminService } from "@/services/api";
 import { Shimmer, TableSkeleton } from "@/components/ui/shimmer";
 import { Button } from "@/components/ui/button";
+import { formatDateTime } from "@/lib/utils";
 import { Trash2, Mail } from "lucide-react";
 
 interface Inquiry {
   id: string;
+  property_id?: string;
   property_title?: string;
+  property_slug?: string;
   name: string;
   email: string;
   phone?: string;
@@ -79,19 +83,36 @@ export default function AdminMessagesPage() {
                   <th className="text-left p-4">Property</th>
                   <th className="text-left p-4">Contact</th>
                   <th className="text-left p-4">Message</th>
+                  <th className="text-left p-4">Time</th>
                   <th className="text-right p-4">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {(inquiries as Inquiry[]).map((item) => (
                   <tr key={item.id} className="border-b last:border-0">
-                    <td className="p-4 font-medium">{item.property_title || "—"}</td>
+                    <td className="p-4 font-medium">
+                      {item.property_slug ? (
+                        <Link
+                          href={`/properties/${item.property_slug}`}
+                          className="text-gold-600 hover:text-gold-500 hover:underline"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {item.property_title || "View property"}
+                        </Link>
+                      ) : (
+                        item.property_title || "—"
+                      )}
+                    </td>
                     <td className="p-4">
                       <div>{item.name}</div>
                       <a href={`mailto:${item.email}`} className="text-gold-600 text-xs">{item.email}</a>
                       {item.phone && <div className="text-xs text-gray-500">{item.phone}</div>}
                     </td>
                     <td className="p-4 text-gray-600 max-w-xs">{item.message}</td>
+                    <td className="p-4 text-gray-500 whitespace-nowrap text-xs">
+                      {formatDateTime(item.created_at)}
+                    </td>
                     <td className="p-4 text-right">
                       <button
                         type="button"
@@ -122,6 +143,7 @@ export default function AdminMessagesPage() {
                   <th className="text-left p-4">From</th>
                   <th className="text-left p-4">Subject</th>
                   <th className="text-left p-4">Message</th>
+                  <th className="text-left p-4">Time</th>
                   <th className="text-right p-4">Actions</th>
                 </tr>
               </thead>
@@ -135,15 +157,20 @@ export default function AdminMessagesPage() {
                     </td>
                     <td className="p-4">{msg.subject || "—"}</td>
                     <td className="p-4 text-gray-600 max-w-xs">{msg.message}</td>
-                    <td className="p-4 text-right flex justify-end gap-2">
-                      {!msg.is_read && (
-                        <Button size="sm" variant="outline" onClick={() => markRead.mutate(msg.id)} className="rounded-full">
-                          <Mail className="w-3 h-3" /> Mark read
-                        </Button>
-                      )}
-                      <button type="button" onClick={() => deleteMessage.mutate(msg.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                    <td className="p-4 text-gray-500 whitespace-nowrap text-xs">
+                      {formatDateTime(msg.created_at)}
+                    </td>
+                    <td className="p-4 text-right">
+                      <div className="flex justify-end gap-2">
+                        {!msg.is_read && (
+                          <Button size="sm" variant="outline" onClick={() => markRead.mutate(msg.id)} className="rounded-full">
+                            <Mail className="w-3 h-3" /> Mark read
+                          </Button>
+                        )}
+                        <button type="button" onClick={() => deleteMessage.mutate(msg.id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}

@@ -5,6 +5,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
+import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import type { PropertyListItem } from "@/types";
 import {
   locationService,
@@ -408,29 +409,22 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div className="md:col-span-2 space-y-3">
               <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES</label>
               <p className="text-xs text-gray-400">
-                Paste image URLs. Mark one as featured — it appears on the homepage catalogue.
+                Paste image URLs or upload from your device. Mark one as featured — it appears on the homepage catalogue.
               </p>
               {imageRows.map((row, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
                   <div className="flex-1">
-                    <input
-                      className="lux-input w-full"
-                      placeholder="https://..."
+                    <ImageUrlOrUpload
+                      label=""
+                      folder="kigalifinders/properties"
                       value={row.url}
-                      onChange={(e) => {
+                      onChange={(url) => {
                         const next = [...imageRows];
-                        next[idx] = { ...next[idx], url: e.target.value };
+                        next[idx] = { ...next[idx], url };
                         setImageRows(next);
                       }}
+                      previewClassName="h-16 w-24 rounded-lg object-cover border mt-2"
                     />
-                    {row.url && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={row.url}
-                        alt="Preview"
-                        className="h-16 w-24 rounded-lg object-cover border mt-2"
-                      />
-                    )}
                   </div>
                   <label className="flex items-center gap-1 text-xs whitespace-nowrap pt-2">
                     <input

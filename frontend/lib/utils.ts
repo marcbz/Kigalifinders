@@ -28,3 +28,11 @@ export function formatPrice(price: number, currency = "USD", period?: string | n
   }).format(price);
   return period ? `${formatted}/${period === "month" ? "mo" : period}` : formatted;
 }
+
+export function formatDateTime(value: string | Date) {
+  const date = typeof value === "string" ? new Date(value) : value;
+  return new Intl.DateTimeFormat("en-GB", {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(date);
+}

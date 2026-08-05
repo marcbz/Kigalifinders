@@ -32,6 +32,12 @@ Repository: `https://github.com/marcbz/Kigalifinders`
 | `SUPABASE_URL` | `https://hmfdvrdorvdjhbkvprij.supabase.co` |
 | `SUPABASE_PUBLISHABLE_KEY` | From Supabase dashboard |
 | `SUPABASE_SECRET_KEY` | From Supabase dashboard |
+| `CLOUDINARY_CLOUD_NAME` | From [Cloudinary Dashboard](https://cloudinary.com/console) |
+| `CLOUDINARY_API_KEY` | From Cloudinary Dashboard |
+| `CLOUDINARY_API_SECRET` | From Cloudinary Dashboard |
+
+> **Image uploads** (admin property/blog photos) require Cloudinary. After deploy, verify with  
+> `GET /api/v1/admin/upload/status` (while logged in as admin) — should return `{"configured": true, "provider": "cloudinary"}`.
 
 5. Deploy — your API will be at `https://kigalifinders-api.onrender.com`
 6. Verify: `https://kigalifinders-api.onrender.com/health`
@@ -60,6 +66,8 @@ Repository: `https://github.com/marcbz/Kigalifinders`
 
 ## 4. Post-Deploy Checklist
 
+- [ ] Set `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` on Render
+- [ ] Test image upload in Admin → Properties or Blog
 - [ ] Update `CORS_ORIGINS` on Render with your final Vercel URL
 - [ ] Update `FRONTEND_URL` on Render
 - [ ] Test homepage loads properties from API

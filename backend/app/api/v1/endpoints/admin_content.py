@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from sqlalchemy.orm.attributes import flag_modified
 
-from app.core.deps import require_admin
+from app.core.deps import require_admin, require_staff
 from app.database.session import get_db
 from app.models import BlogPost, ContactMessage, FAQ, Property, Setting, User, ViewingRequest
 from app.schemas import (
@@ -72,7 +72,7 @@ async def list_inquiries(
     user: Annotated[User, Depends(require_admin)],
 ):
     result = await db.execute(
-        select(ViewingRequest, Property.title)
+        select(ViewingRequest, Property.title, Property.slug)
         .join(Property, ViewingRequest.property_id == Property.id)
         .order_by(ViewingRequest.created_at.desc())
     )
@@ -81,6 +81,7 @@ async def list_inquiries(
             id=req.id,
             property_id=req.property_id,
             property_title=title,
+            property_slug=slug,
             name=req.name,
             email=req.email,
             phone=req.phone,
@@ -107,7 +108,7 @@ async def delete_inquiry(
 
 @router.post("/upload", response_model=UploadResponse)
 async def upload_media(
-    user: Annotated[User, Depends(require_admin)],
+    user: Annotated[User, Depends(require_staff)],
     file: UploadFile = File(...),
     folder: str = Form("kigalifinders"),
 ):
@@ -118,6 +119,26 @@ async def upload_media(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     return UploadResponse(url=url)
+
+
+@router.get("/upload/status")
+async def upload_status(user: Annotated[User, Depends(require_staff)]):
+    from app.core.config import settings
+
+    cloudinary_ready = bool(
+        settings.CLOUDINARY_CLOUD_NAME
+        and settings.CLOUDINARY_API_KEY
+        and settings.CLOUDINARY_API_SECRET
+    )
+    s3_ready = bool(
+        settings.AWS_S3_BUCKET
+        and settings.AWS_ACCESS_KEY_ID
+        and settings.AWS_SECRET_ACCESS_KEY
+    )
+    return {
+        "configured": cloudinary_ready or s3_ready,
+        "provider": "cloudinary" if cloudinary_ready else ("s3" if s3_ready else None),
+    }
 
 
 @router.get("/blog", response_model=list[AdminBlogPostListItem])

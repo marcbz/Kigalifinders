@@ -365,6 +365,7 @@ class ViewingRequestResponse(BaseModel):
     id: UUID
     property_id: Optional[UUID] = None
     property_title: Optional[str] = None
+    property_slug: Optional[str] = None
     name: str
     email: str
     phone: Optional[str] = None
