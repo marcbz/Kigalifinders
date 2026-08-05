@@ -211,12 +211,18 @@ export function SearchBar() {
               type="button"
               variant="outline"
               onClick={handleAction}
+              disabled={!isHomepage && isResetting}
               className="w-full rounded-md gap-2"
             >
               {isHomepage ? (
                 <>
                   <Search className="w-4 h-4" />
                   Search
+                </>
+              ) : isResetting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Resetting...
                 </>
               ) : (
                 <>
