@@ -70,7 +70,7 @@ export function fetchHomepage() {
 
 export async function fetchPropertySafe(slug: string) {
   const normalized = encodeURIComponent(slug.trim());
-  return fetchApiSafe<PropertyDetail>(`/properties/${normalized}`, { revalidate: DEFAULT_REVALIDATE });
+  return fetchApiSafe<PropertyDetail>(`/properties/${normalized}`, { noStore: true });
 }
 
 export function fetchProperty(slug: string) {

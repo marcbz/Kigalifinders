@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { RotateCcw, Search } from "lucide-react";
+import { Loader2, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 
@@ -40,6 +40,8 @@ export function SearchBar() {
     staleTime: 10 * 60 * 1000,
   });
 
+  const [isResetting, setIsResetting] = useState(false);
+  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [activeTab, setActiveTab] = useState(() => tabFromListingType(searchParams.get("listing_type")));
   const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhood_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
@@ -117,6 +119,8 @@ export function SearchBar() {
 
   const handleReset = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
+    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
+    setIsResetting(true);
     setActiveTab("all");
     setNeighborhoodId("");
     setPropertyTypeId("");
@@ -126,6 +130,7 @@ export function SearchBar() {
     if (pathname !== "/properties" || searchParams.toString()) {
       router.replace("/properties");
     }
+    resetTimerRef.current = setTimeout(() => setIsResetting(false), 1500);
   };
 
   const handleSearch = () => {
@@ -199,12 +204,18 @@ export function SearchBar() {
               type="button"
               variant="outline"
               onClick={handleAction}
+              disabled={!isHomepage && isResetting}
               className="w-full rounded-md gap-2"
             >
               {isHomepage ? (
                 <>
                   <Search className="w-4 h-4" />
                   Search
+                </>
+              ) : isResetting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Resetting...
                 </>
               ) : (
                 <>

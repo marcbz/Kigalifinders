@@ -1,6 +1,5 @@
 import axios from "axios";
 import type {
-  AnalyticsReport,
   BlogPost,
   FAQ,
   HomepageData,
@@ -143,8 +142,6 @@ export const authService = {
 
 export const adminService = {
   dashboard: () => api.get("/admin/dashboard").then((r) => r.data),
-  analytics: (days = 30) =>
-    api.get<AnalyticsReport>("/admin/analytics", { params: { days } }).then((r) => r.data),
   messages: () => api.get("/admin/messages").then((r) => r.data),
   inquiries: () => api.get("/admin/inquiries").then((r) => r.data),
   markMessageRead: (id: string) => api.patch(`/admin/messages/${id}/read`),

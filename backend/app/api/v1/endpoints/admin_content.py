@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,18 +26,8 @@ from app.schemas import (
     ViewingRequestResponse,
 )
 from app.services.media_upload import upload_image
-from app.services.analytics_service import AnalyticsService
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
-
-
-@router.get("/analytics")
-async def admin_analytics(
-    db: Annotated[AsyncSession, Depends(get_db)],
-    user: Annotated[User, Depends(require_admin)],
-    days: int = Query(30, ge=7, le=90),
-):
-    return await AnalyticsService(db).get_report(days=days)
 
 
 @router.get("/messages", response_model=list[ContactMessageResponse])

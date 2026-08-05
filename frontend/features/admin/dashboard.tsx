@@ -1,11 +1,9 @@
 "use client";
 
 import { Building2, Users, Mail, Eye, Home, FileText } from "lucide-react";
-import Link from "next/link";
 import { useQuery } from "@tanstack/react-query";
 import { adminService } from "@/services/api";
 import { Shimmer } from "@/components/ui/shimmer";
-import { Button } from "@/components/ui/button";
 
 function StatCard({ title, value, icon: Icon, color }: { title: string; value: number | string; icon: React.ElementType; color: string }) {
   return (
@@ -53,21 +51,15 @@ export function AdminDashboard() {
   ];
 
   return (
-    <div className="space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Dashboard Overview</h2>
-        <Button asChild className="rounded-full self-start">
-          <Link href="/admin/analytics">View Analytics</Link>
-        </Button>
-      </div>
+    <div className="space-y-6">
+      <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Dashboard Overview</h2>
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {cards.map((card) => (
           <StatCard key={card.title} {...card} />
         ))}
       </div>
       <p className="text-sm text-gray-500">
-        Total views across properties and blog: {(stats?.total_views ?? 0).toLocaleString()}. Open Analytics for growth charts,
-        device breakdown, and traffic sources.
+        Total views across properties and blog: {(stats?.total_views ?? 0).toLocaleString()}.
       </p>
     </div>
   );
