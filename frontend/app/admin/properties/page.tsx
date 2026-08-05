@@ -6,21 +6,63 @@ import Link from "next/link";
 import { propertyService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { PropertyFormModal } from "@/features/admin/property-form-modal";
-import type { PropertyListItem } from "@/types";
+import type { PropertyListItem, PropertySearchParams } from "@/types";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/shimmer";
 
-const PAGE_SIZE = 12;
+const PAGE_SIZE = 10;
+
+type AdminSortOption =
+  | "views"
+  | "latest"
+  | "oldest"
+  | "rent"
+  | "sale"
+  | "unfurnished"
+  | "furnished";
+
+const SORT_OPTIONS: { value: AdminSortOption; label: string }[] = [
+  { value: "views", label: "Views" },
+  { value: "latest", label: "Latest listing" },
+  { value: "oldest", label: "Oldest listing" },
+  { value: "rent", label: "Rent" },
+  { value: "sale", label: "Sale" },
+  { value: "unfurnished", label: "Unfurnished" },
+  { value: "furnished", label: "Furnished" },
+];
+
+function buildListParams(sortBy: AdminSortOption, page: number): PropertySearchParams {
+  const base = { page, page_size: PAGE_SIZE };
+  switch (sortBy) {
+    case "views":
+      return { ...base, sort_by: "views_count", sort_order: "desc" };
+    case "latest":
+      return { ...base, sort_by: "created_at", sort_order: "desc" };
+    case "oldest":
+      return { ...base, sort_by: "created_at", sort_order: "asc" };
+    case "rent":
+      return { ...base, listing_type: "rent", sort_by: "created_at", sort_order: "desc" };
+    case "sale":
+      return { ...base, listing_type: "sale", sort_by: "created_at", sort_order: "desc" };
+    case "unfurnished":
+      return { ...base, listing_type: "unfurnished", sort_by: "created_at", sort_order: "desc" };
+    case "furnished":
+      return { ...base, listing_type: "furnished", sort_by: "created_at", sort_order: "desc" };
+    default:
+      return { ...base, sort_by: "created_at", sort_order: "desc" };
+  }
+}
 
 export default function AdminPropertiesPage() {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PropertyListItem | null>(null);
   const [page, setPage] = useState(1);
+  const [sortBy, setSortBy] = useState<AdminSortOption>("latest");
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["admin-properties", page],
-    queryFn: () => propertyService.listAdmin({ page, page_size: PAGE_SIZE }),
+    queryKey: ["admin-properties", page, sortBy],
+    queryFn: () => propertyService.listAdmin(buildListParams(sortBy, page)),
     retry: false,
   });
 
@@ -44,15 +86,43 @@ export default function AdminPropertiesPage() {
     deleteMutation.mutate(property.id);
   };
 
+  const handleSortChange = (value: AdminSortOption) => {
+    setSortBy(value);
+    setPage(1);
+  };
+
   const totalPages = data?.pages ?? 1;
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 mb-6">
         <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Property Management</h2>
-        <Button className="rounded-full gap-2" onClick={openCreate}>
+        <Button className="rounded-full gap-2 self-start sm:self-auto" onClick={openCreate}>
           <Plus className="w-4 h-4" /> Add Property
         </Button>
+      </div>
+
+      <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <label className="text-sm text-gray-500 font-medium" htmlFor="admin-sort">
+          Sort by
+        </label>
+        <select
+          id="admin-sort"
+          className="lux-input max-w-xs"
+          value={sortBy}
+          onChange={(e) => handleSortChange(e.target.value as AdminSortOption)}
+        >
+          {SORT_OPTIONS.map((opt) => (
+            <option key={opt.value} value={opt.value}>
+              {opt.label}
+            </option>
+          ))}
+        </select>
+        {data && (
+          <span className="text-sm text-gray-400">
+            {data.total} {data.total === 1 ? "property" : "properties"}
+          </span>
+        )}
       </div>
 
       {error && (

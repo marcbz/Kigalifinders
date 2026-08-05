@@ -146,6 +146,11 @@ class PropertyRepository:
                         Property.is_furnished.is_(True),
                     )
                 )
+            elif lt == "unfurnished":
+                query = query.where(
+                    Property.is_furnished.is_(False),
+                    Property.listing_type != ListingType.FURNISHED,
+                )
             else:
                 query = query.where(Property.listing_type == ListingType(lt))
         if params.district_id:
