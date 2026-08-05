@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import Link from "next/link";
+import { Plus, Pencil, Trash2, ExternalLink } from "lucide-react";
 import { adminService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Shimmer, TableSkeleton } from "@/components/ui/shimmer";
@@ -172,8 +173,9 @@ export default function AdminBlogPage() {
 
               <ImageUrlOrUpload
                 label="Featured image"
-                hint="Hero image for the article and social previews. Paste a URL or upload from your device."
+                hint="Hero image for the article and social previews. Paste an image URL."
                 folder="kigalifinders/blog"
+                allowUpload={false}
                 value={form.featured_image}
                 onChange={(url) => setForm({ ...form, featured_image: url })}
                 previewClassName="h-32 w-full rounded-lg object-cover border"
@@ -296,7 +298,19 @@ export default function AdminBlogPage() {
               {(posts as BlogPost[]).map((post) => (
                 <tr key={post.id} className="border-b">
                   <td className="p-4">
-                    <div className="font-medium">{post.title}</div>
+                    {post.slug && post.is_published ? (
+                      <Link
+                        href={`/blog/${post.slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="group inline-flex items-start gap-1.5 font-medium hover:text-gold-500 transition"
+                      >
+                        <span>{post.title}</span>
+                        <ExternalLink className="w-3.5 h-3.5 mt-0.5 opacity-0 group-hover:opacity-100 transition shrink-0" />
+                      </Link>
+                    ) : (
+                      <div className="font-medium">{post.title}</div>
+                    )}
                     {post.slug && <div className="text-xs text-gray-400 mt-0.5">/blog/{post.slug}</div>}
                   </td>
                   <td className="p-4 capitalize">{post.is_published ? "published" : "draft"}</td>

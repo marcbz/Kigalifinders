@@ -13,6 +13,7 @@ interface ImageUrlOrUploadProps {
   hint?: string;
   folder?: string;
   previewClassName?: string;
+  allowUpload?: boolean;
 }
 
 export function ImageUrlOrUpload({
@@ -22,6 +23,7 @@ export function ImageUrlOrUpload({
   hint,
   folder = "kigalifinders",
   previewClassName = "h-24 w-full max-w-xs rounded-lg object-cover border",
+  allowUpload = true,
 }: ImageUrlOrUploadProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [uploading, setUploading] = useState(false);
@@ -52,28 +54,32 @@ export function ImageUrlOrUpload({
       <div className="flex gap-2 items-center">
         <input
           className="lux-input flex-1"
-          placeholder="https://... or upload from device"
+          placeholder={allowUpload ? "https://... or upload from device" : "https://..."}
           value={value}
           onChange={(e) => onChange(e.target.value)}
         />
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/jpeg,image/png,image/webp,image/gif"
-          className="hidden"
-          onChange={handleFile}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="rounded-full shrink-0 gap-1"
-          disabled={uploading}
-          onClick={() => inputRef.current?.click()}
-        >
-          {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
-          Upload
-        </Button>
+        {allowUpload && (
+          <>
+            <input
+              ref={inputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleFile}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="rounded-full shrink-0 gap-1"
+              disabled={uploading}
+              onClick={() => inputRef.current?.click()}
+            >
+              {uploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ImagePlus className="w-4 h-4" />}
+              Upload
+            </Button>
+          </>
+        )}
       </div>
       {error && <p className="text-xs text-red-500">{error}</p>}
       {value && (

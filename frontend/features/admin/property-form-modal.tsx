@@ -409,7 +409,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div className="md:col-span-2 space-y-3">
               <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES</label>
               <p className="text-xs text-gray-400">
-                Paste image URLs or upload from your device. Mark one as featured — it appears on the homepage catalogue.
+                Paste image URLs. Mark one as featured — it appears on the homepage catalogue.
               </p>
               {imageRows.map((row, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
@@ -417,6 +417,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                     <ImageUrlOrUpload
                       label=""
                       folder="kigalifinders/properties"
+                      allowUpload={false}
                       value={row.url}
                       onChange={(url) => {
                         const next = [...imageRows];

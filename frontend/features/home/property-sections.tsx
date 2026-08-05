@@ -74,23 +74,28 @@ interface PlotsSectionProps {
 }
 
 export function PlotsSection({ properties }: PlotsSectionProps) {
+  if (!properties.length) return null;
+
   return (
     <section className="py-20 px-6 bg-white dark:bg-background">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-4">
-          <div>
-            <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">INVESTMENT OPPORTUNITIES</span>
-            <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3">Premium Plots for Sale</h2>
-            <div className="section-divider mt-4" />
-          </div>
-          <Link href="/properties?listing_type=sale&property_type_slug=plot" className="text-gold-500 font-semibold inline-flex items-center gap-2">
-            View All Plots <ArrowRight className="w-4 h-4" />
-          </Link>
+        <div className="text-center mb-14">
+          <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">INVESTMENT OPPORTUNITIES</span>
+          <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-4">Premium Plots for Sale</h2>
+          <div className="section-divider mx-auto" />
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           {properties.map((property, i) => (
             <PropertyCard key={property.id} property={property} index={i} />
           ))}
+        </div>
+        <div className="text-center mt-12">
+          <Link
+            href="/properties?listing_type=sale&property_type_slug=plot"
+            className="inline-flex items-center gap-3 border-2 border-navy-800 dark:border-gold-500 text-navy-800 dark:text-gold-500 hover:bg-navy-800 hover:text-gold-500 dark:hover:bg-gold-500 dark:hover:text-navy-900 px-8 py-3.5 rounded-full font-semibold transition"
+          >
+            View All Plots <ArrowRight className="w-4 h-4" />
+          </Link>
         </div>
       </div>
     </section>
