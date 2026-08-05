@@ -24,6 +24,10 @@ api.interceptors.request.use((config) => {
     const token = localStorage.getItem("access_token");
     if (token) config.headers.Authorization = `Bearer ${token}`;
   }
+  // Let the browser set multipart boundary — default application/json breaks file uploads.
+  if (config.data instanceof FormData) {
+    delete config.headers["Content-Type"];
+  }
   return config;
 });
 
@@ -152,11 +156,7 @@ export const adminService = {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("folder", folder);
-    return api
-      .post<{ url: string }>("/admin/upload", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      })
-      .then((r) => r.data.url);
+    return api.post<{ url: string }>("/admin/upload", formData).then((r) => r.data.url);
   },
   faqs: () => api.get("/admin/faqs").then((r) => r.data),
   createFaq: (data: Record<string, unknown>) => api.post("/admin/faqs", data).then((r) => r.data),

@@ -30,11 +30,14 @@ def _upload_cloudinary(data: bytes, folder: str) -> str:
         api_key=settings.CLOUDINARY_API_KEY,
         api_secret=settings.CLOUDINARY_API_SECRET,
     )
-    result = cloudinary.uploader.upload(
-        data,
-        folder=folder,
-        resource_type="image",
-    )
+    try:
+        result = cloudinary.uploader.upload(
+            data,
+            folder=folder,
+            resource_type="image",
+        )
+    except Exception as exc:
+        raise ValueError(f"Cloudinary upload failed: {exc}") from exc
     return result["secure_url"]
 
 

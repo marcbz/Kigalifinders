@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2 } from "lucide-react";
 import { adminService } from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { getApiErrorMessage } from "@/lib/utils";
 
 interface ImageUrlOrUploadProps {
   value: string;
@@ -35,10 +36,7 @@ export function ImageUrlOrUpload({
       const url = await adminService.uploadImage(file, folder);
       onChange(url);
     } catch (err: unknown) {
-      const message =
-        (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail ||
-        "Failed to upload image";
-      setError(typeof message === "string" ? message : "Failed to upload image");
+      setError(getApiErrorMessage(err, "Failed to upload image"));
     } finally {
       setUploading(false);
       if (inputRef.current) inputRef.current.value = "";
