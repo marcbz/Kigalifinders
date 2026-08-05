@@ -133,7 +133,7 @@ async def featured_properties(
 @router.get("/{slug}", response_model=PropertyDetail)
 async def get_property(slug: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)]):
     repo = PropertyRepository(db)
-    prop = await repo.get_by_slug(slug, track_view=True)
+    prop = await repo.get_by_slug(slug, track_view=True, published_only=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     await AnalyticsService(db).record_page_view("property", str(prop.id), request)
@@ -148,7 +148,7 @@ async def related_properties(
     page_size: int = Query(12, ge=1, le=24),
 ):
     repo = PropertyRepository(db)
-    prop = await repo.get_by_slug(slug, track_view=False)
+    prop = await repo.get_by_slug(slug, track_view=False, published_only=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     db_prop = await repo.get_by_id(prop.id)

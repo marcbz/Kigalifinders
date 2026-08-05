@@ -4,7 +4,7 @@ import { PropertyCard } from "@/components/property/property-card";
 import { SearchBar } from "@/components/search/search-bar";
 import { ActivePropertyFilters } from "@/components/search/active-property-filters";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export const metadata = {
   title: "Properties",

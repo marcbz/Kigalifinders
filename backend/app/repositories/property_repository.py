@@ -216,8 +216,17 @@ class PropertyRepository:
             pages=ceil(total / params.page_size) if params.page_size else 0,
         )
 
-    async def get_by_slug(self, slug: str, track_view: bool = True) -> Optional[PropertyDetail]:
-        result = await self.db.execute(self._base_query().where(Property.slug == slug))
+    async def get_by_slug(
+        self,
+        slug: str,
+        track_view: bool = True,
+        published_only: bool = False,
+    ) -> Optional[PropertyDetail]:
+        normalized = slug.strip().lower()
+        query = self._base_query().where(Property.slug == normalized)
+        if published_only:
+            query = query.where(Property.status == PropertyStatusEnum.PUBLISHED)
+        result = await self.db.execute(query)
         prop = result.scalar_one_or_none()
         if not prop:
             return None

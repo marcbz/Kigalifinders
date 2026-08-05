@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
-import { Loader2, RotateCcw, Search } from "lucide-react";
+import { RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 
@@ -27,19 +27,19 @@ export function SearchBar() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const skipFirstAutoSearch = useRef(true);
   const skipNextAutoSearch = useRef(0);
-  const resetLock = useRef(false);
 
   const { data: neighborhoods = [] } = useQuery({
     queryKey: ["neighborhoods"],
     queryFn: locationService.neighborhoods,
+    staleTime: 10 * 60 * 1000,
   });
 
   const { data: propertyTypes = [] } = useQuery({
     queryKey: ["property-types"],
     queryFn: locationService.propertyTypes,
+    staleTime: 10 * 60 * 1000,
   });
 
-  const [isResetting, setIsResetting] = useState(false);
   const [activeTab, setActiveTab] = useState(() => tabFromListingType(searchParams.get("listing_type")));
   const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhood_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
@@ -52,20 +52,6 @@ export function SearchBar() {
   });
 
   useEffect(() => {
-    if (resetLock.current) {
-      if (!searchParams.toString()) {
-        resetLock.current = false;
-        skipNextAutoSearch.current = 2;
-        setActiveTab("all");
-        setNeighborhoodId("");
-        setPropertyTypeId("");
-        setBedrooms("");
-        setPriceRange("");
-        setIsResetting(false);
-      }
-      return;
-    }
-
     const lt = searchParams.get("listing_type");
     setActiveTab(tabFromListingType(lt));
     setPropertyTypeId(searchParams.get("property_type_id") || "");
@@ -77,8 +63,6 @@ export function SearchBar() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (resetLock.current) return;
-
     const slug = searchParams.get("neighborhood_slug");
     if (slug && neighborhoods.length) {
       const match = neighborhoods.find((n: { slug: string }) => n.slug === slug);
@@ -112,7 +96,7 @@ export function SearchBar() {
       const params = buildParams();
       const query = params.toString();
       router.push(query ? `/properties?${query}` : "/properties");
-    }, 350);
+    }, 250);
   }, [buildParams, router]);
 
   useEffect(() => {
@@ -121,7 +105,6 @@ export function SearchBar() {
       skipFirstAutoSearch.current = false;
       return;
     }
-    if (resetLock.current) return;
     if (skipNextAutoSearch.current > 0) {
       skipNextAutoSearch.current -= 1;
       return;
@@ -134,10 +117,15 @@ export function SearchBar() {
 
   const handleReset = () => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
-    setIsResetting(true);
-    resetLock.current = true;
+    setActiveTab("all");
+    setNeighborhoodId("");
+    setPropertyTypeId("");
+    setBedrooms("");
+    setPriceRange("");
     skipNextAutoSearch.current = 2;
-    router.replace("/properties");
+    if (pathname !== "/properties" || searchParams.toString()) {
+      router.replace("/properties");
+    }
   };
 
   const handleSearch = () => {
@@ -211,18 +199,12 @@ export function SearchBar() {
               type="button"
               variant="outline"
               onClick={handleAction}
-              disabled={!isHomepage && isResetting}
               className="w-full rounded-md gap-2"
             >
               {isHomepage ? (
                 <>
                   <Search className="w-4 h-4" />
                   Search
-                </>
-              ) : isResetting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Resetting...
                 </>
               ) : (
                 <>

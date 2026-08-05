@@ -10,35 +10,32 @@ import { RelatedPropertiesSection } from "@/components/property/related-properti
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
 import { getListingBadge } from "@/lib/property-features";
-import { fetchProperty, fetchHomepageSafe } from "@/lib/server-api";
+import { fetchPropertySafe } from "@/lib/server-api";
 import { Button } from "@/components/ui/button";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
-export const dynamic = "force-dynamic";
+export const revalidate = 60;
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const property = await fetchProperty(slug);
-    return {
-      title: property.meta_title || property.title,
-      description: property.meta_description || property.short_description,
-      openGraph: { images: property.primary_image ? [property.primary_image] : [] },
-    };
-  } catch {
+  const property = await fetchPropertySafe(slug);
+  if (!property) {
     return { title: "Property Not Found" };
   }
+  return {
+    title: property.meta_title || property.title,
+    description: property.meta_description || property.short_description,
+    openGraph: { images: property.primary_image ? [property.primary_image] : [] },
+  };
 }
 
 export default async function PropertyDetailPage({ params }: Props) {
   const { slug } = await params;
-  let property;
-  try {
-    property = await fetchProperty(slug);
-  } catch {
+  const property = await fetchPropertySafe(slug);
+  if (!property) {
     notFound();
   }
 
@@ -49,10 +46,8 @@ export default async function PropertyDetailPage({ params }: Props) {
         ? [{ id: "primary", url: property.primary_image }]
         : [{ id: "fallback", url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200" }];
 
-  const { data: homepage } = await fetchHomepageSafe();
-  const links = homepage.links || homepage.settings || {};
-  const bookingUrl = links.booking_url;
-  const whatsapp = links.whatsapp || process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
+  const bookingUrl = process.env.NEXT_PUBLIC_BOOKING_URL || "https://secure-guard.setmore.com/";
+  const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
   const listingBadge = getListingBadge(property);
 
   return (
@@ -115,13 +110,11 @@ export default async function PropertyDetailPage({ params }: Props) {
                 <p className="text-sm text-gray-500 mb-6">Agent: <strong>{property.agent_name}</strong></p>
               )}
               <div className="space-y-3">
-                {bookingUrl && (
                 <Button asChild className="w-full rounded-full">
                   <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
                     <CalendarCheck className="w-4 h-4" /> Schedule Viewing
                   </a>
                 </Button>
-                )}
                 <Button asChild variant="outline" className="w-full rounded-full gap-2">
                   <a
                     href={`https://wa.me/${whatsapp}?text=Interested in ${encodeURIComponent(property.title)}`}

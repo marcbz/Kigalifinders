@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { fetchFaqsSafe } from "@/lib/server-api";
 import { FAQSection } from "@/features/home/content-sections";
 
-export const dynamic = "force-dynamic";
+export const revalidate = 300;
 
 export const metadata: Metadata = {
   title: "FAQ",
