@@ -2,6 +2,7 @@ import type { PropertyDetail } from "@/types";
 import { buildPropertyFeatureRows } from "@/lib/property-features";
 
 export function PropertyFeaturesTable({ property }: { property: PropertyDetail }) {
+  if (property.show_features_table === false) return null;
   const rows = buildPropertyFeatureRows(property);
   if (!rows.length) return null;
 

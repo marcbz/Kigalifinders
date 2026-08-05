@@ -203,6 +203,7 @@ async def create_property(
         has_jacuzzi=data.has_jacuzzi,
         has_garden=data.has_garden,
         pets_allowed=data.pets_allowed,
+        show_features_table=data.show_features_table,
     )
     db.add(prop)
     await db.flush()

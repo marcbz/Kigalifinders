@@ -73,6 +73,8 @@ class PropertyRepository:
             has_jacuzzi=prop.has_jacuzzi,
             has_garden=prop.has_garden,
             pets_allowed=prop.pets_allowed,
+            show_features_table=prop.show_features_table,
+            views_count=prop.views_count,
         )
 
     def _to_detail(self, prop: Property) -> PropertyDetail:
@@ -92,7 +94,6 @@ class PropertyRepository:
             virtual_tour_url=prop.virtual_tour_url,
             floor_plan_url=prop.floor_plan_url,
             tour_360_url=prop.tour_360_url,
-            views_count=prop.views_count,
             meta_title=prop.meta_title,
             meta_description=prop.meta_description,
             images=[img for img in prop.images],

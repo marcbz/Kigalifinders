@@ -7,17 +7,20 @@ import { propertyService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { PropertyFormModal } from "@/features/admin/property-form-modal";
 import type { PropertyListItem } from "@/types";
-import { Plus, Pencil, Trash2 } from "lucide-react";
-import { Shimmer, TableSkeleton } from "@/components/ui/shimmer";
+import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { TableSkeleton } from "@/components/ui/shimmer";
+
+const PAGE_SIZE = 12;
 
 export default function AdminPropertiesPage() {
   const queryClient = useQueryClient();
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<PropertyListItem | null>(null);
+  const [page, setPage] = useState(1);
 
   const { data, isLoading, error } = useQuery({
-    queryKey: ["admin-properties"],
-    queryFn: () => propertyService.listAdmin({ page_size: 100 }),
+    queryKey: ["admin-properties", page],
+    queryFn: () => propertyService.listAdmin({ page, page_size: PAGE_SIZE }),
     retry: false,
   });
 
@@ -40,6 +43,8 @@ export default function AdminPropertiesPage() {
     if (!window.confirm(`Delete "${property.title}"? This cannot be undone.`)) return;
     deleteMutation.mutate(property.id);
   };
+
+  const totalPages = data?.pages ?? 1;
 
   return (
     <div>
@@ -65,6 +70,7 @@ export default function AdminPropertiesPage() {
                 <th className="text-left p-4 font-semibold">Type</th>
                 <th className="text-left p-4 font-semibold">Price</th>
                 <th className="text-left p-4 font-semibold">Status</th>
+                <th className="text-left p-4 font-semibold">Views</th>
                 <th className="text-right p-4 font-semibold">Actions</th>
               </tr>
             </thead>
@@ -82,6 +88,9 @@ export default function AdminPropertiesPage() {
                     }`}>
                       {p.status}
                     </span>
+                  </td>
+                  <td className="p-4 text-gray-600 dark:text-gray-300">
+                    {(p.views_count ?? 0).toLocaleString()}
                   </td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2">
@@ -110,6 +119,46 @@ export default function AdminPropertiesPage() {
           </table>
           {(!data?.items || data.items.length === 0) && (
             <p className="text-center text-gray-500 py-12">No properties yet. Add your first listing.</p>
+          )}
+          {totalPages > 1 && (
+            <div className="flex flex-wrap items-center justify-center gap-2 p-4 border-t">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full gap-1"
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                <ChevronLeft className="w-4 h-4" />
+                Previous
+              </Button>
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setPage(p)}
+                  className={`min-w-9 h-9 rounded-full text-sm font-medium transition ${
+                    p === page
+                      ? "bg-navy-800 text-gold-500"
+                      : "border border-gray-200 dark:border-border hover:border-gold-500"
+                  }`}
+                >
+                  {p}
+                </button>
+              ))}
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="rounded-full gap-1"
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
           )}
         </div>
       )}

@@ -73,6 +73,7 @@ export interface PropertyCreatePayload {
   has_jacuzzi?: boolean;
   has_garden?: boolean;
   pets_allowed?: boolean;
+  show_features_table?: boolean;
   images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];
 }
 

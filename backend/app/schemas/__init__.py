@@ -108,6 +108,8 @@ class PropertyListItem(BaseModel):
     has_jacuzzi: bool = False
     has_garden: bool = False
     pets_allowed: bool = False
+    show_features_table: bool = True
+    views_count: int = 0
 
 
 class PropertyDetail(PropertyListItem):
@@ -119,7 +121,6 @@ class PropertyDetail(PropertyListItem):
     virtual_tour_url: Optional[str] = None
     floor_plan_url: Optional[str] = None
     tour_360_url: Optional[str] = None
-    views_count: int
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     images: List[PropertyImageResponse] = []
@@ -172,6 +173,7 @@ class PropertyCreate(BaseModel):
     has_jacuzzi: bool = False
     has_garden: bool = False
     pets_allowed: bool = False
+    show_features_table: bool = True
     images: List[PropertyImageInput] = []
 
 
@@ -210,6 +212,7 @@ class PropertyUpdate(BaseModel):
     has_jacuzzi: Optional[bool] = None
     has_garden: Optional[bool] = None
     pets_allowed: Optional[bool] = None
+    show_features_table: Optional[bool] = None
     images: Optional[List[PropertyImageInput]] = None
 
 

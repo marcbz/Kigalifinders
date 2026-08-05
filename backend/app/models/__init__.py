@@ -295,6 +295,7 @@ class Property(Base):
     has_jacuzzi: Mapped[bool] = mapped_column(Boolean, default=False)
     has_garden: Mapped[bool] = mapped_column(Boolean, default=False)
     pets_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
+    show_features_table: Mapped[bool] = mapped_column(Boolean, default=True)
 
     views_count: Mapped[int] = mapped_column(Integer, default=0)
     meta_title: Mapped[str | None] = mapped_column(String(255))

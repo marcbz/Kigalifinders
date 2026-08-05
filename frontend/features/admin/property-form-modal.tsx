@@ -5,7 +5,6 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
-import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import type { PropertyListItem } from "@/types";
 import {
   locationService,
@@ -45,6 +44,7 @@ const defaultForm = {
   has_jacuzzi: "",
   has_garden: "",
   pets_allowed: "",
+  show_features_table: true,
   is_featured: false,
   has_title_deed: false,
   badge_label: "",
@@ -155,6 +155,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
         has_jacuzzi: boolToYesNo(detail?.has_jacuzzi),
         has_garden: boolToYesNo(detail?.has_garden),
         pets_allowed: boolToYesNo(detail?.pets_allowed),
+        show_features_table: detail?.show_features_table !== false,
         is_featured: property.is_featured,
         has_title_deed: property.has_title_deed,
         badge_label: property.badge_label || "",
@@ -204,6 +205,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     has_jacuzzi: yesNoToBool(form.has_jacuzzi) ?? false,
     has_garden: yesNoToBool(form.has_garden) ?? false,
     pets_allowed: yesNoToBool(form.pets_allowed) ?? false,
+    show_features_table: form.show_features_table,
     is_featured: form.is_featured,
     has_title_deed: form.has_title_deed,
     badge_label: form.badge_label.trim() || undefined,
@@ -338,7 +340,17 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             </div>
             <div className="md:col-span-2 pt-2">
               <h4 className="text-sm font-semibold text-navy-800 dark:text-white mb-1">Property features</h4>
-              <p className="text-xs text-gray-400 mb-3">Shown in a clean table on the property page for buyers.</p>
+              <p className="text-xs text-gray-400 mb-3">
+                Optional table on the property page (realtor, furnished, pool, etc.). Turn off for plots/land where these fields do not apply.
+              </p>
+              <label className="flex items-center gap-2 text-sm mb-3">
+                <input
+                  type="checkbox"
+                  checked={form.show_features_table}
+                  onChange={(e) => setForm({ ...form, show_features_table: e.target.checked })}
+                />
+                Show property features table on listing page
+              </label>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500">REALTOR</label>
@@ -396,22 +408,29 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div className="md:col-span-2 space-y-3">
               <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES</label>
               <p className="text-xs text-gray-400">
-                Paste image URLs or upload from your device. Mark one as featured — it appears on the homepage catalogue.
+                Paste image URLs. Mark one as featured — it appears on the homepage catalogue.
               </p>
               {imageRows.map((row, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
                   <div className="flex-1">
-                    <ImageUrlOrUpload
-                      label=""
-                      folder="kigalifinders/properties"
+                    <input
+                      className="lux-input w-full"
+                      placeholder="https://..."
                       value={row.url}
-                      onChange={(url) => {
+                      onChange={(e) => {
                         const next = [...imageRows];
-                        next[idx] = { ...next[idx], url };
+                        next[idx] = { ...next[idx], url: e.target.value };
                         setImageRows(next);
                       }}
-                      previewClassName="h-16 w-24 rounded-lg object-cover border mt-2"
                     />
+                    {row.url && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={row.url}
+                        alt="Preview"
+                        className="h-16 w-24 rounded-lg object-cover border mt-2"
+                      />
+                    )}
                   </div>
                   <label className="flex items-center gap-1 text-xs whitespace-nowrap pt-2">
                     <input

@@ -32,6 +32,8 @@ export interface PropertyListItem {
   has_jacuzzi?: boolean;
   has_garden?: boolean;
   pets_allowed?: boolean;
+  show_features_table?: boolean;
+  views_count?: number;
 }
 
 export interface PropertyDetail extends PropertyListItem {
@@ -43,7 +45,6 @@ export interface PropertyDetail extends PropertyListItem {
   virtual_tour_url?: string;
   floor_plan_url?: string;
   tour_360_url?: string;
-  views_count: number;
   meta_title?: string;
   meta_description?: string;
   images: { id: string; url: string; alt_text?: string; is_primary: boolean }[];
