@@ -34,6 +34,8 @@ export interface PropertyListItem {
   pets_allowed?: boolean;
   show_features_table?: boolean;
   views_count?: number;
+  published_at?: string;
+  created_at?: string;
 }
 
 export interface PropertyDetail extends PropertyListItem {
@@ -74,6 +76,9 @@ export interface BlogPost {
   category_name?: string;
   read_time_minutes: number;
   published_at?: string;
+  views_count?: number;
+  created_at?: string;
+  is_published?: boolean;
 }
 
 export interface FAQ {
@@ -174,4 +179,64 @@ export interface PropertyType {
   id: string;
   name: string;
   slug: string;
+}
+
+export interface DashboardStats {
+  total_properties: number;
+  published_properties: number;
+  total_users: number;
+  total_agents: number;
+  pending_appointments: number;
+  unread_messages: number;
+  newsletter_subscribers: number;
+  property_views: number;
+  blog_views: number;
+  total_views: number;
+}
+
+export interface AnalyticsReport {
+  period_days: number;
+  daily_views: { date: string; property: number; blog: number; total: number }[];
+  period_totals: { property_views: number; blog_views: number; total_views: number };
+  all_time_totals: { property_views: number; blog_views: number; total_views: number };
+  devices: { name: string; value: number }[];
+  sources: { name: string; value: number }[];
+  top_properties: { title: string; slug: string; views_count: number; published_at?: string | null }[];
+  top_blog_posts: {
+    title: string;
+    slug: string;
+    views_count: number;
+    published_at?: string | null;
+    created_at?: string | null;
+  }[];
+}
+
+export interface DashboardStats {
+  total_properties: number;
+  published_properties: number;
+  total_users: number;
+  total_agents: number;
+  pending_appointments: number;
+  unread_messages: number;
+  newsletter_subscribers: number;
+  property_views: number;
+  blog_views: number;
+  total_views: number;
+}
+
+export interface AnalyticsReport {
+  period_days: number;
+  daily_views: { date: string; property: number; blog: number; total: number }[];
+  period_totals: { property_views: number; blog_views: number; total_views: number };
+  all_time_totals: { property_views: number; blog_views: number; total_views: number };
+  devices: { name: string; value: number }[];
+  sources: { name: string; value: number }[];
+  top_properties: { title: string; slug: string; views_count: number; published_at?: string | null }[];
+  top_blog_posts: {
+    title: string;
+    slug: string;
+    views_count: number;
+    published_at?: string | null;
+    created_at?: string | null;
+  }[];
 }

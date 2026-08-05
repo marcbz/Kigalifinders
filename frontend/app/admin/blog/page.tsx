@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Shimmer, TableSkeleton } from "@/components/ui/shimmer";
 import { RichTextEditor } from "@/components/admin/rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
+import type { BlogPost } from "@/types";
+import { formatDateTime } from "@/lib/utils";
 
 interface BlogFormState {
   title: string;
@@ -284,17 +286,27 @@ export default function AdminBlogPage() {
               <tr>
                 <th className="text-left p-4">Title</th>
                 <th className="text-left p-4">Status</th>
+                <th className="text-left p-4">Published</th>
+                <th className="text-left p-4">Created</th>
+                <th className="text-right p-4">Views</th>
                 <th className="text-right p-4">Actions</th>
               </tr>
             </thead>
             <tbody>
-              {(posts as { id: string; title: string; is_published?: boolean; slug?: string }[]).map((post) => (
+              {(posts as BlogPost[]).map((post) => (
                 <tr key={post.id} className="border-b">
                   <td className="p-4">
                     <div className="font-medium">{post.title}</div>
                     {post.slug && <div className="text-xs text-gray-400 mt-0.5">/blog/{post.slug}</div>}
                   </td>
                   <td className="p-4 capitalize">{post.is_published ? "published" : "draft"}</td>
+                  <td className="p-4 text-gray-500 text-sm">
+                    {post.published_at ? formatDateTime(post.published_at) : "—"}
+                  </td>
+                  <td className="p-4 text-gray-500 text-sm">
+                    {post.created_at ? formatDateTime(post.created_at) : "—"}
+                  </td>
+                  <td className="p-4 text-right text-gray-600">{(post.views_count ?? 0).toLocaleString()}</td>
                   <td className="p-4 text-right">
                     <div className="flex justify-end gap-2">
                       <button

@@ -110,6 +110,8 @@ class PropertyListItem(BaseModel):
     pets_allowed: bool = False
     show_features_table: bool = True
     views_count: int = 0
+    published_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
 
 class PropertyDetail(PropertyListItem):
@@ -305,6 +307,8 @@ class FAQUpdate(BaseModel):
 class AdminBlogPostListItem(BlogPostListItem):
     is_published: bool = False
     is_featured: bool = False
+    views_count: int = 0
+    created_at: Optional[datetime] = None
 
 
 class AdminBlogPostDetail(AdminBlogPostListItem):
@@ -469,4 +473,6 @@ class DashboardStats(BaseModel):
     pending_appointments: int
     unread_messages: int
     newsletter_subscribers: int
+    property_views: int
+    blog_views: int
     total_views: int

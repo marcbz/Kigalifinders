@@ -75,6 +75,8 @@ class PropertyRepository:
             pets_allowed=prop.pets_allowed,
             show_features_table=prop.show_features_table,
             views_count=prop.views_count,
+            published_at=prop.published_at,
+            created_at=prop.created_at,
         )
 
     def _to_detail(self, prop: Property) -> PropertyDetail:
@@ -214,13 +216,14 @@ class PropertyRepository:
             pages=ceil(total / params.page_size) if params.page_size else 0,
         )
 
-    async def get_by_slug(self, slug: str) -> Optional[PropertyDetail]:
+    async def get_by_slug(self, slug: str, track_view: bool = True) -> Optional[PropertyDetail]:
         result = await self.db.execute(self._base_query().where(Property.slug == slug))
         prop = result.scalar_one_or_none()
         if not prop:
             return None
-        prop.views_count += 1
-        await self.db.flush()
+        if track_view:
+            prop.views_count += 1
+            await self.db.flush()
         return self._to_detail(prop)
 
     async def get_by_id(self, property_id: UUID) -> Optional[Property]:

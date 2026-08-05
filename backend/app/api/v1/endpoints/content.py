@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -21,6 +21,7 @@ from app.schemas import (
     ViewingRequestCreate,
 )
 from app.services import DashboardService, HomepageService
+from app.services.analytics_service import AnalyticsService
 
 router = APIRouter(tags=["Public Content"])
 
@@ -64,7 +65,7 @@ async def blog_posts(db: Annotated[AsyncSession, Depends(get_db)]):
 
 
 @router.get("/blog/{slug}", response_model=BlogPostDetail)
-async def blog_detail(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
+async def blog_detail(slug: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(
         select(BlogPost)
         .options(selectinload(BlogPost.category), selectinload(BlogPost.tags))
@@ -75,6 +76,7 @@ async def blog_detail(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
         raise HTTPException(status_code=404, detail="Post not found")
     post.views_count += 1
     await db.flush()
+    await AnalyticsService(db).record_page_view("blog", str(post.id), request)
     return BlogPostDetail(
         id=post.id, title=post.title, slug=post.slug, excerpt=post.excerpt,
         featured_image=post.featured_image,

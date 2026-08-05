@@ -7,6 +7,7 @@ import { propertyService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { PropertyFormModal } from "@/features/admin/property-form-modal";
 import type { PropertyListItem, PropertySearchParams } from "@/types";
+import { formatDateTime } from "@/lib/utils";
 import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/shimmer";
 
@@ -140,6 +141,7 @@ export default function AdminPropertiesPage() {
                 <th className="text-left p-4 font-semibold">Type</th>
                 <th className="text-left p-4 font-semibold">Price</th>
                 <th className="text-left p-4 font-semibold">Status</th>
+                <th className="text-left p-4 font-semibold">Published</th>
                 <th className="text-left p-4 font-semibold">Views</th>
                 <th className="text-right p-4 font-semibold">Actions</th>
               </tr>
@@ -158,6 +160,9 @@ export default function AdminPropertiesPage() {
                     }`}>
                       {p.status}
                     </span>
+                  </td>
+                  <td className="p-4 text-gray-500 text-sm">
+                    {p.published_at ? formatDateTime(p.published_at) : "—"}
                   </td>
                   <td className="p-4 text-gray-600 dark:text-gray-300">
                     {(p.views_count ?? 0).toLocaleString()}

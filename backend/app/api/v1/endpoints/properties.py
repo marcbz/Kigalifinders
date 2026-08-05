@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ from app.models import Property, PropertyImage, PropertyStatusEnum, User
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
 from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
+from app.services.analytics_service import AnalyticsService
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
@@ -130,11 +131,12 @@ async def featured_properties(
 
 
 @router.get("/{slug}", response_model=PropertyDetail)
-async def get_property(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
+async def get_property(slug: str, request: Request, db: Annotated[AsyncSession, Depends(get_db)]):
     repo = PropertyRepository(db)
-    prop = await repo.get_by_slug(slug)
+    prop = await repo.get_by_slug(slug, track_view=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    await AnalyticsService(db).record_page_view("property", str(prop.id), request)
     return prop
 
 
@@ -146,7 +148,7 @@ async def related_properties(
     page_size: int = Query(12, ge=1, le=24),
 ):
     repo = PropertyRepository(db)
-    prop = await repo.get_by_slug(slug)
+    prop = await repo.get_by_slug(slug, track_view=False)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     db_prop = await repo.get_by_id(prop.id)

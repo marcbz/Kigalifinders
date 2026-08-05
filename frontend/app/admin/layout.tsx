@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Link2, Home, Mail, Settings, FileText, BarChart3, LogOut } from "lucide-react";
+import { Link2, Home, Mail, Settings, FileText, BarChart3, LogOut, LineChart } from "lucide-react";
 import { AdminAuthGuard } from "@/components/admin/auth-guard";
 import { clearAuthTokens } from "@/lib/auth";
 
 const sidebarLinks = [
   { href: "/admin", label: "Dashboard", icon: BarChart3 },
+  { href: "/admin/analytics", label: "Analytics", icon: LineChart },
   { href: "/admin/properties", label: "Properties", icon: Home },
   { href: "/admin/messages", label: "Messages", icon: Mail },
   { href: "/admin/blog", label: "Blog", icon: FileText },
@@ -43,7 +44,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={href}
                 href={href}
                 className={`flex items-center gap-3 px-4 py-3 rounded-lg text-sm transition ${
-                  pathname === href ? "bg-navy-700 text-gold-500" : "hover:bg-navy-700"
+                  pathname === href || (href !== "/admin" && pathname.startsWith(href))
+                    ? "bg-navy-700 text-gold-500"
+                    : "hover:bg-navy-700"
                 }`}
               >
                 <Icon className="w-4 h-4 text-gold-500" />

@@ -212,7 +212,10 @@ class DashboardService:
         subscribers = (await self.db.execute(
             select(func.count()).select_from(Newsletter).where(Newsletter.is_active == True)
         )).scalar() or 0
-        total_views = (await self.db.execute(select(func.sum(Property.views_count)))).scalar() or 0
+        total_property_views = (await self.db.execute(select(func.sum(Property.views_count)))).scalar() or 0
+        total_blog_views = (await self.db.execute(select(func.sum(BlogPost.views_count)))).scalar() or 0
+        property_views = int(total_property_views)
+        blog_views = int(total_blog_views)
 
         return DashboardStats(
             total_properties=total_properties,
@@ -222,5 +225,7 @@ class DashboardService:
             pending_appointments=pending_appts,
             unread_messages=unread,
             newsletter_subscribers=subscribers,
-            total_views=int(total_views),
+            property_views=property_views,
+            blog_views=blog_views,
+            total_views=property_views + blog_views,
         )
