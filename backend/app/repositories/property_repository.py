@@ -17,7 +17,7 @@ from app.models import (
     PropertyStatusEnum,
     PropertyType,
 )
-from app.schemas import PaginatedResponse, PropertyDetail, PropertyListItem, PropertySearchParams
+from app.schemas import PaginatedResponse, PropertyDetail, PropertyImageResponse, PropertyListItem, PropertySearchParams
 from app.core.neighborhood_groups import expanded_neighborhood_slugs
 
 
@@ -98,12 +98,10 @@ class PropertyRepository:
             tour_360_url=prop.tour_360_url,
             meta_title=prop.meta_title,
             meta_description=prop.meta_description,
-            images=[img for img in prop.images],
+            images=[PropertyImageResponse.model_validate(img) for img in prop.images],
             amenities=[a.name for a in prop.amenities],
             agent_name=agent_name,
             agent_phone=agent_phone,
-            published_at=prop.published_at,
-            created_at=prop.created_at,
         )
 
     async def _resolve_neighborhood_ids(

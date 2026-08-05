@@ -129,8 +129,6 @@ class PropertyDetail(PropertyListItem):
     amenities: List[str] = []
     agent_name: Optional[str] = None
     agent_phone: Optional[str] = None
-    published_at: Optional[datetime] = None
-    created_at: datetime
 
 
 class PropertyImageInput(BaseModel):
