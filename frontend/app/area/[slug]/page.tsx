@@ -3,8 +3,12 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PropertyCard } from "@/components/property/property-card";
 import { getAreaSeoContent } from "@/lib/area-content";
-import { getAreaHref, getPropertiesFilterHref } from "@/lib/areas";
-import { fetchNeighborhoodBySlugSafe, fetchNeighborhoodsSafe, fetchPropertiesSafe } from "@/lib/server-api";
+import { getAreaHref, getAreaIndexHref, getPropertiesFilterHref } from "@/lib/areas";
+import {
+  fetchNeighborhoodBySlugSafe,
+  fetchSearchFilterNeighborhoodsSafe,
+  fetchPropertiesSafe,
+} from "@/lib/server-api";
 
 export const revalidate = 300;
 
@@ -13,7 +17,7 @@ interface PageProps {
 }
 
 export async function generateStaticParams() {
-  const neighborhoods = await fetchNeighborhoodsSafe();
+  const neighborhoods = await fetchSearchFilterNeighborhoodsSafe();
   return neighborhoods.map((area) => ({ slug: area.slug }));
 }
 
@@ -50,6 +54,7 @@ export default async function AreaLandingPage({ params }: PageProps) {
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
   const pageUrl = `${siteUrl}${getAreaHref(neighborhood.slug)}`;
+  const areaIndexUrl = `${siteUrl}${getAreaIndexHref()}`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -57,7 +62,7 @@ export default async function AreaLandingPage({ params }: PageProps) {
         "@type": "BreadcrumbList",
         itemListElement: [
           { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
-          { "@type": "ListItem", position: 2, name: "Areas", item: `${siteUrl}/areas` },
+          { "@type": "ListItem", position: 2, name: "Neighborhoods", item: areaIndexUrl },
           { "@type": "ListItem", position: 3, name: neighborhood.name, item: pageUrl },
         ],
       },
@@ -95,8 +100,8 @@ export default async function AreaLandingPage({ params }: PageProps) {
               </li>
               <li aria-hidden="true">/</li>
               <li>
-                <Link href="/areas" className="hover:text-gold-500">
-                  Areas
+                <Link href={getAreaIndexHref()} className="hover:text-gold-500">
+                  Neighborhoods
                 </Link>
               </li>
               <li aria-hidden="true">/</li>

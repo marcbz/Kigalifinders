@@ -71,8 +71,17 @@ export function Footer({
           <div>
             <h4 className="text-white font-semibold mb-5 tracking-wider text-sm">EXPLORE</h4>
             <ul className="space-y-2 text-sm">
-              {["Houses for Rent", "Furnished Houses", "Plots for Sale", "Luxury Homes"].map((item) => (
-                <li key={item}><Link href="/properties" className="hover:text-gold-500 transition">{item}</Link></li>
+              {[
+                { label: "All Properties", href: "/properties" },
+                { label: "Neighborhoods", href: "/area" },
+                { label: "Houses for Rent", href: "/properties?listing_type=rent" },
+                { label: "Furnished Houses", href: "/properties?listing_type=furnished" },
+                { label: "Plots for Sale", href: "/properties?property_type_slug=plot" },
+                { label: "Luxury Homes", href: "/properties?listing_type=rent" },
+              ].map((item) => (
+                <li key={item.label}>
+                  <Link href={item.href} className="hover:text-gold-500 transition">{item.label}</Link>
+                </li>
               ))}
             </ul>
           </div>

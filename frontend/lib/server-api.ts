@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { neighborhoodsForSearchFilter } from "@/lib/neighborhood-groups";
 import type { HomepageData, PaginatedResponse, PropertyDetail, PropertyListItem } from "@/types";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -181,6 +182,11 @@ export async function fetchNeighborhoodsSafe(): Promise<NeighborhoodSummary[]> {
 export async function fetchNeighborhoodBySlugSafe(slug: string): Promise<NeighborhoodSummary | null> {
   const normalized = slug.trim().toLowerCase();
   if (!normalized) return null;
-  const neighborhoods = await fetchNeighborhoodsSafe();
+  const neighborhoods = await fetchSearchFilterNeighborhoodsSafe();
   return neighborhoods.find((area) => area.slug === normalized) ?? null;
+}
+
+export async function fetchSearchFilterNeighborhoodsSafe(): Promise<NeighborhoodSummary[]> {
+  const neighborhoods = await fetchNeighborhoodsSafe();
+  return neighborhoodsForSearchFilter(neighborhoods);
 }

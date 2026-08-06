@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { getAreaHref } from "@/lib/areas";
-import { fetchBlogPostsSafe, fetchNeighborhoodsSafe, fetchPropertiesSafe } from "@/lib/server-api";
+import { getAreaHref, getAreaIndexHref } from "@/lib/areas";
+import { fetchBlogPostsSafe, fetchPropertiesSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
@@ -9,13 +9,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const [properties, blogPosts, neighborhoods] = await Promise.all([
     fetchPropertiesSafe({ page_size: 500 }),
     fetchBlogPostsSafe(),
-    fetchNeighborhoodsSafe(),
+    fetchSearchFilterNeighborhoodsSafe(),
   ]);
 
   const staticPages: MetadataRoute.Sitemap = [
     { url: base, lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: `${base}/properties`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
-    { url: `${base}/areas`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
+    { url: `${base}${getAreaIndexHref()}`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { url: `${base}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { url: `${base}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { url: `${base}/faq`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },

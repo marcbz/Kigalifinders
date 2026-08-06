@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalDocument } from "@/components/legal/legal-document";
 import { getAreaHref } from "@/lib/areas";
+import { neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
 import { getPropertyHref } from "@/lib/property-url";
-import { fetchLegalSafe, fetchNeighborhoodsSafe, fetchPropertiesSafe } from "@/lib/server-api";
+import { fetchLegalSafe, fetchPropertiesSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
 
 export const metadata: Metadata = {
   title: "Sitemap",
@@ -13,7 +14,7 @@ export const metadata: Metadata = {
 const STATIC_PAGES = [
   { href: "/", label: "Home" },
   { href: "/properties", label: "Properties" },
-  { href: "/areas", label: "Neighborhoods" },
+  { href: "/area", label: "Neighborhoods" },
   { href: "/about", label: "About Us" },
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },
@@ -26,7 +27,7 @@ export default async function SitemapPage() {
   const [legal, properties, neighborhoods] = await Promise.all([
     fetchLegalSafe(),
     fetchPropertiesSafe({ page_size: 200 }),
-    fetchNeighborhoodsSafe(),
+    fetchSearchFilterNeighborhoodsSafe(),
   ]);
 
   return (
@@ -60,7 +61,7 @@ export default async function SitemapPage() {
               {neighborhoods.map((area) => (
                 <li key={area.id}>
                   <Link href={getAreaHref(area.slug)} className="text-gold-600 hover:text-gold-500 hover:underline">
-                    {area.name}
+                    {neighborhoodFilterLabel(area.name, area.slug)}
                     {area.district_name ? ` — ${area.district_name}` : ""}
                   </Link>
                 </li>

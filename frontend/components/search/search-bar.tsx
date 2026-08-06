@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Loader2, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
+import { neighborhoodsForSearchFilter, neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
 
 const tabs = [
   { id: "all", label: "All" },
@@ -33,6 +34,10 @@ export function SearchBar() {
     queryFn: locationService.neighborhoods,
     staleTime: 10 * 60 * 1000,
   });
+
+  const searchNeighborhoods = neighborhoodsForSearchFilter(
+    neighborhoods as { id: string; name: string; slug: string; property_count: number }[],
+  );
 
   const { data: propertyTypes = [] } = useQuery({
     queryKey: ["property-types"],
@@ -166,8 +171,8 @@ export function SearchBar() {
             <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">NEIGHBORHOOD</label>
             <select className="lux-input" value={neighborhoodId} onChange={(e) => setNeighborhoodId(e.target.value)}>
               <option value="">All neighborhoods</option>
-              {neighborhoods.map((n: { id: string; name: string }) => (
-                <option key={n.id} value={n.id}>{n.name}</option>
+              {searchNeighborhoods.map((n: { id: string; name: string; slug: string }) => (
+                <option key={n.id} value={n.id}>{neighborhoodFilterLabel(n.name, n.slug)}</option>
               ))}
             </select>
           </div>

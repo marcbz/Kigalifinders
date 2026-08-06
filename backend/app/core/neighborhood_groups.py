@@ -12,6 +12,7 @@ NEIGHBORHOOD_GROUP_EXPANSIONS: dict[str, list[str]] = {
         "kacyiru",
         "kimihurura",
         "kimironko",
+        "kagugu",
     ],
     "kicukiro": ["kicukiro", "rebero", "kagarama"],
     "bugesera": ["bugesera"],

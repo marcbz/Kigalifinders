@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { getAreaHref } from "@/lib/areas";
-import { fetchNeighborhoodsSafe } from "@/lib/server-api";
+import { neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
+import { fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
 
 export const revalidate = 300;
 
@@ -10,14 +11,13 @@ export const metadata: Metadata = {
   title: "Kigali Neighborhoods",
   description:
     "Explore Kigali neighborhoods served by Kigali Rent — find rental homes, apartments, and properties by area across Gasabo, Kicukiro, and Nyarugenge.",
-  alternates: { canonical: "/areas" },
+  alternates: { canonical: "/area" },
 };
 
-export default async function AreasIndexPage() {
-  const neighborhoods = await fetchNeighborhoodsSafe();
-  const sorted = [...neighborhoods].sort((a, b) => b.property_count - a.property_count || a.name.localeCompare(b.name));
+export default async function AreaIndexPage() {
+  const neighborhoods = await fetchSearchFilterNeighborhoodsSafe();
 
-  const byDistrict = sorted.reduce<Record<string, typeof sorted>>((acc, area) => {
+  const byDistrict = neighborhoods.reduce<Record<string, typeof neighborhoods>>((acc, area) => {
     const key = area.district_name || "Kigali";
     if (!acc[key]) acc[key] = [];
     acc[key].push(area);
@@ -49,7 +49,9 @@ export default async function AreasIndexPage() {
                     >
                       <MapPin className="w-5 h-5 text-gold-500 shrink-0" />
                       <div className="min-w-0">
-                        <div className="font-semibold text-navy-800 dark:text-white">{area.name}</div>
+                        <div className="font-semibold text-navy-800 dark:text-white">
+                          {neighborhoodFilterLabel(area.name, area.slug)}
+                        </div>
                         <div className="text-xs text-gray-500">
                           {area.property_count > 0 ? `${area.property_count} listings` : "View area guide"}
                         </div>

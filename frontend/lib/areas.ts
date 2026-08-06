@@ -8,7 +8,11 @@ export type NeighborhoodSummary = {
 };
 
 export function getAreaHref(slug: string): string {
-  return `/areas/${encodeURIComponent(slug.trim().toLowerCase())}`;
+  return `/area/${encodeURIComponent(slug.trim().toLowerCase())}`;
+}
+
+export function getAreaIndexHref(): string {
+  return "/area";
 }
 
 export function getPropertiesFilterHref(slug: string): string {
