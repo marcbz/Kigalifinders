@@ -56,6 +56,7 @@ const config: Config = {
           brand: "#4A8FB8",
           "brand-hover": "#3D7FA3",
         },
+        cream: "#faf7f2",
       },
       fontFamily: {
         serif: ["var(--font-playfair)", "serif"],
