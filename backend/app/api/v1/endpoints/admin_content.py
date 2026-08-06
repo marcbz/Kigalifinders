@@ -21,6 +21,7 @@ from app.schemas import (
     FAQCreate,
     FAQResponse,
     FAQUpdate,
+    LegalSettingsBody,
     SettingUpdate,
     UploadResponse,
     ViewingRequestResponse,
@@ -336,3 +337,21 @@ async def update_settings(
     await db.flush()
     result = await db.execute(select(Setting))
     return {s.key: s.value for s in result.scalars().all()}
+
+
+@router.patch("/settings/legal")
+async def update_legal_settings(
+    body: LegalSettingsBody,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_admin)],
+):
+    value = body.model_dump()
+    result = await db.execute(select(Setting).where(Setting.key == "legal"))
+    setting = result.scalar_one_or_none()
+    if setting:
+        setting.value = value
+        flag_modified(setting, "value")
+    else:
+        db.add(Setting(key="legal", value=value))
+    await db.flush()
+    return value

@@ -299,11 +299,9 @@ async def seed():
         db.add(Setting(key="social", value={
             "facebook": "", "instagram": "", "twitter": "", "linkedin": "", "youtube": "",
         }, group="site"))
-        db.add(Setting(key="legal", value={
-            "privacy_policy": "Your privacy policy content...",
-            "terms_of_service": "Your terms of service content...",
-            "sitemap": "/properties, /blog, /contact, /agents",
-        }, group="site"))
+        from app.core.legal_defaults import DEFAULT_LEGAL
+
+        db.add(Setting(key="legal", value=DEFAULT_LEGAL, group="site"))
 
         await db.commit()
         print("Database seeded successfully!")

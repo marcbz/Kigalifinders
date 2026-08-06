@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ExternalLink, Plus, Trash2 } from "lucide-react";
 import { adminService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
-import { Plus, Trash2 } from "lucide-react";
+import { getApiErrorMessage } from "@/lib/utils";
 
 type SettingsMap = Record<string, Record<string, unknown>>;
 
@@ -26,15 +28,30 @@ function parseSitePayload(site: Record<string, string>): Record<string, unknown>
   return payload;
 }
 
+function parseLegalFromSettings(legalData: Record<string, unknown> | undefined): Record<string, string> {
+  if (!legalData) return { privacy_policy: "", terms_of_service: "", sitemap_intro: "" };
+  return {
+    privacy_policy: String(legalData.privacy_policy || ""),
+    terms_of_service: String(legalData.terms_of_service || ""),
+    sitemap_intro: String(legalData.sitemap_intro || legalData.sitemap || ""),
+  };
+}
+
 export default function AdminSettingsPage() {
   const queryClient = useQueryClient();
   const [site, setSite] = useState<Record<string, string>>({});
   const [hero, setHero] = useState<Record<string, string>>({});
   const [social, setSocial] = useState<Record<string, string>>({});
-  const [legal, setLegal] = useState<Record<string, string>>({});
+  const [legal, setLegal] = useState<Record<string, string>>({
+    privacy_policy: "",
+    terms_of_service: "",
+    sitemap_intro: "",
+  });
   const [faqForm, setFaqForm] = useState({ question: "", answer: "" });
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [legalMessage, setLegalMessage] = useState<string | null>(null);
+  const [legalError, setLegalError] = useState<string | null>(null);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-settings"],
@@ -70,7 +87,7 @@ export default function AdminSettingsPage() {
       cta_secondary: String(heroData.cta_secondary || ""),
     });
     setSocial((s.social as Record<string, string>) || {});
-    setLegal((s.legal as Record<string, string>) || {});
+    setLegal(parseLegalFromSettings(s.legal as Record<string, unknown>));
   }, [settings]);
 
   const saveSettings = useMutation({
@@ -79,16 +96,33 @@ export default function AdminSettingsPage() {
         { key: "site", value: parseSitePayload(site) },
         { key: "hero", value: hero },
         { key: "social", value: social },
-        { key: "legal", value: legal },
       ]),
     onSuccess: () => {
       setSaveMessage("Settings saved. Refresh the homepage to see updates.");
       setSaveError(null);
       queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
     },
-    onError: () => {
-      setSaveError("Failed to save settings. Please try again.");
+    onError: (err) => {
+      setSaveError(getApiErrorMessage(err, "Failed to save settings. Please try again."));
       setSaveMessage(null);
+    },
+  });
+
+  const saveLegal = useMutation({
+    mutationFn: () =>
+      adminService.updateLegalSettings({
+        privacy_policy: legal.privacy_policy || "",
+        terms_of_service: legal.terms_of_service || "",
+        sitemap_intro: legal.sitemap_intro || "",
+      }),
+    onSuccess: () => {
+      setLegalMessage("Legal pages saved. View them using the preview links below.");
+      setLegalError(null);
+      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
+    },
+    onError: (err) => {
+      setLegalError(getApiErrorMessage(err, "Failed to save legal pages. Please try again."));
+      setLegalMessage(null);
     },
   });
 
@@ -166,19 +200,65 @@ export default function AdminSettingsPage() {
         ))}
       </section>
 
-      <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
-        <h3 className="font-semibold">Legal Pages</h3>
-        <textarea className="lux-input min-h-[120px]" placeholder="Privacy Policy" value={legal.privacy_policy || ""} onChange={(e) => setLegal({ ...legal, privacy_policy: e.target.value })} />
-        <textarea className="lux-input min-h-[120px]" placeholder="Terms of Service" value={legal.terms_of_service || ""} onChange={(e) => setLegal({ ...legal, terms_of_service: e.target.value })} />
-        <textarea className="lux-input min-h-[80px]" placeholder="Sitemap notes / URLs" value={legal.sitemap || ""} onChange={(e) => setLegal({ ...legal, sitemap: e.target.value })} />
-      </section>
-
       {saveMessage && <p className="text-sm text-green-600">{saveMessage}</p>}
       {saveError && <p className="text-sm text-red-500">{saveError}</p>}
 
       <Button className="rounded-full" onClick={() => saveSettings.mutate()} disabled={saveSettings.isPending}>
-        {saveSettings.isPending ? "Saving..." : "Save Settings"}
+        {saveSettings.isPending ? "Saving..." : "Save Site Settings"}
       </Button>
+
+      <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-5">
+        <div>
+          <h3 className="font-semibold">Legal Pages</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Edit Privacy Policy, Terms of Service, and the sitemap intro. Property and blog links on the sitemap page are generated automatically.
+          </p>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-navy-800 dark:text-white">Privacy Policy</label>
+          <textarea
+            className="lux-input min-h-[280px] font-mono text-sm"
+            value={legal.privacy_policy || ""}
+            onChange={(e) => setLegal({ ...legal, privacy_policy: e.target.value })}
+          />
+          <Link href="/privacy" target="_blank" className="inline-flex items-center gap-1 text-xs text-gold-600 hover:underline">
+            Preview <ExternalLink className="w-3 h-3" />
+          </Link>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-navy-800 dark:text-white">Terms of Service</label>
+          <textarea
+            className="lux-input min-h-[280px] font-mono text-sm"
+            value={legal.terms_of_service || ""}
+            onChange={(e) => setLegal({ ...legal, terms_of_service: e.target.value })}
+          />
+          <Link href="/terms" target="_blank" className="inline-flex items-center gap-1 text-xs text-gold-600 hover:underline">
+            Preview <ExternalLink className="w-3 h-3" />
+          </Link>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-sm font-medium text-navy-800 dark:text-white">Sitemap Intro</label>
+          <textarea
+            className="lux-input min-h-[100px] font-mono text-sm"
+            placeholder="Short introduction shown at the top of the sitemap page"
+            value={legal.sitemap_intro || ""}
+            onChange={(e) => setLegal({ ...legal, sitemap_intro: e.target.value })}
+          />
+          <Link href="/sitemap" target="_blank" className="inline-flex items-center gap-1 text-xs text-gold-600 hover:underline">
+            Preview <ExternalLink className="w-3 h-3" />
+          </Link>
+        </div>
+
+        {legalMessage && <p className="text-sm text-green-600">{legalMessage}</p>}
+        {legalError && <p className="text-sm text-red-500">{legalError}</p>}
+
+        <Button className="rounded-full" onClick={() => saveLegal.mutate()} disabled={saveLegal.isPending}>
+          {saveLegal.isPending ? "Saving..." : "Save Legal Pages"}
+        </Button>
+      </section>
 
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
         <h3 className="font-semibold">FAQs</h3>

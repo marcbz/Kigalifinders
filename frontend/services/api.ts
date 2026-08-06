@@ -165,4 +165,6 @@ export const adminService = {
   getSettings: () => api.get<Record<string, unknown>>("/admin/settings").then((r) => r.data),
   updateSettings: (updates: { key: string; value: unknown }[]) =>
     api.patch("/admin/settings", updates).then((r) => r.data),
+  updateLegalSettings: (data: { privacy_policy: string; terms_of_service: string; sitemap_intro: string }) =>
+    api.patch("/admin/settings/legal", data).then((r) => r.data),
 };

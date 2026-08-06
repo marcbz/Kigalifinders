@@ -146,3 +146,20 @@ export function fetchBlogPosts() {
     revalidate: 120,
   });
 }
+
+export type LegalContent = {
+  privacy_policy: string;
+  terms_of_service: string;
+  sitemap_intro: string;
+};
+
+const emptyLegal = (): LegalContent => ({
+  privacy_policy: "",
+  terms_of_service: "",
+  sitemap_intro: "",
+});
+
+export async function fetchLegalSafe(): Promise<LegalContent> {
+  const data = await fetchApiSafe<LegalContent>("/legal", { revalidate: 60 });
+  return data ?? emptyLegal();
+}

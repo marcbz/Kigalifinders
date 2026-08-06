@@ -381,6 +381,18 @@ class SettingUpdate(BaseModel):
     value: dict | list | str | int | float | bool | None
 
 
+class LegalSettingsBody(BaseModel):
+    privacy_policy: str = ""
+    terms_of_service: str = ""
+    sitemap_intro: str = ""
+
+
+class LegalContentResponse(BaseModel):
+    privacy_policy: str
+    terms_of_service: str
+    sitemap_intro: str
+
+
 class DistrictResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

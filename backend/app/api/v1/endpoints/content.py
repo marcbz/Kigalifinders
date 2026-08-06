@@ -7,7 +7,8 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import require_admin
 from app.database.session import get_db
-from app.models import BlogPost, ContactMessage, FAQ, Newsletter, Testimonial, User
+from app.core.legal_defaults import DEFAULT_LEGAL
+from app.models import BlogPost, ContactMessage, FAQ, Newsletter, Setting, Testimonial, User
 from app.schemas import (
     AppointmentCreate,
     BlogPostDetail,
@@ -16,6 +17,7 @@ from app.schemas import (
     DashboardStats,
     FAQResponse,
     HomepageData,
+    LegalContentResponse,
     NewsletterSubscribe,
     TestimonialResponse,
     ViewingRequestCreate,
@@ -111,6 +113,19 @@ async def create_appointment(data: AppointmentCreate, db: Annotated[AsyncSession
     db.add(appt)
     await db.flush()
     return {"message": "Appointment scheduled successfully", "id": str(appt.id)}
+
+
+@router.get("/legal", response_model=LegalContentResponse)
+async def legal_content(db: Annotated[AsyncSession, Depends(get_db)]):
+    result = await db.execute(select(Setting).where(Setting.key == "legal"))
+    setting = result.scalar_one_or_none()
+    value = setting.value if setting and setting.value else {}
+    sitemap_intro = value.get("sitemap_intro") or value.get("sitemap") or DEFAULT_LEGAL["sitemap_intro"]
+    return LegalContentResponse(
+        privacy_policy=value.get("privacy_policy") or DEFAULT_LEGAL["privacy_policy"],
+        terms_of_service=value.get("terms_of_service") or DEFAULT_LEGAL["terms_of_service"],
+        sitemap_intro=sitemap_intro,
+    )
 
 
 @router.post("/viewing-requests", status_code=status.HTTP_201_CREATED)
