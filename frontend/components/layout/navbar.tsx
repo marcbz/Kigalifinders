@@ -33,9 +33,11 @@ export function Navbar({ bookingUrl }: NavbarProps) {
             <div className="w-11 h-11 rounded-full bg-navy-800 flex items-center justify-center">
               <span className="font-serif text-gold-500 text-sm font-bold leading-none">KR</span>
             </div>
-            <div>
+            <div className="leading-tight">
               <BrandName size="md" />
-              <div className="text-[10px] tracking-[0.25em] text-gold-500 -mt-1">RENTALS & PROPERTY</div>
+              <div className="mt-1 text-[11px] tracking-[0.22em] font-semibold text-navy-700 dark:text-gold-400">
+                RENTALS & PROPERTY
+              </div>
             </div>
           </Link>
 

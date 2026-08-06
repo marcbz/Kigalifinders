@@ -4,7 +4,7 @@ import { useState } from "react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Plus, Minus } from "lucide-react";
+import { ArrowRight, Plus, Minus, Phone } from "lucide-react";
 import type { BlogPost, FAQ } from "@/types";
 
 export function FAQSection({ faqs }: { faqs: FAQ[] }) {
@@ -185,10 +185,10 @@ export function FloatingCTAs({ phone, whatsapp }: { phone?: string; whatsapp?: s
     <>
       <a
         href={`tel:${phone?.replace(/\s/g, "")}`}
-        className="fixed bottom-[100px] right-6 z-[60] bg-sky-brand hover:bg-sky-brand-hover text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-xl transition-colors"
+        className="fixed bottom-[100px] right-6 z-[60] bg-sky-brand hover:bg-sky-brand-hover text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-colors"
         title="Call Now"
       >
-        📞
+        <Phone className="w-6 h-6 text-white" strokeWidth={2.25} />
       </a>
       <a
         href={`https://wa.me/${whatsapp}`}

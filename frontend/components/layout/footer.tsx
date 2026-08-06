@@ -39,7 +39,9 @@ export function Footer({
               </div>
               <div>
                 <BrandName variant="light" size="md" />
-                <div className="text-[10px] tracking-[0.25em] text-gold-500">RENTALS & PROPERTY</div>
+                <div className="mt-1 text-[11px] tracking-[0.22em] font-semibold text-gold-400">
+                  RENTALS & PROPERTY
+                </div>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5">
