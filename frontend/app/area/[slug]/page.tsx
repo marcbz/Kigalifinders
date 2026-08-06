@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { PropertyCard } from "@/components/property/property-card";
+import { Button } from "@/components/ui/button";
 import { getAreaSeoContent } from "@/lib/area-content";
 import { getAreaHref, getAreaIndexHref, getPropertiesFilterHref } from "@/lib/areas";
 import {
@@ -47,10 +48,12 @@ export default async function AreaLandingPage({ params }: PageProps) {
   const content = getAreaSeoContent(neighborhood);
   const properties = await fetchPropertiesSafe({
     neighborhood_slug: neighborhood.slug,
-    page_size: 12,
+    page_size: 9,
     sort_by: "created_at",
     sort_order: "desc",
   });
+
+  const advancedSearchHref = getPropertiesFilterHref(neighborhood.slug);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
   const pageUrl = `${siteUrl}${getAreaHref(neighborhood.slug)}`;
@@ -136,27 +139,30 @@ export default async function AreaLandingPage({ params }: PageProps) {
             ))}
           </ul>
 
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-8">
+          <div className="mb-8">
             <h2 className="font-serif text-2xl md:text-3xl font-bold text-navy-800 dark:text-white">
               Available Properties
               {properties.total > 0 && (
                 <span className="text-lg font-normal text-gray-500 ml-2">({properties.total})</span>
               )}
             </h2>
-            <Link
-              href={getPropertiesFilterHref(neighborhood.slug)}
-              className="text-sm font-semibold text-gold-600 hover:text-gold-500 hover:underline"
-            >
-              Advanced search in {neighborhood.name} →
-            </Link>
           </div>
 
           {properties.items.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {properties.items.map((property, index) => (
-                <PropertyCard key={property.id} property={property} index={index} />
-              ))}
-            </div>
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {properties.items.map((property, index) => (
+                  <PropertyCard key={property.id} property={property} index={index} />
+                ))}
+              </div>
+              <div className="mt-12 flex justify-center">
+                <Button asChild className="rounded-full px-8">
+                  <Link href={advancedSearchHref}>
+                    Advanced search in {neighborhood.name}
+                  </Link>
+                </Button>
+              </div>
+            </>
           ) : (
             <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
               <p className="text-gray-600 dark:text-gray-400 mb-4">
