@@ -1,14 +1,11 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalDocument } from "@/components/legal/legal-document";
-import { getAreaHref } from "@/lib/areas";
-import { neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
-import { getPropertyHref } from "@/lib/property-url";
-import { fetchAllPropertiesSafe, fetchLegalSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
+import { fetchLegalSafe } from "@/lib/server-api";
 
 export const metadata: Metadata = {
   title: "Sitemap",
-  description: "Browse all pages on Kigali Rent — properties and key information.",
+  description: "Browse main pages on Kigali Rent — properties, neighborhoods, blog, and key information.",
 };
 
 const STATIC_PAGES = [
@@ -19,17 +16,13 @@ const STATIC_PAGES = [
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact" },
+  { href: "/agents", label: "Our Agents" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
 ];
 
 export default async function SitemapPage() {
-  const [legal, propertyItems, neighborhoods] = await Promise.all([
-    fetchLegalSafe(),
-    fetchAllPropertiesSafe(),
-    fetchSearchFilterNeighborhoodsSafe(),
-  ]);
-  const properties = { items: propertyItems, total: propertyItems.length };
+  const legal = await fetchLegalSafe();
 
   return (
     <div className="py-20 px-6">
@@ -51,45 +44,14 @@ export default async function SitemapPage() {
               </li>
             ))}
           </ul>
+          <p className="text-sm text-gray-500 mt-6">
+            For search engines, the full XML sitemap index is available at{" "}
+            <Link href="/sitemap.xml" className="text-gold-600 hover:underline">
+              /sitemap.xml
+            </Link>
+            .
+          </p>
         </section>
-
-        {neighborhoods.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">
-              Neighborhoods ({neighborhoods.length})
-            </h2>
-            <ul className="grid sm:grid-cols-2 gap-2 text-sm">
-              {neighborhoods.map((area) => (
-                <li key={area.id}>
-                  <Link href={getAreaHref(area.slug)} className="text-gold-600 hover:text-gold-500 hover:underline">
-                    {neighborhoodFilterLabel(area.name, area.slug)}
-                    {area.district_name ? ` — ${area.district_name}` : ""}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {properties.items.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">
-              Properties ({properties.total})
-            </h2>
-            <ul className="grid sm:grid-cols-2 gap-2 text-sm">
-              {properties.items.map((property) => (
-                <li key={property.id}>
-                  <Link
-                    href={getPropertyHref(property)}
-                    className="text-gold-600 hover:text-gold-500 hover:underline"
-                  >
-                    {property.title}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
       </div>
     </div>
   );
