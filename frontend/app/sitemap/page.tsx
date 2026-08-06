@@ -4,7 +4,7 @@ import { LegalDocument } from "@/components/legal/legal-document";
 import { getAreaHref } from "@/lib/areas";
 import { neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
 import { getPropertyHref } from "@/lib/property-url";
-import { fetchLegalSafe, fetchPropertiesSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
+import { fetchAllPropertiesSafe, fetchLegalSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
 
 export const metadata: Metadata = {
   title: "Sitemap",
@@ -24,11 +24,12 @@ const STATIC_PAGES = [
 ];
 
 export default async function SitemapPage() {
-  const [legal, properties, neighborhoods] = await Promise.all([
+  const [legal, propertyItems, neighborhoods] = await Promise.all([
     fetchLegalSafe(),
-    fetchPropertiesSafe({ page_size: 200 }),
+    fetchAllPropertiesSafe(),
     fetchSearchFilterNeighborhoodsSafe(),
   ]);
+  const properties = { items: propertyItems, total: propertyItems.length };
 
   return (
     <div className="py-20 px-6">

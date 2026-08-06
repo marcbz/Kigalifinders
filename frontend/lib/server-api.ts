@@ -101,12 +101,36 @@ export async function fetchPropertiesSafe(params: Record<string, string | number
   Object.entries(params).forEach(([k, v]) => {
     if (v !== undefined && v !== "") qs.set(k, String(v));
   });
+  if (qs.has("page_size")) {
+    const pageSize = Number(qs.get("page_size"));
+    if (!Number.isNaN(pageSize)) qs.set("page_size", String(Math.min(Math.max(pageSize, 1), 100)));
+  }
   const query = qs.toString();
   const data = await fetchApiSafe<PaginatedResponse<PropertyListItem>>(
     `/properties${query ? `?${query}` : ""}`,
     { revalidate: DEFAULT_REVALIDATE },
   );
   return data ?? { items: [], total: 0, page: 1, page_size: 12, pages: 0 };
+}
+
+/** Fetch every published property page-by-page (API max page_size is 100). */
+export async function fetchAllPropertiesSafe(options: FetchOptions = { revalidate: 300 }): Promise<PropertyListItem[]> {
+  const all: PropertyListItem[] = [];
+  let page = 1;
+  let totalPages = 1;
+
+  while (page <= totalPages) {
+    const data = await fetchApiSafe<PaginatedResponse<PropertyListItem>>(
+      `/properties?page=${page}&page_size=100`,
+      options,
+    );
+    if (!data) break;
+    all.push(...data.items);
+    totalPages = data.pages || 1;
+    page += 1;
+  }
+
+  return all;
 }
 
 export function fetchProperties(params: Record<string, string | number | undefined>) {

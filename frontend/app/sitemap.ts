@@ -1,13 +1,15 @@
 import type { MetadataRoute } from "next";
 import { getAreaHref, getAreaIndexHref } from "@/lib/areas";
-import { fetchBlogPostsSafe, fetchPropertiesSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
+import { fetchAllPropertiesSafe, fetchBlogPostsSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
+
+export const revalidate = 3600;
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const base = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
   const now = new Date();
 
-  const [properties, blogPosts, neighborhoods] = await Promise.all([
-    fetchPropertiesSafe({ page_size: 500 }),
+  const [propertyItems, blogPosts, neighborhoods] = await Promise.all([
+    fetchAllPropertiesSafe({ revalidate: 3600 }),
     fetchBlogPostsSafe(),
     fetchSearchFilterNeighborhoodsSafe(),
   ]);
@@ -25,9 +27,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${base}/sitemap`, lastModified: now, changeFrequency: "weekly", priority: 0.4 },
   ];
 
-  const propertyPages: MetadataRoute.Sitemap = properties.items.map((property) => ({
+  const propertyPages: MetadataRoute.Sitemap = propertyItems.map((property) => ({
     url: `${base}/properties/${encodeURIComponent(property.slug || property.id)}`,
-    lastModified: now,
+    lastModified: property.published_at ? new Date(property.published_at) : now,
     changeFrequency: "weekly" as const,
     priority: 0.8,
   }));
