@@ -31,6 +31,13 @@ from app.services.media_upload import upload_image
 router = APIRouter(prefix="/admin", tags=["Admin"])
 
 
+def apply_blog_status(post: BlogPost, status: str) -> None:
+    post.status = status
+    post.is_published = status == "published"
+    if status == "published" and not post.published_at:
+        post.published_at = datetime.now(timezone.utc)
+
+
 @router.get("/messages", response_model=list[ContactMessageResponse])
 async def list_contact_messages(
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -161,6 +168,7 @@ async def admin_list_blog(
             category_name=p.category.name if p.category else None,
             read_time_minutes=p.read_time_minutes, published_at=p.published_at,
             is_published=p.is_published, is_featured=p.is_featured,
+            status=p.status,
             views_count=p.views_count, created_at=p.created_at,
         )
         for p in result.scalars().all()
@@ -185,6 +193,7 @@ async def admin_get_blog_post(
         category_name=post.category.name if post.category else None,
         read_time_minutes=post.read_time_minutes, published_at=post.published_at,
         is_published=post.is_published, is_featured=post.is_featured,
+        status=post.status,
         content=post.content, content_format=post.content_format,
         meta_title=post.meta_title, meta_description=post.meta_description,
     )
@@ -204,12 +213,12 @@ async def create_blog_post(
         content_format=data.content_format,
         featured_image=data.featured_image,
         read_time_minutes=data.read_time_minutes,
-        is_published=data.is_published,
         is_featured=data.is_featured,
         meta_title=data.meta_title,
         meta_description=data.meta_description,
-        published_at=datetime.now(timezone.utc) if data.is_published else None,
     )
+    status_value = data.status if data.status in {"draft", "published", "archived"} else ("published" if data.is_published else "draft")
+    apply_blog_status(post, status_value)
     db.add(post)
     await db.flush()
     return AdminBlogPostListItem(
@@ -217,6 +226,7 @@ async def create_blog_post(
         featured_image=post.featured_image, category_name=None,
         read_time_minutes=post.read_time_minutes, published_at=post.published_at,
         is_published=post.is_published, is_featured=post.is_featured,
+        status=post.status,
     )
 
 
@@ -232,6 +242,13 @@ async def update_blog_post(
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
     updates = data.model_dump(exclude_unset=True)
+    if "status" in updates:
+        apply_blog_status(post, updates.pop("status"))
+    if updates.get("is_published") is True and post.status != "published":
+        apply_blog_status(post, "published")
+    elif updates.get("is_published") is False and post.status == "published":
+        apply_blog_status(post, "draft")
+        updates.pop("is_published", None)
     if updates.get("is_published") and not post.published_at:
         updates["published_at"] = datetime.now(timezone.utc)
     if "title" in updates and "slug" not in updates:
@@ -244,6 +261,7 @@ async def update_blog_post(
         featured_image=post.featured_image, category_name=None,
         read_time_minutes=post.read_time_minutes, published_at=post.published_at,
         is_published=post.is_published, is_featured=post.is_featured,
+        status=post.status,
     )
 
 

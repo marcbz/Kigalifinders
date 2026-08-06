@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { ArrowRight, MapPin } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
-import { getAreaHref } from "@/lib/areas";
-import { neighborhoodsForHomepageDisplay } from "@/lib/homepage-areas";
+import { AreaNeighborhoodsGrid } from "@/components/areas/area-neighborhoods-grid";
+import { neighborhoodsForSearchFilter } from "@/lib/neighborhood-groups";
 import type { PropertyListItem } from "@/types";
 
 interface PropertyGridProps {
@@ -104,54 +104,24 @@ export function PlotsSection({ properties }: PlotsSectionProps) {
 }
 
 interface AreasSectionProps {
-  neighborhoods: { id: string; name: string; slug: string; image_url?: string; property_count: number }[];
+  neighborhoods: { id: string; name: string; slug: string; image_url?: string; property_count: number; district_name?: string | null }[];
 }
 
-const AREA_GRADIENTS = [
-  "from-gold-400 to-amber-600",
-  "from-navy-600 to-navy-900",
-  "from-amber-500 to-orange-600",
-  "from-slate-600 to-slate-800",
-  "from-emerald-500 to-teal-700",
-  "from-violet-500 to-purple-700",
-  "from-rose-400 to-rose-600",
-  "from-cyan-500 to-blue-700",
-];
-
 export function AreasSection({ neighborhoods }: AreasSectionProps) {
-  const areas = neighborhoodsForHomepageDisplay(neighborhoods);
+  const areas = neighborhoodsForSearchFilter(neighborhoods);
 
   return (
-    <section id="areas" className="py-20 px-6 bg-white dark:bg-background">
-      <div className="max-w-7xl mx-auto">
-        <div className="text-center mb-14">
-          <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">EXPLORE KIGALI</span>
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-4">Areas We Serve</h2>
-          <div className="section-divider mx-auto" />
-          <p className="text-gray-600 dark:text-gray-400 max-w-2xl mx-auto mt-5">
-            From bustling city centers to tranquil hillside neighborhoods, we know Kigali inside and out.
-          </p>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-5">
-          {areas.map((area, index) => (
-            <Link
-              key={area.id}
-              href={getAreaHref(area.slug)}
-              className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-gold-500/15 bg-cream/40 dark:bg-secondary/40 hover:border-gold-500/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
-            >
-              <div
-                className={`w-16 h-16 rounded-full bg-gradient-to-br ${AREA_GRADIENTS[index % AREA_GRADIENTS.length]} flex items-center justify-center shadow-md ring-4 ring-white dark:ring-background group-hover:scale-105 transition-transform`}
-              >
-                <MapPin className="w-7 h-7 text-white drop-shadow-sm" />
-              </div>
-              <div className="text-center min-w-0">
-                <div className="font-serif text-base md:text-lg font-bold text-navy-800 dark:text-white leading-tight">
-                  {area.name}
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
+    <section id="area" className="py-20 px-6 bg-white dark:bg-background">
+      <div className="max-w-5xl mx-auto">
+        <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">EXPLORE KIGALI</span>
+        <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-4">
+          Neighborhoods We Serve
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400 max-w-2xl leading-relaxed mb-12">
+          Find rental homes, furnished apartments, and land by neighborhood. Each area page includes local context and
+          current listings to help you search smarter in Kigali.
+        </p>
+        <AreaNeighborhoodsGrid neighborhoods={areas} />
       </div>
     </section>
   );

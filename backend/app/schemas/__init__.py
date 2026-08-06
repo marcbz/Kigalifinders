@@ -303,6 +303,7 @@ class FAQUpdate(BaseModel):
 
 
 class AdminBlogPostListItem(BlogPostListItem):
+    status: str = "draft"
     is_published: bool = False
     is_featured: bool = False
     views_count: int = 0
@@ -324,6 +325,7 @@ class BlogPostCreate(BaseModel):
     content_format: str = "html"
     featured_image: Optional[str] = None
     read_time_minutes: int = 5
+    status: str = "draft"
     is_published: bool = False
     is_featured: bool = False
     meta_title: Optional[str] = None
@@ -338,6 +340,7 @@ class BlogPostUpdate(BaseModel):
     content_format: Optional[str] = None
     featured_image: Optional[str] = None
     read_time_minutes: Optional[int] = None
+    status: Optional[str] = None
     is_published: Optional[bool] = None
     is_featured: Optional[bool] = None
     meta_title: Optional[str] = None

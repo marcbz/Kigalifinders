@@ -51,7 +51,7 @@ async def blog_posts(db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(
         select(BlogPost)
         .options(selectinload(BlogPost.category))
-        .where(BlogPost.is_published == True)
+        .where(BlogPost.status == "published")
         .order_by(BlogPost.published_at.desc())
     )
     return [
@@ -70,7 +70,7 @@ async def blog_detail(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     result = await db.execute(
         select(BlogPost)
         .options(selectinload(BlogPost.category), selectinload(BlogPost.tags))
-        .where(BlogPost.slug == slug, BlogPost.is_published == True)
+        .where(BlogPost.slug == slug, BlogPost.status == "published")
     )
     post = result.scalar_one_or_none()
     if not post:

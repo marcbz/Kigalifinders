@@ -79,6 +79,7 @@ export interface BlogPost {
   views_count?: number;
   created_at?: string;
   is_published?: boolean;
+  status?: string;
 }
 
 export interface FAQ {

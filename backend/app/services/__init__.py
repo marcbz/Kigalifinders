@@ -155,7 +155,7 @@ class HomepageService:
         blog_result = await self.db.execute(
             select(BlogPost)
             .options(selectinload(BlogPost.category))
-            .where(BlogPost.is_published == True, BlogPost.is_featured == True)
+            .where(BlogPost.status == "published", BlogPost.is_featured == True)
             .order_by(BlogPost.published_at.desc())
             .limit(3)
         )

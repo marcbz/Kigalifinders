@@ -267,6 +267,7 @@ async def seed():
             featured_image="https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=800",
             category_id=cat.id,
             read_time_minutes=5,
+            status="published",
             is_published=True,
             published_at=now,
         ))

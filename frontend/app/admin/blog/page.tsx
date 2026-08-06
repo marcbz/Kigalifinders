@@ -22,7 +22,7 @@ interface BlogFormState {
   meta_title: string;
   meta_description: string;
   read_time_minutes: number;
-  is_published: boolean;
+  status: string;
   is_featured: boolean;
 }
 
@@ -36,7 +36,7 @@ const emptyForm: BlogFormState = {
   meta_title: "",
   meta_description: "",
   read_time_minutes: 5,
-  is_published: false,
+  status: "draft",
   is_featured: false,
 };
 
@@ -75,7 +75,7 @@ export default function AdminBlogPage() {
       meta_title: editingPost.meta_title || "",
       meta_description: editingPost.meta_description || "",
       read_time_minutes: editingPost.read_time_minutes || 5,
-      is_published: editingPost.is_published ?? false,
+      status: editingPost.status || (editingPost.is_published ? "published" : "draft"),
       is_featured: editingPost.is_featured ?? false,
     });
   }, [editingPost]);
@@ -243,23 +243,29 @@ export default function AdminBlogPage() {
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-4">
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.is_published}
-                    onChange={(e) => setForm({ ...form, is_published: e.target.checked })}
-                  />
-                  Published
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={form.is_featured}
-                    onChange={(e) => setForm({ ...form, is_featured: e.target.checked })}
-                  />
-                  Featured on homepage
-                </label>
+              <div className="grid sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Status</label>
+                  <select
+                    className="lux-input mt-1"
+                    value={form.status}
+                    onChange={(e) => setForm({ ...form, status: e.target.value })}
+                  >
+                    <option value="draft">Draft</option>
+                    <option value="published">Published</option>
+                    <option value="archived">Archived</option>
+                  </select>
+                </div>
+                <div className="flex items-end pb-2">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={form.is_featured}
+                      onChange={(e) => setForm({ ...form, is_featured: e.target.checked })}
+                    />
+                    Featured on homepage
+                  </label>
+                </div>
               </div>
 
               {saveError && <p className="text-sm text-red-500">{saveError}</p>}
@@ -298,7 +304,7 @@ export default function AdminBlogPage() {
               {(posts as BlogPost[]).map((post) => (
                 <tr key={post.id} className="border-b">
                   <td className="p-4">
-                    {post.slug && post.is_published ? (
+                    {post.slug && post.status === "published" ? (
                       <Link
                         href={`/blog/${post.slug}`}
                         target="_blank"
@@ -313,7 +319,7 @@ export default function AdminBlogPage() {
                     )}
                     {post.slug && <div className="text-xs text-gray-400 mt-0.5">/blog/{post.slug}</div>}
                   </td>
-                  <td className="p-4 capitalize">{post.is_published ? "published" : "draft"}</td>
+                  <td className="p-4 capitalize">{post.status || (post.is_published ? "published" : "draft")}</td>
                   <td className="p-4 text-gray-500 text-sm">
                     {post.published_at ? formatDateTime(post.published_at) : "—"}
                   </td>
