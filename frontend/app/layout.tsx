@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     siteName: "Kigali Rent",
   },
   robots: { index: true, follow: true },
-  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com"),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

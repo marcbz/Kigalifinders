@@ -1,9 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2 } from "lucide-react";
 import { adminService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Shimmer } from "@/components/ui/shimmer";
@@ -50,8 +49,6 @@ export default function AdminSettingsPage() {
   const [faqForm, setFaqForm] = useState({ question: "", answer: "" });
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [legalMessage, setLegalMessage] = useState<string | null>(null);
-  const [legalError, setLegalError] = useState<string | null>(null);
 
   const { data: settings, isLoading } = useQuery({
     queryKey: ["admin-settings"],
@@ -96,33 +93,23 @@ export default function AdminSettingsPage() {
         { key: "site", value: parseSitePayload(site) },
         { key: "hero", value: hero },
         { key: "social", value: social },
+        {
+          key: "legal",
+          value: {
+            privacy_policy: legal.privacy_policy || "",
+            terms_of_service: legal.terms_of_service || "",
+            sitemap_intro: legal.sitemap_intro || "",
+          },
+        },
       ]),
     onSuccess: () => {
-      setSaveMessage("Settings saved. Refresh the homepage to see updates.");
+      setSaveMessage("Settings saved successfully.");
       setSaveError(null);
       queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
     },
     onError: (err) => {
       setSaveError(getApiErrorMessage(err, "Failed to save settings. Please try again."));
       setSaveMessage(null);
-    },
-  });
-
-  const saveLegal = useMutation({
-    mutationFn: () =>
-      adminService.updateLegalSettings({
-        privacy_policy: legal.privacy_policy || "",
-        terms_of_service: legal.terms_of_service || "",
-        sitemap_intro: legal.sitemap_intro || "",
-      }),
-    onSuccess: () => {
-      setLegalMessage("Legal pages saved. View them using the preview links below.");
-      setLegalError(null);
-      queryClient.invalidateQueries({ queryKey: ["admin-settings"] });
-    },
-    onError: (err) => {
-      setLegalError(getApiErrorMessage(err, "Failed to save legal pages. Please try again."));
-      setLegalMessage(null);
     },
   });
 
@@ -152,7 +139,7 @@ export default function AdminSettingsPage() {
     <div className="space-y-10 max-w-3xl">
       <div>
         <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Site Settings</h2>
-        <p className="text-sm text-gray-500 mt-1">Updates apply to the homepage hero, contact section, map, and CTAs.</p>
+        <p className="text-sm text-gray-500 mt-1">Manage homepage content, contact details, legal pages, and more.</p>
       </div>
 
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
@@ -200,18 +187,11 @@ export default function AdminSettingsPage() {
         ))}
       </section>
 
-      {saveMessage && <p className="text-sm text-green-600">{saveMessage}</p>}
-      {saveError && <p className="text-sm text-red-500">{saveError}</p>}
-
-      <Button className="rounded-full" onClick={() => saveSettings.mutate()} disabled={saveSettings.isPending}>
-        {saveSettings.isPending ? "Saving..." : "Save Site Settings"}
-      </Button>
-
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-5">
         <div>
           <h3 className="font-semibold">Legal Pages</h3>
           <p className="text-sm text-gray-500 mt-1">
-            Edit Privacy Policy, Terms of Service, and the sitemap intro. Property and blog links on the sitemap page are generated automatically.
+            Edit Privacy Policy, Terms of Service, and the sitemap intro. Property links on the sitemap page are generated automatically.
           </p>
         </div>
 
@@ -222,9 +202,6 @@ export default function AdminSettingsPage() {
             value={legal.privacy_policy || ""}
             onChange={(e) => setLegal({ ...legal, privacy_policy: e.target.value })}
           />
-          <Link href="/privacy" target="_blank" className="inline-flex items-center gap-1 text-xs text-gold-600 hover:underline">
-            Preview <ExternalLink className="w-3 h-3" />
-          </Link>
         </div>
 
         <div className="space-y-2">
@@ -234,9 +211,6 @@ export default function AdminSettingsPage() {
             value={legal.terms_of_service || ""}
             onChange={(e) => setLegal({ ...legal, terms_of_service: e.target.value })}
           />
-          <Link href="/terms" target="_blank" className="inline-flex items-center gap-1 text-xs text-gold-600 hover:underline">
-            Preview <ExternalLink className="w-3 h-3" />
-          </Link>
         </div>
 
         <div className="space-y-2">
@@ -247,17 +221,7 @@ export default function AdminSettingsPage() {
             value={legal.sitemap_intro || ""}
             onChange={(e) => setLegal({ ...legal, sitemap_intro: e.target.value })}
           />
-          <Link href="/sitemap" target="_blank" className="inline-flex items-center gap-1 text-xs text-gold-600 hover:underline">
-            Preview <ExternalLink className="w-3 h-3" />
-          </Link>
         </div>
-
-        {legalMessage && <p className="text-sm text-green-600">{legalMessage}</p>}
-        {legalError && <p className="text-sm text-red-500">{legalError}</p>}
-
-        <Button className="rounded-full" onClick={() => saveLegal.mutate()} disabled={saveLegal.isPending}>
-          {saveLegal.isPending ? "Saving..." : "Save Legal Pages"}
-        </Button>
       </section>
 
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
@@ -278,6 +242,13 @@ export default function AdminSettingsPage() {
           ))}
         </div>
       </section>
+
+      {saveMessage && <p className="text-sm text-green-600">{saveMessage}</p>}
+      {saveError && <p className="text-sm text-red-500">{saveError}</p>}
+
+      <Button className="rounded-full" onClick={() => saveSettings.mutate()} disabled={saveSettings.isPending}>
+        {saveSettings.isPending ? "Saving..." : "Save Settings"}
+      </Button>
     </div>
   );
 }

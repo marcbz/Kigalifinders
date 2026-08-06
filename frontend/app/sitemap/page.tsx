@@ -2,18 +2,17 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalDocument } from "@/components/legal/legal-document";
 import { getPropertyHref } from "@/lib/property-url";
-import { fetchBlogPostsSafe, fetchLegalSafe, fetchPropertiesSafe } from "@/lib/server-api";
+import { fetchLegalSafe, fetchPropertiesSafe } from "@/lib/server-api";
 
 export const metadata: Metadata = {
   title: "Sitemap",
-  description: "Browse all pages on Kigali Rent — properties, blog posts, and key information.",
+  description: "Browse all pages on Kigali Rent — properties and key information.",
 };
 
 const STATIC_PAGES = [
   { href: "/", label: "Home" },
   { href: "/properties", label: "Properties" },
   { href: "/about", label: "About Us" },
-  { href: "/agents", label: "Our Agents" },
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact" },
@@ -22,10 +21,9 @@ const STATIC_PAGES = [
 ];
 
 export default async function SitemapPage() {
-  const [legal, properties, blogPosts] = await Promise.all([
+  const [legal, properties] = await Promise.all([
     fetchLegalSafe(),
     fetchPropertiesSafe({ page_size: 200 }),
-    fetchBlogPostsSafe(),
   ]);
 
   return (
@@ -63,21 +61,6 @@ export default async function SitemapPage() {
                     className="text-gold-600 hover:text-gold-500 hover:underline"
                   >
                     {property.title}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {blogPosts.length > 0 && (
-          <section className="mt-10">
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Blog</h2>
-            <ul className="grid sm:grid-cols-2 gap-2 text-sm">
-              {blogPosts.map((post) => (
-                <li key={post.id}>
-                  <Link href={`/blog/${post.slug}`} className="text-gold-600 hover:text-gold-500 hover:underline">
-                    {post.title}
                   </Link>
                 </li>
               ))}
