@@ -1,10 +1,7 @@
-import {
-  getSitemapIndexEntries,
-  SITEMAP_REVALIDATE_SECONDS,
-} from "@/lib/sitemap-data";
+import { getSitemapIndexEntries } from "@/lib/sitemap-data";
 import { buildSitemapIndexXml, xmlResponse } from "@/lib/sitemap-xml";
 
-export const revalidate = SITEMAP_REVALIDATE_SECONDS;
+export const revalidate = 3600;
 
 export async function GET() {
   const now = new Date();

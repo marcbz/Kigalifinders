@@ -1,7 +1,7 @@
-import { getPagesSitemapEntries, SITEMAP_REVALIDATE_SECONDS } from "@/lib/sitemap-data";
+import { getPagesSitemapEntries } from "@/lib/sitemap-data";
 import { buildUrlSetXml, xmlResponse } from "@/lib/sitemap-xml";
 
-export const revalidate = SITEMAP_REVALIDATE_SECONDS;
+export const revalidate = 3600;
 
 export async function GET() {
   return xmlResponse(buildUrlSetXml(getPagesSitemapEntries()));
