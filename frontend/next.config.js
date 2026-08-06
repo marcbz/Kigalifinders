@@ -11,12 +11,6 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "framer-motion"],
   },
-  async redirects() {
-    return [
-      { source: "/areas", destination: "/area", permanent: true },
-      { source: "/areas/:slug", destination: "/area/:slug", permanent: true },
-    ];
-  },
 };
 
 module.exports = nextConfig;
