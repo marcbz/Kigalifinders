@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { LegalDocument } from "@/components/legal/legal-document";
+import { getAreaHref } from "@/lib/areas";
 import { getPropertyHref } from "@/lib/property-url";
-import { fetchLegalSafe, fetchPropertiesSafe } from "@/lib/server-api";
+import { fetchLegalSafe, fetchNeighborhoodsSafe, fetchPropertiesSafe } from "@/lib/server-api";
 
 export const metadata: Metadata = {
   title: "Sitemap",
@@ -12,6 +13,7 @@ export const metadata: Metadata = {
 const STATIC_PAGES = [
   { href: "/", label: "Home" },
   { href: "/properties", label: "Properties" },
+  { href: "/areas", label: "Neighborhoods" },
   { href: "/about", label: "About Us" },
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },
@@ -21,9 +23,10 @@ const STATIC_PAGES = [
 ];
 
 export default async function SitemapPage() {
-  const [legal, properties] = await Promise.all([
+  const [legal, properties, neighborhoods] = await Promise.all([
     fetchLegalSafe(),
     fetchPropertiesSafe({ page_size: 200 }),
+    fetchNeighborhoodsSafe(),
   ]);
 
   return (
@@ -47,6 +50,24 @@ export default async function SitemapPage() {
             ))}
           </ul>
         </section>
+
+        {neighborhoods.length > 0 && (
+          <section className="mt-10">
+            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">
+              Neighborhoods ({neighborhoods.length})
+            </h2>
+            <ul className="grid sm:grid-cols-2 gap-2 text-sm">
+              {neighborhoods.map((area) => (
+                <li key={area.id}>
+                  <Link href={getAreaHref(area.slug)} className="text-gold-600 hover:text-gold-500 hover:underline">
+                    {area.name}
+                    {area.district_name ? ` — ${area.district_name}` : ""}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {properties.items.length > 0 && (
           <section className="mt-10">

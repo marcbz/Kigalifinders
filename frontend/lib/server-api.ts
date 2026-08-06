@@ -163,3 +163,24 @@ export async function fetchLegalSafe(): Promise<LegalContent> {
   const data = await fetchApiSafe<LegalContent>("/legal", { revalidate: 60 });
   return data ?? emptyLegal();
 }
+
+export type NeighborhoodSummary = {
+  id: string;
+  name: string;
+  slug: string;
+  image_url?: string | null;
+  property_count: number;
+  district_name?: string | null;
+};
+
+export async function fetchNeighborhoodsSafe(): Promise<NeighborhoodSummary[]> {
+  const data = await fetchApiSafe<NeighborhoodSummary[]>("/locations/neighborhoods", { revalidate: 300 });
+  return data ?? [];
+}
+
+export async function fetchNeighborhoodBySlugSafe(slug: string): Promise<NeighborhoodSummary | null> {
+  const normalized = slug.trim().toLowerCase();
+  if (!normalized) return null;
+  const neighborhoods = await fetchNeighborhoodsSafe();
+  return neighborhoods.find((area) => area.slug === normalized) ?? null;
+}

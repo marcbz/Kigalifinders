@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight, MapPin } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
+import { getAreaHref } from "@/lib/areas";
 import { neighborhoodsForHomepageDisplay } from "@/lib/homepage-areas";
 import type { PropertyListItem } from "@/types";
 
@@ -135,7 +136,7 @@ export function AreasSection({ neighborhoods }: AreasSectionProps) {
           {areas.map((area, index) => (
             <Link
               key={area.id}
-              href={`/properties?neighborhood_slug=${area.slug}`}
+              href={getAreaHref(area.slug)}
               className="group flex flex-col items-center gap-3 p-5 rounded-2xl border border-gold-500/15 bg-cream/40 dark:bg-secondary/40 hover:border-gold-500/50 hover:shadow-lg hover:-translate-y-1 transition-all duration-300"
             >
               <div
