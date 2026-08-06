@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { BrandName } from "@/components/brand/brand-name";
 import { authService } from "@/services/api";
 import { clearAuthTokens, getAccessToken, isAdminRole } from "@/lib/auth";
 
@@ -63,10 +64,10 @@ export default function AdminLoginPage() {
       <div className="w-full max-w-md bg-white dark:bg-card rounded-2xl shadow-2xl p-8">
         <div className="text-center mb-8">
           <div className="w-16 h-16 rounded-full bg-navy-800 flex items-center justify-center mx-auto mb-4">
-            <span className="font-serif text-gold-500 text-2xl font-bold">K</span>
+            <span className="font-serif text-gold-500 text-lg font-bold leading-none">KR</span>
           </div>
           <h1 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Admin Login</h1>
-          <p className="text-gray-500 text-sm mt-2">Kigalifinders Management Portal</p>
+          <p className="text-gray-500 text-sm mt-2"><BrandName size="sm" /> Management Portal</p>
         </div>
         <form onSubmit={handleSubmit} className="space-y-4">
           {error && <p className="text-red-500 text-sm text-center">{error}</p>}

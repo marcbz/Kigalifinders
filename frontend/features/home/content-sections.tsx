@@ -102,13 +102,13 @@ export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; what
           Let&apos;s Find Your <span className="gold-text italic">Perfect Property</span>
         </h2>
         <p className="text-gray-300 text-lg mb-10 max-w-2xl mx-auto">
-          Speak to a Kigalifinders advisor today. Book a free consultation and start your real estate journey.
+          Speak to a Kigali Rent advisor today. Book a free consultation and start your real estate journey.
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
           <a href={resolvedBookingUrl} target="_blank" rel="noopener noreferrer" className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             Book Free Consultation
           </a>
-          <a href={`https://wa.me/${resolvedWhatsapp}?text=Hello%20Kigalifinders`} className="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
+          <a href={`https://wa.me/${resolvedWhatsapp}?text=Hello%20Kigali%20Rent`} className="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             WhatsApp Us
           </a>
         </div>
@@ -170,7 +170,7 @@ export function MapSection({
               className="w-full h-full grayscale-[20%] contrast-105 border-0"
               src={mapSrc}
               loading="lazy"
-              title="Kigalifinders Office Location"
+              title="Kigali Rent Office Location"
             />
             </div>
           </div>
@@ -183,7 +183,11 @@ export function MapSection({
 export function FloatingCTAs({ phone, whatsapp }: { phone?: string; whatsapp?: string }) {
   return (
     <>
-      <a href={`tel:${phone?.replace(/\s/g, "")}`} className="fixed bottom-[100px] right-6 z-[60] bg-navy-800 text-gold-500 w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-xl" title="Call Now">
+      <a
+        href={`tel:${phone?.replace(/\s/g, "")}`}
+        className="fixed bottom-[100px] right-6 z-[60] bg-sky-brand hover:bg-sky-brand-hover text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl text-xl transition-colors"
+        title="Call Now"
+      >
         📞
       </a>
       <a

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { Link2, Home, Mail, Settings, FileText, BarChart3, LogOut } from "lucide-react";
 import { AdminAuthGuard } from "@/components/admin/auth-guard";
+import { BrandName } from "@/components/brand/brand-name";
 import { clearAuthTokens } from "@/lib/auth";
 
 const sidebarLinks = [
@@ -34,7 +35,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <div className="min-h-screen flex bg-gray-50 dark:bg-navy-900">
         <aside className="w-64 bg-navy-800 text-white hidden md:flex flex-col">
           <div className="p-6 border-b border-navy-700">
-            <Link href="/admin" className="font-serif text-xl font-bold text-gold-500">KIGALIFINDERS</Link>
+            <Link href="/admin" className="block">
+              <BrandName variant="admin" size="md" />
+            </Link>
             <p className="text-xs text-gray-400 mt-1">Admin Dashboard</p>
           </div>
           <nav className="flex-1 p-4 space-y-1">

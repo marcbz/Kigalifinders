@@ -37,14 +37,14 @@ export function HeroSection({
   return (
     <section
       id="home"
-      className="min-h-[92vh] flex items-center text-white relative"
+      className="min-h-[68vh] flex items-center text-white relative"
       style={{
-        backgroundImage: `linear-gradient(rgba(6,19,43,0.55), rgba(6,19,43,0.7)), url('${displayBg}')`,
+        backgroundImage: `linear-gradient(rgba(6,19,43,0.72), rgba(6,19,43,0.86)), url('${displayBg}')`,
         backgroundSize: "cover",
         backgroundPosition: "center",
       }}
     >
-      <div className="max-w-7xl mx-auto px-6 py-20 w-full">
+      <div className="max-w-7xl mx-auto px-6 py-14 w-full">
         <div className="max-w-3xl">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -59,7 +59,7 @@ export function HeroSection({
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="font-serif text-5xl md:text-7xl font-bold leading-[1.05] mb-6"
+            className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5"
           >
             {titleParts.length > 1 ? (
               <>Find Your <span className="gold-text italic">Dream Home</span>{titleParts[1]}</>

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-export const metadata: Metadata = { title: "About Us", description: "Learn about Kigalifinders - Rwanda's trusted luxury real estate agency." };
+export const metadata: Metadata = { title: "About Us", description: "Learn about Kigali Rent - Rwanda's trusted luxury real estate agency." };
 
 export default function AboutPage() {
   return (
@@ -12,7 +12,7 @@ export default function AboutPage() {
         </h1>
         <div className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-400 leading-relaxed space-y-6">
           <p>
-            Since 2014, Kigalifinders has been the trusted name for discerning clients seeking premium properties in Rwanda&apos;s capital.
+            Since 2014, Kigali Rent has been the trusted name for discerning clients seeking premium properties in Rwanda&apos;s capital.
             We deliver unparalleled service, deep local expertise, and complete transparency.
           </p>
           <p>

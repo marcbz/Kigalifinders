@@ -52,7 +52,10 @@ const config: Config = {
           500: "#c9a961",
           600: "#b08f47",
         },
-        cream: "#faf7f2",
+        sky: {
+          brand: "#4A8FB8",
+          "brand-hover": "#3D7FA3",
+        },
       },
       fontFamily: {
         serif: ["var(--font-playfair)", "serif"],

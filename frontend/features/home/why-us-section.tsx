@@ -25,7 +25,7 @@ export function WhyUsSection() {
             </h2>
             <div className="section-divider mb-6" />
             <p className="text-gray-300 mb-10 leading-relaxed">
-              For over a decade, Kigalifinders has been the trusted name for discerning clients seeking premium properties in Rwanda&apos;s capital.
+              For over a decade, Kigali Rent has been the trusted name for discerning clients seeking premium properties in Rwanda&apos;s capital.
             </p>
             <div className="grid grid-cols-2 gap-6">
               {features.map(({ icon: Icon, title, desc }) => (

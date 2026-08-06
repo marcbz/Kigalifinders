@@ -9,16 +9,16 @@ const playfair = Playfair_Display({ subsets: ["latin"], variable: "--font-playfa
 
 export const metadata: Metadata = {
   title: {
-    default: "Kigalifinders | Luxury Real Estate in Kigali, Rwanda",
-    template: "%s | Kigalifinders",
+    default: "Kigali Rent | Luxury Real Estate in Kigali, Rwanda",
+    template: "%s | Kigali Rent",
   },
-  description: "Find furnished houses, rental homes, and plots for sale in Kigali. Book property visits and discover your next home with Kigalifinders.",
+  description: "Find furnished houses, rental homes, and plots for sale in Kigali. Book property visits and discover your next home with Kigali Rent.",
   openGraph: {
-    title: "Kigalifinders | Luxury Real Estate in Kigali, Rwanda",
+    title: "Kigali Rent | Luxury Real Estate in Kigali, Rwanda",
     description: "Rwanda's most trusted real estate agency. Houses for rent, furnished homes, and plots for sale in Kigali.",
     type: "website",
     locale: "en_RW",
-    siteName: "Kigalifinders",
+    siteName: "Kigali Rent",
   },
   robots: { index: true, follow: true },
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin, MapPin, Phone, Clock, CalendarCheck, Youtube } from "lucide-react";
+import { BrandName } from "@/components/brand/brand-name";
 
 interface FooterProps {
   phone?: string;
@@ -34,11 +35,11 @@ export function Footer({
           <div>
             <div className="flex items-center gap-3 mb-4">
               <div className="w-11 h-11 rounded-full bg-gold-500 flex items-center justify-center">
-                <span className="font-serif text-navy-800 text-xl font-bold">K</span>
+                <span className="font-serif text-navy-800 text-sm font-bold leading-none">KR</span>
               </div>
               <div>
-                <div className="font-serif text-xl font-bold text-white">KIGALIFINDERS</div>
-                <div className="text-[10px] tracking-[0.25em] text-gold-500">LUXURY REAL ESTATE</div>
+                <BrandName variant="light" size="md" />
+                <div className="text-[10px] tracking-[0.25em] text-gold-500">RENTALS & PROPERTY</div>
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5">
@@ -93,7 +94,7 @@ export function Footer({
         </div>
 
         <div className="border-t border-gray-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-4 text-xs text-gray-500">
-          <div>© {new Date().getFullYear()} Kigalifinders. All rights reserved.</div>
+          <div>© {new Date().getFullYear()} Kigali Rent. All rights reserved.</div>
           <div className="flex gap-5">
             <Link href="/privacy" className="hover:text-gold-500">Privacy Policy</Link>
             <Link href="/terms" className="hover:text-gold-500">Terms of Service</Link>

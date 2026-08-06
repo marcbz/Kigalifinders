@@ -5,6 +5,7 @@ import { useState } from "react";
 import { CalendarCheck, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { BrandName } from "@/components/brand/brand-name";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
@@ -30,11 +31,11 @@ export function Navbar({ bookingUrl }: NavbarProps) {
         <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
           <Link href="/" className="flex items-center gap-3">
             <div className="w-11 h-11 rounded-full bg-navy-800 flex items-center justify-center">
-              <span className="font-serif text-gold-500 text-xl font-bold">K</span>
+              <span className="font-serif text-gold-500 text-sm font-bold leading-none">KR</span>
             </div>
             <div>
-              <div className="font-serif text-xl font-bold text-navy-800 dark:text-white tracking-wide">KIGALIFINDERS</div>
-              <div className="text-[10px] tracking-[0.25em] text-gold-500 -mt-1">LUXURY REAL ESTATE</div>
+              <BrandName size="md" />
+              <div className="text-[10px] tracking-[0.25em] text-gold-500 -mt-1">RENTALS & PROPERTY</div>
             </div>
           </Link>
 
@@ -80,7 +81,7 @@ export function Navbar({ bookingUrl }: NavbarProps) {
         >
           <X className="w-6 h-6" />
         </button>
-        <div className="font-serif text-2xl text-gold-500 mb-10 mt-4">KIGALIFINDERS</div>
+        <BrandName variant="admin" size="lg" className="mb-10 mt-4" />
         <nav className="flex flex-col gap-5 text-lg">
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className="hover:text-gold-500" onClick={() => setMobileOpen(false)}>
