@@ -1,4 +1,5 @@
 import { PropertyGridSkeleton } from "@/components/ui/shimmer";
+import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder";
 
 export default function PropertiesLoading() {
   return (
@@ -9,7 +10,7 @@ export default function PropertiesLoading() {
           <h1 className="font-serif text-4xl md:text-5xl font-bold mt-3">All Properties</h1>
         </div>
       </div>
-      <div className="h-40 -mt-16" />
+      <SearchBarPlaceholder />
       <section className="py-16 px-6">
         <div className="max-w-7xl mx-auto">
           <PropertyGridSkeleton />

@@ -1,12 +1,16 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
+import { preload } from "react-dom";
 import { fetchHomepageSafe } from "@/lib/server-api";
-import { HeroSection } from "@/features/home/hero-section";
+import { HeroShell, HeroCopyFallback } from "@/features/home/hero-section";
+import { HeroCopyFromApi } from "@/features/home/hero-copy-from-api";
 import { SearchBar } from "@/components/search/search-bar";
+import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder";
 import { StatsSection } from "@/features/home/stats-section";
 import { PropertyGridSection, PlotsSection, AreasSection, FurnishedSection } from "@/features/home/property-sections";
 import { WhyUsSection, TestimonialsSection } from "@/features/home/why-us-section";
 import { BlogSection, CTASection, MapSection } from "@/features/home/content-sections";
+import { DEFAULT_HERO_IMAGE } from "@/lib/hero-image";
 
 const FAQSection = dynamic(
   () => import("@/features/home/faq-section").then((mod) => mod.FAQSection),
@@ -28,12 +32,11 @@ function ApiErrorBanner() {
   );
 }
 
-export default async function HomePage() {
+async function HomePageSections() {
   const { data, ok } = await fetchHomepageSafe();
 
   const settings = data.settings || {};
   const links = data.links || {};
-  const hero = data.hero || {};
   const bookingUrl = links.booking_url || settings.booking_url;
   const consultationUrl = links.book_consultation_url || bookingUrl;
   const phone = links.phone || settings.phone;
@@ -42,16 +45,7 @@ export default async function HomePage() {
   return (
     <>
       {!ok && <ApiErrorBanner />}
-      <HeroSection
-        tagline={hero.tagline}
-        title={hero.title}
-        subtitle={hero.subtitle}
-        backgroundImage={hero.background_image}
-        ctaPrimary={hero.cta_primary}
-        ctaSecondary={hero.cta_secondary}
-        bookingUrl={bookingUrl}
-      />
-      <Suspense fallback={<div className="h-40 -mt-16" />}>
+      <Suspense fallback={<SearchBarPlaceholder />}>
         <SearchBar />
       </Suspense>
       <StatsSection stats={data.stats} />
@@ -76,6 +70,32 @@ export default async function HomePage() {
       <FAQSection faqs={data.faqs} />
       <CTASection bookingUrl={consultationUrl} whatsapp={whatsapp} />
       <NewsletterSection />
+    </>
+  );
+}
+
+function HomeSectionsFallback() {
+  return (
+    <>
+      <SearchBarPlaceholder />
+      <div className="py-20 px-6 bg-cream dark:bg-secondary min-h-[320px]" aria-hidden />
+    </>
+  );
+}
+
+export default function HomePage() {
+  preload(DEFAULT_HERO_IMAGE, { as: "image", fetchPriority: "high" });
+
+  return (
+    <>
+      <HeroShell backgroundImage={DEFAULT_HERO_IMAGE}>
+        <Suspense fallback={<HeroCopyFallback />}>
+          <HeroCopyFromApi />
+        </Suspense>
+      </HeroShell>
+      <Suspense fallback={<HomeSectionsFallback />}>
+        <HomePageSections />
+      </Suspense>
     </>
   );
 }

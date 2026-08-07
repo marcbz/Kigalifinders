@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { fetchPropertiesSafe } from "@/lib/server-api";
 import { PropertyCard } from "@/components/property/property-card";
 import { SearchBar } from "@/components/search/search-bar";
+import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder";
 import { ActivePropertyFilters } from "@/components/search/active-property-filters";
 
 export const revalidate = 60;
@@ -43,7 +44,7 @@ export default async function PropertiesPage({ searchParams }: Props) {
           <h1 className="font-serif text-4xl md:text-5xl font-bold mt-3">All Properties</h1>
         </div>
       </div>
-      <Suspense fallback={<div className="h-40 -mt-16" />}>
+      <Suspense fallback={<SearchBarPlaceholder />}>
         <SearchBar />
       </Suspense>
       <section className="py-16 px-6">
