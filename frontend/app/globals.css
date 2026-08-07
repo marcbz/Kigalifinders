@@ -96,7 +96,27 @@
   }
 
   .search-bar {
-    @apply bg-white/95 dark:bg-card/95 backdrop-blur-xl shadow-2xl shadow-black/20;
+    @apply bg-white dark:bg-card shadow-2xl shadow-black/20;
+  }
+
+  /* LCP-critical hero: background paints with first layout, no img compositing delay */
+  #home.hero-lcp {
+    background-image: linear-gradient(to bottom, rgba(6, 19, 43, 0.72), rgba(6, 19, 43, 0.86)),
+      url("/images/hero-kigali-mobile.webp");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+  }
+
+  @media (min-width: 769px) {
+    #home.hero-lcp {
+      background-image: linear-gradient(to bottom, rgba(6, 19, 43, 0.72), rgba(6, 19, 43, 0.86)),
+        url("/images/hero-kigali.webp");
+    }
+  }
+
+  .hero-cta-outline {
+    @apply inline-flex items-center justify-center gap-2 border-[1.5px] border-white/60 bg-white/10 text-white font-semibold transition-colors hover:bg-white hover:text-navy-800;
   }
 
   .testimonial-card {

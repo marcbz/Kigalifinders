@@ -1,8 +1,8 @@
 import { Suspense } from "react";
 import { preload } from "react-dom";
 import { HeroSection } from "@/features/home/hero-section";
-import { SearchBar } from "@/components/search/search-bar";
 import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder";
+import { DeferredSearchBar } from "@/components/search/deferred-search-bar";
 import { HomePageContent, HomePageFallback } from "@/features/home/home-page-content";
 import { DEFAULT_HERO_IMAGE, DEFAULT_HERO_IMAGE_MOBILE } from "@/lib/hero-image";
 
@@ -16,7 +16,7 @@ export default function HomePage() {
     <>
       <HeroSection backgroundImage={DEFAULT_HERO_IMAGE} />
       <Suspense fallback={<SearchBarPlaceholder />}>
-        <SearchBar />
+        <DeferredSearchBar />
       </Suspense>
       <Suspense fallback={<HomePageFallback />}>
         <HomePageContent />
