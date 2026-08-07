@@ -2,8 +2,7 @@ import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { preload } from "react-dom";
 import { fetchHomepageSafe } from "@/lib/server-api";
-import { HeroShell, HeroCopyFallback } from "@/features/home/hero-section";
-import { HeroCopyFromApi } from "@/features/home/hero-copy-from-api";
+import { HeroSection } from "@/features/home/hero-section";
 import { SearchBar } from "@/components/search/search-bar";
 import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder";
 import { StatsSection } from "@/features/home/stats-section";
@@ -32,11 +31,14 @@ function ApiErrorBanner() {
   );
 }
 
-async function HomePageSections() {
+export default async function HomePage() {
+  preload(DEFAULT_HERO_IMAGE, { as: "image", fetchPriority: "high" });
+
   const { data, ok } = await fetchHomepageSafe();
 
   const settings = data.settings || {};
   const links = data.links || {};
+  const hero = data.hero || {};
   const bookingUrl = links.booking_url || settings.booking_url;
   const consultationUrl = links.book_consultation_url || bookingUrl;
   const phone = links.phone || settings.phone;
@@ -45,6 +47,15 @@ async function HomePageSections() {
   return (
     <>
       {!ok && <ApiErrorBanner />}
+      <HeroSection
+        tagline={hero.tagline}
+        title={hero.title}
+        subtitle={hero.subtitle}
+        backgroundImage={hero.background_image}
+        ctaPrimary={hero.cta_primary}
+        ctaSecondary={hero.cta_secondary}
+        bookingUrl={bookingUrl}
+      />
       <Suspense fallback={<SearchBarPlaceholder />}>
         <SearchBar />
       </Suspense>
@@ -70,32 +81,6 @@ async function HomePageSections() {
       <FAQSection faqs={data.faqs} />
       <CTASection bookingUrl={consultationUrl} whatsapp={whatsapp} />
       <NewsletterSection />
-    </>
-  );
-}
-
-function HomeSectionsFallback() {
-  return (
-    <>
-      <SearchBarPlaceholder />
-      <div className="py-20 px-6 bg-cream dark:bg-secondary min-h-[320px]" aria-hidden />
-    </>
-  );
-}
-
-export default function HomePage() {
-  preload(DEFAULT_HERO_IMAGE, { as: "image", fetchPriority: "high" });
-
-  return (
-    <>
-      <HeroShell backgroundImage={DEFAULT_HERO_IMAGE}>
-        <Suspense fallback={<HeroCopyFallback />}>
-          <HeroCopyFromApi />
-        </Suspense>
-      </HeroShell>
-      <Suspense fallback={<HomeSectionsFallback />}>
-        <HomePageSections />
-      </Suspense>
     </>
   );
 }

@@ -107,7 +107,6 @@ interface HeroProps extends HeroCopyProps {
   backgroundImage?: string;
 }
 
-/** Full hero when data is already available (e.g. non-streaming pages). */
 export function HeroSection({
   tagline,
   title,
