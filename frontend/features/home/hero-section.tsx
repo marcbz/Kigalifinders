@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { CalendarCheck, Home } from "lucide-react";
-import { DEFAULT_HERO_IMAGE, resolveHeroImage } from "@/lib/hero-image";
+import {
+  DEFAULT_HERO_IMAGE,
+  DEFAULT_HERO_IMAGE_MOBILE,
+  resolveHeroImage,
+} from "@/lib/hero-image";
 
 interface HeroCopyProps {
   tagline?: string;
@@ -38,18 +42,29 @@ export function HeroSection({
   return (
     <section
       id="home"
-      className={`min-h-[72vh] md:min-h-[68vh] flex items-center text-white relative overflow-hidden${isLocalHero ? " hero-lcp" : ""}`}
-      style={
-        isLocalHero
-          ? undefined
-          : {
-              backgroundImage: `linear-gradient(to bottom, rgba(6,19,43,0.72), rgba(6,19,43,0.86)), url('${displayBg}')`,
-              backgroundSize: "cover",
-              backgroundPosition: "center",
-            }
-      }
+      className="relative isolate min-h-[72vh] md:min-h-[68vh] flex items-center text-white overflow-hidden"
     >
-      <div className="max-w-7xl mx-auto px-6 py-14 w-full relative">
+      {/* LCP target: flat img paints independently of web-font load */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={isLocalHero ? DEFAULT_HERO_IMAGE_MOBILE : displayBg}
+        srcSet={
+          isLocalHero
+            ? `${DEFAULT_HERO_IMAGE_MOBILE} 960w, ${DEFAULT_HERO_IMAGE} 1920w`
+            : undefined
+        }
+        sizes="100vw"
+        alt=""
+        width={1920}
+        height={1080}
+        fetchPriority="high"
+        loading="eager"
+        decoding="async"
+        className="absolute inset-0 h-full w-full object-cover object-center"
+      />
+      <div className="absolute inset-0 bg-[rgba(6,19,43,0.79)]" aria-hidden />
+
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-14 w-full">
         <div className="max-w-3xl">
           <div className="flex items-center gap-3 mb-6">
             <span className="h-px w-12 bg-gradient-to-r from-transparent via-gold-500 to-transparent" />
@@ -89,7 +104,7 @@ export function HeroSection({
         </div>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center text-white/70 text-xs">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center text-white/70 text-xs z-10">
         <span className="tracking-widest mb-2">SCROLL</span>
         <div className="w-px h-10 bg-gold-500" />
       </div>

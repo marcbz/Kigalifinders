@@ -9,8 +9,9 @@ const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "sw
 const playfair = Playfair_Display({
   subsets: ["latin"],
   variable: "--font-playfair",
-  display: "swap",
+  display: "optional",
   adjustFontFallback: true,
+  preload: true,
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
@@ -41,11 +42,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <style
-          dangerouslySetInnerHTML={{
-            __html: `#home.hero-lcp{background-image:linear-gradient(to bottom,rgba(6,19,43,.72),rgba(6,19,43,.86)),url(/images/hero-kigali-mobile.webp);background-size:cover;background-position:center;background-repeat:no-repeat}@media(min-width:769px){#home.hero-lcp{background-image:linear-gradient(to bottom,rgba(6,19,43,.72),rgba(6,19,43,.86)),url(/images/hero-kigali.webp)}}`,
-          }}
-        />
         <link
           rel="preload"
           as="image"
