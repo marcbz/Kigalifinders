@@ -1,6 +1,7 @@
 "use client";
 
 import { MapPin } from "lucide-react";
+import { LazyGoogleMap } from "@/components/maps/lazy-google-map";
 
 interface PropertyMapProps {
   address?: string | null;
@@ -19,15 +20,8 @@ export function PropertyMap({ address, title }: PropertyMapProps) {
     <section className="mb-8">
       <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Location on Map</h2>
       <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-        <div className="relative w-full max-w-[280px] aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-border shadow-md bg-gray-100 dark:bg-navy-900 shrink-0">
-          <iframe
-            title={`Map location for ${title}`}
-            src={embedUrl}
-            className="absolute inset-0 w-full h-full border-0"
-            loading="lazy"
-            allowFullScreen
-            referrerPolicy="no-referrer-when-downgrade"
-          />
+        <div className="relative w-full max-w-[280px] aspect-square rounded-xl overflow-hidden border border-gray-200 dark:border-border shadow-md shrink-0">
+          <LazyGoogleMap title={`Map location for ${title}`} src={embedUrl} />
         </div>
         <div className="text-sm text-gray-600 dark:text-gray-400 pt-1">
           <p className="mb-3 leading-relaxed">{trimmed}</p>

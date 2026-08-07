@@ -5,6 +5,7 @@ import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight, Plus, Minus, Phone } from "lucide-react";
+import { LazyGoogleMap } from "@/components/maps/lazy-google-map";
 import type { BlogPost, FAQ } from "@/types";
 
 export function FAQSection({ faqs }: { faqs: FAQ[] }) {
@@ -165,13 +166,8 @@ export function MapSection({
             </div>
           </div>
           <div className="w-full max-w-md">
-            <div className="rounded-xl overflow-hidden shadow-lg aspect-square max-h-[320px] border border-gray-200 dark:border-border">
-            <iframe
-              className="w-full h-full grayscale-[20%] contrast-105 border-0"
-              src={mapSrc}
-              loading="lazy"
-              title="Kigali Rent Office Location"
-            />
+            <div className="rounded-xl overflow-hidden shadow-lg aspect-square max-h-[320px] border border-gray-200 dark:border-border grayscale-[20%] contrast-105">
+              <LazyGoogleMap src={mapSrc} title="Kigali Rent Office Location" />
             </div>
           </div>
         </div>

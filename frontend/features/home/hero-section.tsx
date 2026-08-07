@@ -1,9 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { CalendarCheck, Home } from "lucide-react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
+import { resolveHeroImage } from "@/lib/hero-image";
 
 interface HeroProps {
   tagline?: string;
@@ -27,24 +29,26 @@ export function HeroSection({
   const displayTagline = tagline || "RWANDA'S #1 LUXURY REAL ESTATE";
   const displayTitle = title || "Find Your Dream Home in Kigali";
   const displaySubtitle = subtitle || "";
-  const displayBg =
-    backgroundImage || "https://images.unsplash.com/photo-1613490493576-7fde63acd811?auto=format&fit=crop&w=2000&q=80";
+  const displayBg = resolveHeroImage(backgroundImage);
   const displayCtaPrimary = ctaPrimary || "Book a Visit";
   const displayCtaSecondary = ctaSecondary || "Browse Properties";
   const displayBookingUrl = bookingUrl || "https://secure-guard.setmore.com/";
   const titleParts = displayTitle.split("Dream Home");
 
   return (
-    <section
-      id="home"
-      className="min-h-[68vh] flex items-center text-white relative"
-      style={{
-        backgroundImage: `linear-gradient(rgba(6,19,43,0.72), rgba(6,19,43,0.86)), url('${displayBg}')`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-      }}
-    >
-      <div className="max-w-7xl mx-auto px-6 py-14 w-full">
+    <section id="home" className="min-h-[68vh] flex items-center text-white relative overflow-hidden">
+      <Image
+        src={displayBg}
+        alt=""
+        fill
+        priority
+        sizes="100vw"
+        quality={80}
+        className="object-cover object-center -z-20"
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,19,43,0.72)] to-[rgba(6,19,43,0.86)] -z-10" />
+
+      <div className="max-w-7xl mx-auto px-6 py-14 w-full relative">
         <div className="max-w-3xl">
           <motion.div
             initial={{ opacity: 0, y: 30 }}
@@ -69,14 +73,14 @@ export function HeroSection({
           </motion.h1>
 
           {displaySubtitle && (
-          <motion.p
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed"
-          >
-            {displaySubtitle}
-          </motion.p>
+            <motion.p
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 }}
+              className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed"
+            >
+              {displaySubtitle}
+            </motion.p>
           )}
 
           <motion.div

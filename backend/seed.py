@@ -277,7 +277,7 @@ async def seed():
             "tagline": "RWANDA'S #1 LUXURY REAL ESTATE",
             "title": "Find Your Dream Home in Kigali",
             "subtitle": "Discover an exclusive collection of furnished houses, rental homes, and prime plots for sale across Kigali.",
-            "background_image": "https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=2000",
+            "background_image": "/images/hero-kigali.webp",
             "cta_primary": "Book a Visit",
             "cta_secondary": "Browse Properties",
         }, group="homepage"))
