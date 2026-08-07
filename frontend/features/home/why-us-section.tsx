@@ -1,5 +1,3 @@
-"use client";
-
 import Image from "next/image";
 import { Shield, Handshake, Headphones, MapPin, Quote, Star } from "lucide-react";
 import type { Testimonial } from "@/types";
@@ -46,6 +44,8 @@ export function WhyUsSection() {
               width={900}
               height={600}
               className="rounded-2xl shadow-2xl"
+              loading="lazy"
+              sizes="(max-width: 1024px) 100vw, 50vw"
             />
             <div className="absolute -bottom-8 -left-8 bg-white text-navy-800 p-6 rounded-xl shadow-2xl hidden md:block max-w-xs">
               <div className="flex items-center gap-2 mb-2">

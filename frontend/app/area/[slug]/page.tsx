@@ -152,7 +152,7 @@ export default async function AreaLandingPage({ params }: PageProps) {
             <>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {properties.items.map((property, index) => (
-                  <PropertyCard key={property.id} property={property} index={index} />
+                  <PropertyCard key={property.id} property={property} />
                 ))}
               </div>
               <div className="mt-12 flex justify-center">

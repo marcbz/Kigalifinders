@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { fetchFaqsSafe } from "@/lib/server-api";
-import { FAQSection } from "@/features/home/content-sections";
+import { FAQSection } from "@/features/home/faq-section";
 
 export const revalidate = 300;
 

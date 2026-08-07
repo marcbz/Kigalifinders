@@ -1,5 +1,3 @@
-"use client";
-
 import { MapPin } from "lucide-react";
 import { LazyGoogleMap } from "@/components/maps/lazy-google-map";
 

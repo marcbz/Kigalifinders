@@ -4,7 +4,7 @@ import { usePathname } from "next/navigation";
 import { TopBar } from "@/components/layout/top-bar";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { FloatingCTAs } from "@/features/home/content-sections";
+import { FloatingCTAs } from "@/features/home/floating-ctas";
 
 export function SiteChrome({
   children,

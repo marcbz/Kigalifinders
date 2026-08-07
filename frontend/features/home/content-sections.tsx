@@ -1,44 +1,8 @@
-"use client";
-
-import { useState } from "react";
-import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowRight, Plus, Minus, Phone } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { LazyGoogleMap } from "@/components/maps/lazy-google-map";
-import type { BlogPost, FAQ } from "@/types";
-
-export function FAQSection({ faqs }: { faqs: FAQ[] }) {
-  const [openId, setOpenId] = useState<string | null>(null);
-
-  return (
-    <section id="faq" className="py-20 px-6 bg-cream dark:bg-secondary">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-14">
-          <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">FREQUENTLY ASKED</span>
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-4">Your Questions Answered</h2>
-          <div className="section-divider mx-auto" />
-        </div>
-        <div className="space-y-4">
-          {faqs.map((faq) => (
-            <div key={faq.id} className="bg-white dark:bg-card rounded-xl shadow-sm overflow-hidden">
-              <button
-                className="w-full text-left p-6 flex justify-between items-center font-semibold text-navy-800 dark:text-white"
-                onClick={() => setOpenId(openId === faq.id ? null : faq.id)}
-              >
-                <span>{faq.question}</span>
-                {openId === faq.id ? <Minus className="w-5 h-5 text-gold-500" /> : <Plus className="w-5 h-5 text-gold-500" />}
-              </button>
-              {openId === faq.id && (
-                <div className="px-6 pb-6 text-gray-600 dark:text-gray-400 leading-relaxed" dangerouslySetInnerHTML={{ __html: faq.answer }} />
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
+import type { BlogPost } from "@/types";
 
 export function BlogSection({ posts }: { posts: BlogPost[] }) {
   return (
@@ -58,7 +22,8 @@ export function BlogSection({ posts }: { posts: BlogPost[] }) {
                   alt={post.title}
                   fill
                   className="object-cover group-hover:scale-105 transition duration-500"
-                  sizes="33vw"
+                  sizes="(max-width: 768px) 100vw, 33vw"
+                  loading="lazy"
                 />
               </div>
               <div className="text-xs text-gold-500 tracking-widest mb-2">
@@ -88,14 +53,14 @@ export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; what
   const resolvedBookingUrl = bookingUrl?.trim() || "https://secure-guard.setmore.com/";
   const resolvedWhatsapp = whatsapp?.trim() || "250784806641";
   return (
-    <section id="contact" className="py-24 px-6 relative bg-gradient-to-br from-navy-800 to-navy-700">
-      <div
-        className="absolute inset-0 opacity-10"
-        style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600')",
-          backgroundSize: "cover",
-          backgroundPosition: "center",
-        }}
+    <section id="contact" className="py-24 px-6 relative bg-gradient-to-br from-navy-800 to-navy-700 overflow-hidden">
+      <Image
+        src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=75"
+        alt=""
+        fill
+        className="object-cover object-center opacity-10"
+        sizes="100vw"
+        loading="lazy"
       />
       <div className="max-w-5xl mx-auto relative text-center text-white">
         <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">READY TO MOVE?</span>
@@ -113,21 +78,6 @@ export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; what
             WhatsApp Us
           </a>
         </div>
-      </div>
-    </section>
-  );
-}
-
-export function NewsletterSection() {
-  return (
-    <section className="py-16 px-6 bg-cream dark:bg-secondary">
-      <div className="max-w-4xl mx-auto text-center">
-        <h3 className="font-serif text-3xl font-bold text-navy-800 dark:text-white mb-3">Get Property Alerts</h3>
-        <p className="text-gray-600 dark:text-gray-400 mb-6">Be the first to know about new listings and exclusive opportunities.</p>
-        <form className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto" onSubmit={(e) => e.preventDefault()}>
-          <input type="email" placeholder="Your email address" className="lux-input flex-1" required />
-          <button type="submit" className="btn-gold px-8 py-3.5 rounded-md font-semibold whitespace-nowrap">Subscribe</button>
-        </form>
       </div>
     </section>
   );
@@ -173,28 +123,5 @@ export function MapSection({
         </div>
       </div>
     </section>
-  );
-}
-
-export function FloatingCTAs({ phone, whatsapp }: { phone?: string; whatsapp?: string }) {
-  return (
-    <>
-      <a
-        href={`tel:${phone?.replace(/\s/g, "")}`}
-        className="fixed bottom-[100px] right-6 z-[60] bg-sky-brand hover:bg-sky-brand-hover text-white w-14 h-14 rounded-full flex items-center justify-center shadow-xl transition-colors"
-        title="Call Now"
-      >
-        <Phone className="w-6 h-6 text-white" strokeWidth={2.25} />
-      </a>
-      <a
-        href={`https://wa.me/${whatsapp}`}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-[60] bg-[#25D366] text-white w-[60px] h-[60px] rounded-full flex items-center justify-center shadow-xl animate-float"
-        title="WhatsApp"
-      >
-        <WhatsAppIcon className="w-8 h-8" />
-      </a>
-    </>
   );
 }

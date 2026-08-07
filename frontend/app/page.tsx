@@ -1,17 +1,22 @@
 import { Suspense } from "react";
+import dynamic from "next/dynamic";
 import { fetchHomepageSafe } from "@/lib/server-api";
 import { HeroSection } from "@/features/home/hero-section";
 import { SearchBar } from "@/components/search/search-bar";
 import { StatsSection } from "@/features/home/stats-section";
 import { PropertyGridSection, PlotsSection, AreasSection, FurnishedSection } from "@/features/home/property-sections";
 import { WhyUsSection, TestimonialsSection } from "@/features/home/why-us-section";
-import {
-  BlogSection,
-  FAQSection,
-  CTASection,
-  NewsletterSection,
-  MapSection,
-} from "@/features/home/content-sections";
+import { BlogSection, CTASection, MapSection } from "@/features/home/content-sections";
+
+const FAQSection = dynamic(
+  () => import("@/features/home/faq-section").then((mod) => mod.FAQSection),
+  { loading: () => <div className="py-20" aria-hidden /> },
+);
+
+const NewsletterSection = dynamic(
+  () => import("@/features/home/newsletter-section").then((mod) => mod.NewsletterSection),
+  { loading: () => <div className="py-16" aria-hidden /> },
+);
 
 export const revalidate = 120;
 

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { notFound } from "next/navigation";
 import { Bath, Bed, CalendarCheck, MapPin, Ruler } from "lucide-react";
 import { PropertyGallery } from "@/components/property/property-gallery";
@@ -6,12 +7,16 @@ import { PropertyDescription } from "@/components/property/property-description"
 import { PropertyMap } from "@/components/property/property-map";
 import { PropertyFeaturesTable } from "@/components/property/property-features-table";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
-import { RelatedPropertiesSection } from "@/components/property/related-properties-section";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
 import { getListingBadge } from "@/lib/property-features";
 import { fetchPropertySafe } from "@/lib/server-api";
 import { Button } from "@/components/ui/button";
+
+const RelatedPropertiesSection = dynamic(
+  () => import("@/components/property/related-properties-section").then((mod) => ({ default: mod.RelatedPropertiesSection })),
+  { loading: () => <div className="py-16 px-6 bg-cream dark:bg-secondary min-h-[200px]" aria-hidden /> },
+);
 
 interface Props {
   params: Promise<{ slug: string }>;

@@ -1,9 +1,6 @@
-"use client";
-
 import Link from "next/link";
 import Image from "next/image";
 import { CalendarCheck, Home } from "lucide-react";
-import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { resolveHeroImage } from "@/lib/hero-image";
 
@@ -42,6 +39,7 @@ export function HeroSection({
         alt=""
         fill
         priority
+        fetchPriority="high"
         sizes="100vw"
         quality={80}
         className="object-cover object-center -z-20"
@@ -50,45 +48,26 @@ export function HeroSection({
 
       <div className="max-w-7xl mx-auto px-6 py-14 w-full relative">
         <div className="max-w-3xl">
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-3 mb-6"
-          >
+          <div className="hero-fade-in flex items-center gap-3 mb-6">
             <span className="h-px w-12 bg-gradient-to-r from-transparent via-gold-500 to-transparent" />
             <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">{displayTagline}</span>
-          </motion.div>
+          </div>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5"
-          >
+          <h1 className="hero-fade-in hero-fade-in-delay-1 font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">
             {titleParts.length > 1 ? (
               <>Find Your <span className="gold-text italic">Dream Home</span>{titleParts[1]}</>
             ) : (
               displayTitle
             )}
-          </motion.h1>
+          </h1>
 
           {displaySubtitle && (
-            <motion.p
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.2 }}
-              className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed"
-            >
+            <p className="hero-fade-in hero-fade-in-delay-2 text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed">
               {displaySubtitle}
-            </motion.p>
+            </p>
           )}
 
-          <motion.div
-            initial={{ opacity: 0, y: 30 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3 }}
-            className="flex flex-wrap gap-4"
-          >
+          <div className="hero-fade-in hero-fade-in-delay-3 flex flex-wrap gap-4">
             <Button asChild size="lg" className="rounded-full">
               <a href={displayBookingUrl} target="_blank" rel="noopener noreferrer">
                 <CalendarCheck className="w-5 h-5" />
@@ -101,7 +80,7 @@ export function HeroSection({
                 {displayCtaSecondary}
               </Link>
             </Button>
-          </motion.div>
+          </div>
         </div>
       </div>
 

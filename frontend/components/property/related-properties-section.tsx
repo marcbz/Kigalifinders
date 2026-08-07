@@ -47,7 +47,7 @@ export function RelatedPropertiesSection({ slug }: { slug: string }) {
         </p>
         <div className="grid md:grid-cols-3 gap-8">
           {properties.map((property, i) => (
-            <PropertyCard key={property.id} property={property} index={i} />
+            <PropertyCard key={property.id} property={property} />
           ))}
         </div>
         {isLoading && (
