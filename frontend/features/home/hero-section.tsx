@@ -1,8 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { CalendarCheck, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { resolveHeroImage } from "@/lib/hero-image";
+import { DEFAULT_HERO_IMAGE, resolveHeroImage } from "@/lib/hero-image";
 
 interface HeroCopyProps {
   tagline?: string;
@@ -22,15 +21,14 @@ export function HeroShell({
 }) {
   return (
     <section id="home" className="min-h-[68vh] flex items-center text-white relative overflow-hidden">
-      <Image
+      {/* Native img for fastest LCP — static asset in /public, no optimizer round-trip */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
         src={backgroundImage}
         alt=""
-        fill
-        priority
         fetchPriority="high"
-        sizes="100vw"
-        quality={75}
-        className="object-cover object-center -z-20"
+        decoding="async"
+        className="absolute inset-0 w-full h-full object-cover object-center -z-20"
       />
       <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,19,43,0.72)] to-[rgba(6,19,43,0.86)] -z-10" />
 
@@ -116,7 +114,7 @@ export function HeroSection({
   ctaSecondary,
   bookingUrl,
 }: HeroProps) {
-  const displayBg = resolveHeroImage(backgroundImage);
+  const displayBg = resolveHeroImage(backgroundImage) || DEFAULT_HERO_IMAGE;
 
   return (
     <HeroShell backgroundImage={displayBg}>
