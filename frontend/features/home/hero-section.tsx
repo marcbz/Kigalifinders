@@ -1,7 +1,11 @@
 import Link from "next/link";
 import { CalendarCheck, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { DEFAULT_HERO_IMAGE, resolveHeroImage } from "@/lib/hero-image";
+import {
+  DEFAULT_HERO_IMAGE,
+  DEFAULT_HERO_IMAGE_MOBILE,
+  resolveHeroImage,
+} from "@/lib/hero-image";
 
 interface HeroCopyProps {
   tagline?: string;
@@ -19,24 +23,35 @@ export function HeroShell({
   backgroundImage: string;
   children: React.ReactNode;
 }) {
-  return (
-    <section id="home" className="min-h-[68vh] flex items-center text-white relative overflow-hidden">
-      {/* Native img for fastest LCP — static asset in /public, no optimizer round-trip */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={backgroundImage}
-        alt=""
-        fetchPriority="high"
-        decoding="async"
-        className="absolute inset-0 w-full h-full object-cover object-center -z-20"
-      />
-      <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,19,43,0.72)] to-[rgba(6,19,43,0.86)] -z-10" />
+  const isLocalHero = backgroundImage.startsWith("/images/hero-kigali");
 
-      <div className="max-w-7xl mx-auto px-6 py-14 w-full relative">
+  return (
+    <section id="home" className="min-h-[72vh] md:min-h-[68vh] flex items-center text-white relative overflow-hidden">
+      <div className="absolute inset-0" aria-hidden>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={isLocalHero ? DEFAULT_HERO_IMAGE_MOBILE : backgroundImage}
+          srcSet={
+            isLocalHero
+              ? `${DEFAULT_HERO_IMAGE_MOBILE} 960w, ${DEFAULT_HERO_IMAGE} 1920w`
+              : undefined
+          }
+          sizes="100vw"
+          alt=""
+          width={1920}
+          height={1080}
+          fetchPriority="high"
+          decoding="sync"
+          className="absolute inset-0 w-full h-full object-cover object-center"
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-[rgba(6,19,43,0.72)] to-[rgba(6,19,43,0.86)]" />
+      </div>
+
+      <div className="max-w-7xl mx-auto px-6 py-14 w-full relative z-10">
         <div className="max-w-3xl">{children}</div>
       </div>
 
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center text-white/70 text-xs">
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 hidden md:flex flex-col items-center text-white/70 text-xs z-10">
         <span className="tracking-widest mb-2">SCROLL</span>
         <div className="w-px h-10 bg-gold-500" />
       </div>
@@ -95,10 +110,6 @@ export function HeroCopy({
       </div>
     </>
   );
-}
-
-export function HeroCopyFallback() {
-  return <HeroCopy />;
 }
 
 interface HeroProps extends HeroCopyProps {

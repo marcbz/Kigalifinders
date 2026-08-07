@@ -1,4 +1,5 @@
 export const DEFAULT_HERO_IMAGE = "/images/hero-kigali.webp";
+export const DEFAULT_HERO_IMAGE_MOBILE = "/images/hero-kigali-mobile.webp";
 
 const LEGACY_HERO_PATTERNS = ["talosluxuryvillas.com", "/29.jpg"];
 

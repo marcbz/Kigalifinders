@@ -1,12 +1,29 @@
 import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { fetchHomepageSafe } from "@/lib/server-api";
-import { SearchBar } from "@/components/search/search-bar";
-import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder";
 import { StatsSection } from "@/features/home/stats-section";
-import { PropertyGridSection, PlotsSection, AreasSection, FurnishedSection } from "@/features/home/property-sections";
 import { WhyUsSection, TestimonialsSection } from "@/features/home/why-us-section";
 import { BlogSection, CTASection, MapSection } from "@/features/home/content-sections";
+
+const PropertyGridSection = dynamic(
+  () => import("@/features/home/property-sections").then((mod) => mod.PropertyGridSection),
+  { loading: () => <div className="py-20 px-6 min-h-[480px] bg-cream dark:bg-secondary" aria-hidden /> },
+);
+
+const FurnishedSection = dynamic(
+  () => import("@/features/home/property-sections").then((mod) => mod.FurnishedSection),
+  { loading: () => null },
+);
+
+const PlotsSection = dynamic(
+  () => import("@/features/home/property-sections").then((mod) => mod.PlotsSection),
+  { loading: () => null },
+);
+
+const AreasSection = dynamic(
+  () => import("@/features/home/property-sections").then((mod) => mod.AreasSection),
+  { loading: () => <div className="py-20" aria-hidden /> },
+);
 
 const FAQSection = dynamic(
   () => import("@/features/home/faq-section").then((mod) => mod.FAQSection),
@@ -27,12 +44,7 @@ function ApiErrorBanner() {
 }
 
 export function HomePageFallback() {
-  return (
-    <>
-      <SearchBarPlaceholder />
-      <div className="py-20 px-6 bg-cream dark:bg-secondary min-h-[400px]" aria-hidden />
-    </>
-  );
+  return <div className="py-20 px-6 bg-cream dark:bg-secondary min-h-[320px]" aria-hidden />;
 }
 
 export async function HomePageContent() {
@@ -40,17 +52,13 @@ export async function HomePageContent() {
 
   const settings = data.settings || {};
   const links = data.links || {};
-  const bookingUrl = links.booking_url || settings.booking_url;
-  const consultationUrl = links.book_consultation_url || bookingUrl;
+  const consultationUrl = links.book_consultation_url || links.booking_url || settings.booking_url;
   const phone = links.phone || settings.phone;
   const whatsapp = links.whatsapp || settings.whatsapp;
 
   return (
     <>
       {!ok && <ApiErrorBanner />}
-      <Suspense fallback={<SearchBarPlaceholder />}>
-        <SearchBar />
-      </Suspense>
       <StatsSection stats={data.stats} />
       <PropertyGridSection
         title="Featured Properties"

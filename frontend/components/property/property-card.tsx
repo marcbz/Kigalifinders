@@ -33,6 +33,8 @@ export function PropertyCard({ property }: PropertyCardProps) {
           src={property.primary_image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800"}
           alt={property.title}
           fill
+          loading="lazy"
+          fetchPriority="low"
           className="object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
           sizes="(max-width: 768px) 100vw, 33vw"
           draggable={false}
