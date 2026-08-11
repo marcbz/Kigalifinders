@@ -1,10 +1,11 @@
 import { SiteChrome } from "@/components/layout/site-chrome";
+import { SITE_ADDRESS, SITE_HOURS } from "@/lib/site-defaults";
 
 const DEFAULTS = {
   phone: process.env.NEXT_PUBLIC_PHONE || "+250 784 806 641",
   whatsapp: process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641",
-  address: "KN 4 St, Kigali, Rwanda",
-  hours: "Mon - Sat: 8:00 AM - 7:00 PM",
+  address: SITE_ADDRESS,
+  hours: SITE_HOURS,
   bookingUrl: process.env.NEXT_PUBLIC_BOOKING_URL || "https://secure-guard.setmore.com/",
   consultationUrl: process.env.NEXT_PUBLIC_BOOKING_URL || "https://secure-guard.setmore.com/",
 };

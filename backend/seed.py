@@ -284,8 +284,8 @@ async def seed():
         db.add(Setting(key="site", value={
             "phone": "+250 784 806 641",
             "whatsapp": "250784806641",
-            "address": "KN 4 St, Kigali, Rwanda",
-            "hours": "Mon - Sat: 8:00 AM - 7:00 PM",
+            "address": "Kigali, Rwanda",
+            "hours": "Mon - Sat: 9:00 AM - 5:00 PM",
             "booking_url": "https://secure-guard.setmore.com/",
             "email": "hello@kigalifinders.com",
             "latitude": -1.944072,

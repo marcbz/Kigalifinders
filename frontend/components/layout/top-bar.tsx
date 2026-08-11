@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin, MapPin, Clock, Phone, Youtube } from "lucide-react";
+import { SITE_ADDRESS, SITE_HOURS } from "@/lib/site-defaults";
 
 interface TopBarProps {
   address?: string;
@@ -9,8 +10,8 @@ interface TopBarProps {
 }
 
 export function TopBar({
-  address = "KN 4 St, Kigali, Rwanda",
-  hours = "Mon - Sat: 8:00 AM - 7:00 PM",
+  address = SITE_ADDRESS,
+  hours = SITE_HOURS,
   phone = "+250 784 806 641",
   social = {},
 }: TopBarProps) {

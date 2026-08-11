@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin, MapPin, Phone, Clock, CalendarCheck, Youtube } from "lucide-react";
 import { BrandName } from "@/components/brand/brand-name";
+import { SITE_ADDRESS, SITE_HOURS } from "@/lib/site-defaults";
 
 interface FooterProps {
   phone?: string;
@@ -21,8 +22,8 @@ const SOCIAL_ICONS = [
 export function Footer({
   phone = "+250 784 806 641",
   whatsapp = "250784806641",
-  address = "KN 4 St, Kigali, Rwanda",
-  hours = "Mon-Sat: 8AM-7PM",
+  address = SITE_ADDRESS,
+  hours = SITE_HOURS,
   bookingUrl,
   social = {},
 }: FooterProps) {
