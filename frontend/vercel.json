@@ -3,13 +3,5 @@
   "framework": "nextjs",
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
-  "regions": ["cdg1"],
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [{ "type": "host", "value": "kigalirent.com" }],
-      "destination": "https://www.kigalirent.com/:path*",
-      "permanent": true
-    }
-  ]
+  "regions": ["cdg1"]
 }

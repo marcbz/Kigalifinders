@@ -1,4 +1,4 @@
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
 
 const organizationSchema = {
   "@context": "https://schema.org",

@@ -55,7 +55,7 @@ export default async function AreaLandingPage({ params }: PageProps) {
 
   const advancedSearchHref = getPropertiesFilterHref(neighborhood.slug);
 
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
   const pageUrl = `${siteUrl}${getAreaHref(neighborhood.slug)}`;
   const areaIndexUrl = `${siteUrl}${getAreaIndexHref()}`;
   const jsonLd = {

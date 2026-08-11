@@ -5,7 +5,7 @@ import { fetchAllPropertiesSafe, fetchBlogPostsSafe, fetchSearchFilterNeighborho
 export const SITEMAP_REVALIDATE_SECONDS = 3600;
 
 export function getSiteBaseUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
+  return process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
 }
 
 export function getPagesSitemapEntries(now = new Date()): SitemapUrlEntry[] {

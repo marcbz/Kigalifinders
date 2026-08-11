@@ -14,7 +14,7 @@ const playfair = Playfair_Display({
   preload: true,
 });
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://www.kigalirent.com";
+const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
 
 export const metadata: Metadata = {
   title: {
