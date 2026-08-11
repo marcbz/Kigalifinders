@@ -30,10 +30,15 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!property) {
     return { title: "Property Not Found" };
   }
+  const propertyUrl = `https://kigalirent.com/properties/${slug}`;
   return {
     title: property.meta_title || property.title,
     description: property.meta_description || property.short_description,
-    openGraph: { images: property.primary_image ? [property.primary_image] : [] },
+    alternates: { canonical: propertyUrl },
+    openGraph: {
+      images: property.primary_image ? [property.primary_image] : [],
+      url: propertyUrl,
+    },
   };
 }
 
@@ -54,6 +59,7 @@ export default async function PropertyDetailPage({ params }: Props) {
   const bookingUrl = process.env.NEXT_PUBLIC_BOOKING_URL || "https://secure-guard.setmore.com/";
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
   const listingBadge = getListingBadge(property);
+  const propertyUrl = `https://kigalirent.com/properties/${slug}`;
 
   return (
     <>
@@ -145,6 +151,8 @@ export default async function PropertyDetailPage({ params }: Props) {
           __html: JSON.stringify({
             "@context": "https://schema.org",
             "@type": "RealEstateListing",
+            "@id": `${propertyUrl}#listing`,
+            url: propertyUrl,
             name: property.title,
             description: property.description,
             offers: { "@type": "Offer", price: property.price, priceCurrency: property.currency },

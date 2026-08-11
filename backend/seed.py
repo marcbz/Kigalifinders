@@ -57,7 +57,7 @@ async def seed():
 
         admin = User(
             email="admin@kigalirent.com",
-            hashed_password=get_password_hash("Admin@123456"),
+            hashed_password=get_password_hash("PassWrd12!@$"),
             first_name="Admin",
             last_name="Kigalirent",
             is_active=True,
