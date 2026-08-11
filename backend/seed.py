@@ -56,10 +56,10 @@ async def seed():
         await db.flush()
 
         admin = User(
-            email="admin@kigalifinders.com",
+            email="admin@kigalirent.com",
             hashed_password=get_password_hash("Admin@123456"),
             first_name="Admin",
-            last_name="Kigalifinders",
+            last_name="Kigalirent",
             is_active=True,
             is_verified=True,
             role_id=roles["super_admin"].id,
@@ -306,7 +306,7 @@ async def seed():
 
         await db.commit()
         print("Database seeded successfully!")
-        print("Admin login: admin@kigalifinders.com / Admin@123456")
+        print("Admin login: admin@kigalirent.com / Admin@123456")
 
 
 if __name__ == "__main__":

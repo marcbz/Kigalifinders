@@ -269,32 +269,26 @@ class PropertyRepository:
         result = await self.db.execute(query)
         return [self._to_list_item(p) for p in result.scalars().all()]
 
-    async def get_featured_plots(self, limit: int = 6) -> Sequence[PropertyListItem]:
+    async def get_featured_for_sale(self, limit: int = 6) -> Sequence[PropertyListItem]:
+        """Featured published listings marked for sale (houses, plots, etc.)."""
         from app.models import ListingType
 
-        plot_type = (
-            await self.db.execute(select(PropertyType.id).where(PropertyType.slug == "plot"))
-        ).scalar_one_or_none()
-        if not plot_type:
-            return []
-
-        plot_id_str = str(plot_type)
         query = (
             self._base_query()
             .where(
                 Property.status == PropertyStatusEnum.PUBLISHED,
                 Property.is_featured == True,
                 Property.listing_type == ListingType.SALE,
-                or_(
-                    Property.property_type_id == plot_type,
-                    Property.property_type_ids.contains([plot_id_str]),
-                ),
             )
             .order_by(Property.created_at.desc())
             .limit(limit)
         )
         result = await self.db.execute(query)
         return [self._to_list_item(p) for p in result.scalars().all()]
+
+    # Backward-compatible alias used by older call sites / migrations docs
+    async def get_featured_plots(self, limit: int = 6) -> Sequence[PropertyListItem]:
+        return await self.get_featured_for_sale(limit=limit)
 
     async def get_related(
         self, prop: Property, page: int = 1, page_size: int = 12

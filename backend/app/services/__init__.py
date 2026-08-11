@@ -124,7 +124,7 @@ class HomepageService:
 
         featured = await prop_repo.get_featured(limit=9)
         furnished = await prop_repo.get_featured_furnished(limit=6)
-        plots = await prop_repo.get_featured_plots(limit=6)
+        plots = await prop_repo.get_featured_for_sale(limit=6)
 
         testimonials_result = await self.db.execute(
             select(Testimonial).where(Testimonial.is_active == True, Testimonial.is_featured == True).limit(3)

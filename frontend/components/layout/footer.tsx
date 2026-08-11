@@ -77,7 +77,7 @@ export function Footer({
                 { label: "Neighborhoods", href: "/#area" },
                 { label: "Houses for Rent", href: "/properties?listing_type=rent" },
                 { label: "Furnished Houses", href: "/properties?listing_type=furnished" },
-                { label: "Plots for Sale", href: "/properties?property_type_slug=plot" },
+                { label: "Properties for Sale", href: "/properties?listing_type=sale" },
                 { label: "Luxury Homes", href: "/properties?listing_type=rent" },
               ].map((item) => (
                 <li key={item.label}>
