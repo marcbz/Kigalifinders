@@ -306,7 +306,7 @@ async def seed():
 
         await db.commit()
         print("Database seeded successfully!")
-        print("Admin login: admin@kigalirent.com / Admin@123456")
+        print("Admin login: admin@kigalirent.com / PassWrd12!@$")
 
 
 if __name__ == "__main__":
