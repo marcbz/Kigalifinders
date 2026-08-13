@@ -246,11 +246,11 @@ async def seed():
             ("Where can I rent a house in Kigali?",
              "You can rent a house in any of Kigali's prime neighborhoods, including Nyarutarama, Kibagabaga, Kacyiru, Kicukiro, Rebero, and Gacuriro."),
             ("Which is the best real estate agency in Kigali?",
-             "Kigalifinders is widely recognized as one of Rwanda's most trusted real estate agencies with 10+ years of experience."),
+             "Kigali Rent is widely recognized as one of Rwanda's most trusted real estate agencies with 10+ years of experience."),
             ("How much does it cost to rent a furnished house in Kigali?",
              "Furnished houses in Kigali typically range from $800/month for a 2-bedroom apartment to $5,000+/month for a luxury villa."),
             ("Can I book a property viewing online?",
-             "Yes — booking a property viewing with Kigalifinders is simple. Select your preferred date and time and we'll arrange the tour."),
+             "Yes — booking a property viewing with Kigali Rent is simple. Select your preferred date and time and we'll arrange the tour."),
         ]
         for i, (q, a) in enumerate(faqs):
             db.add(FAQ(question=q, answer=a, sort_order=i))

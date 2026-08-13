@@ -49,7 +49,6 @@ const defaultForm = {
   is_featured: false,
   has_title_deed: false,
   badge_label: "",
-  address: "",
   property_type_ids: [] as string[],
 };
 
@@ -160,7 +159,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
         is_featured: property.is_featured,
         has_title_deed: property.has_title_deed,
         badge_label: property.badge_label || "",
-        address: detail?.address || "",
       });
       const imgs = detail?.images?.length
         ? detail.images.map((img) => ({ url: img.url, is_primary: img.is_primary }))
@@ -210,7 +208,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     is_featured: form.is_featured,
     has_title_deed: form.has_title_deed,
     badge_label: form.badge_label.trim() || undefined,
-    address: form.address.trim() || undefined,
     images: imageRows
       .filter((img) => img.url.trim())
       .map((img, i) => ({
@@ -395,16 +392,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                 onChange={(html) => setForm({ ...form, description: html })}
                 placeholder="Describe the property — bedrooms layout, neighborhood perks, nearby amenities..."
               />
-            </div>
-            <div className="md:col-span-2 pt-2">
-              <h4 className="text-sm font-semibold text-navy-800 dark:text-white mb-3">Map location</h4>
-              <p className="text-xs text-gray-400 mb-3">
-                Shown at the bottom of the property page. Enter the street address for the Google Map pin.
-              </p>
-            </div>
-            <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-gray-500">ADDRESS</label>
-              <input className="lux-input mt-1" placeholder="e.g. Nyarutarama, Gasabo, Kigali" value={form.address} onChange={(e) => setForm({ ...form, address: e.target.value })} />
             </div>
             <div className="md:col-span-2 space-y-3">
               <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES</label>

@@ -4,7 +4,6 @@ import { notFound } from "next/navigation";
 import { Bath, Bed, CalendarCheck, MapPin, Ruler } from "lucide-react";
 import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyDescription } from "@/components/property/property-description";
-import { PropertyMap } from "@/components/property/property-map";
 import { PropertyFeaturesTable } from "@/components/property/property-features-table";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
@@ -97,8 +96,6 @@ export default async function PropertyDetailPage({ params }: Props) {
             <div className="mb-8">
               <PropertyDescription content={property.description} />
             </div>
-
-            <PropertyMap address={property.address} title={property.title} />
 
             {(property.amenities?.length ?? 0) > 0 && (
               <>
