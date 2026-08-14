@@ -300,7 +300,7 @@ async def seed():
         db.add(Setting(key="social", value={
             "facebook": "https://facebook.com/kigalirent",
             "instagram": "https://instagram.com/kigalirent",
-            "linkedin": "https://linkedin.com/kigalirent",
+            "linkedin": "https://www.linkedin.com/company/kigalirent/",
             "youtube": "https://youtube.com/@kigalirent",
             "tiktok": "https://www.tiktok.com/@kigalirent",
         }, group="site"))
