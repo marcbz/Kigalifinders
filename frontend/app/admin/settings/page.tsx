@@ -153,7 +153,7 @@ export default function AdminSettingsPage() {
             onChange={(e) => setHero({ ...hero, [key]: e.target.value })}
           />
         ))}
-        <p className="text-xs text-gray-500">Booking button uses the booking URL from Contact & Office below.</p>
+        <p className="text-xs text-gray-500">Booking button uses the booking URL from Contact &amp; Office below, or the Links page. Public header and footer also use the built-in Kigali Rent booking and social URLs.</p>
       </section>
 
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
@@ -176,7 +176,7 @@ export default function AdminSettingsPage() {
 
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">
         <h3 className="font-semibold">Social Media</h3>
-        {["facebook", "instagram", "twitter", "linkedin", "youtube"].map((key) => (
+        {["facebook", "instagram", "linkedin", "youtube", "tiktok"].map((key) => (
           <input
             key={key}
             className="lux-input"

@@ -10,6 +10,7 @@ import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { formatPrice } from "@/lib/utils";
 import { getListingBadge } from "@/lib/property-features";
 import { fetchPropertySafe } from "@/lib/server-api";
+import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import { Button } from "@/components/ui/button";
 
 const RelatedPropertiesSection = dynamic(
@@ -55,7 +56,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         ? [{ id: "primary", url: property.primary_image }]
         : [{ id: "fallback", url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200" }];
 
-  const bookingUrl = process.env.NEXT_PUBLIC_BOOKING_URL || "https://secure-guard.setmore.com/";
+  const bookingUrl = SITE_BOOKING_URL;
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
   const listingBadge = getListingBadge(property);
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;

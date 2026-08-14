@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin, MapPin, Clock, Phone, Youtube } from "lucide-react";
-import { SITE_ADDRESS, SITE_HOURS } from "@/lib/site-defaults";
+import { SITE_ADDRESS, SITE_HOURS, SITE_SOCIAL } from "@/lib/site-defaults";
+import { TikTokIcon } from "@/components/icons/tiktok-icon";
 
 interface TopBarProps {
   address?: string;
@@ -13,12 +14,13 @@ export function TopBar({
   address = SITE_ADDRESS,
   hours = SITE_HOURS,
   phone = "+250 784 806 641",
-  social = {},
+  social = SITE_SOCIAL,
 }: TopBarProps) {
-  const facebook = social.facebook || "#";
-  const instagram = social.instagram || "#";
-  const linkedin = social.linkedin || "#";
-  const youtube = social.youtube || "https://www.youtube.com";
+  const facebook = social.facebook || SITE_SOCIAL.facebook;
+  const instagram = social.instagram || SITE_SOCIAL.instagram;
+  const linkedin = social.linkedin || SITE_SOCIAL.linkedin;
+  const youtube = social.youtube || SITE_SOCIAL.youtube;
+  const tiktok = social.tiktok || SITE_SOCIAL.tiktok;
 
   return (
     <div className="topbar hidden md:block bg-navy-900 text-slate-300 text-[13px]">
@@ -50,6 +52,9 @@ export function TopBar({
             </a>
             <a href={youtube} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500" aria-label="YouTube">
               <Youtube className="w-3.5 h-3.5" />
+            </a>
+            <a href={tiktok} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500" aria-label="TikTok">
+              <TikTokIcon className="w-3.5 h-3.5" />
             </a>
           </div>
         </div>

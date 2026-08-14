@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { LazyGoogleMap } from "@/components/maps/lazy-google-map";
+import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import type { BlogPost } from "@/types";
 
 export function BlogSection({ posts }: { posts: BlogPost[] }) {
@@ -50,7 +51,7 @@ export function BlogSection({ posts }: { posts: BlogPost[] }) {
 }
 
 export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; whatsapp?: string }) {
-  const resolvedBookingUrl = bookingUrl?.trim() || "https://secure-guard.setmore.com/";
+  const resolvedBookingUrl = bookingUrl?.trim() || SITE_BOOKING_URL;
   const resolvedWhatsapp = whatsapp?.trim() || "250784806641";
   return (
     <section id="contact" className="py-24 px-6 relative bg-gradient-to-br from-navy-800 to-navy-700 overflow-hidden">

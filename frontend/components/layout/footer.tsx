@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin, MapPin, Phone, Clock, CalendarCheck, Youtube } from "lucide-react";
 import { BrandName } from "@/components/brand/brand-name";
-import { SITE_ADDRESS, SITE_HOURS } from "@/lib/site-defaults";
+import { TikTokIcon } from "@/components/icons/tiktok-icon";
+import { SITE_ADDRESS, SITE_BOOKING_URL, SITE_HOURS, SITE_SOCIAL } from "@/lib/site-defaults";
 
 interface FooterProps {
   phone?: string;
@@ -17,6 +18,7 @@ const SOCIAL_ICONS = [
   { key: "instagram", Icon: Instagram, label: "Instagram" },
   { key: "linkedin", Icon: Linkedin, label: "LinkedIn" },
   { key: "youtube", Icon: Youtube, label: "YouTube" },
+  { key: "tiktok", Icon: TikTokIcon, label: "TikTok" },
 ] as const;
 
 export function Footer({
@@ -24,11 +26,9 @@ export function Footer({
   whatsapp = "250784806641",
   address = SITE_ADDRESS,
   hours = SITE_HOURS,
-  bookingUrl,
-  social = {},
+  bookingUrl = SITE_BOOKING_URL,
+  social = SITE_SOCIAL,
 }: FooterProps) {
-  const defaultYoutube = "https://www.youtube.com";
-
   return (
     <footer className="pt-16 pb-8 px-6 bg-navy-900 text-slate-300">
       <div className="max-w-7xl mx-auto">
@@ -50,9 +50,8 @@ export function Footer({
             </p>
             <div className="flex gap-3">
               {SOCIAL_ICONS.map(({ key, Icon, label }) => {
-                const href =
-                  social[key] ||
-                  (key === "youtube" ? defaultYoutube : "#");
+                const href = social[key] || SITE_SOCIAL[key as keyof typeof SITE_SOCIAL];
+                if (!href) return null;
                 return (
                   <a
                     key={key}

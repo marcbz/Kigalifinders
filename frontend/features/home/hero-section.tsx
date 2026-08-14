@@ -5,6 +5,7 @@ import {
   DEFAULT_HERO_IMAGE_MOBILE,
   resolveHeroImage,
 } from "@/lib/hero-image";
+import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 
 interface HeroCopyProps {
   tagline?: string;
@@ -36,7 +37,7 @@ export function HeroSection({
   const displaySubtitle = subtitle || "";
   const displayCtaPrimary = ctaPrimary || "Book a Visit";
   const displayCtaSecondary = ctaSecondary || "Browse Properties";
-  const displayBookingUrl = bookingUrl || "https://secure-guard.setmore.com/";
+  const displayBookingUrl = bookingUrl || SITE_BOOKING_URL;
   const titleParts = displayTitle.split("Dream Home");
 
   return (

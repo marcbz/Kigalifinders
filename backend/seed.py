@@ -286,19 +286,23 @@ async def seed():
             "whatsapp": "250784806641",
             "address": "Kigali, Rwanda",
             "hours": "Mon - Sat: 9:00 AM - 5:00 PM",
-            "booking_url": "https://secure-guard.setmore.com/",
+            "booking_url": "https://kigalirent.setmore.com/",
             "email": "hello@kigalifinders.com",
             "latitude": -1.944072,
             "longitude": 30.058775,
         }, group="site"))
         db.add(Setting(key="links", value={
-            "booking_url": "https://secure-guard.setmore.com/",
-            "book_consultation_url": "https://secure-guard.setmore.com/",
+            "booking_url": "https://kigalirent.setmore.com/",
+            "book_consultation_url": "https://kigalirent.setmore.com/",
             "phone": "+250 784 806 641",
             "whatsapp": "250784806641",
         }, group="site"))
         db.add(Setting(key="social", value={
-            "facebook": "", "instagram": "", "twitter": "", "linkedin": "", "youtube": "",
+            "facebook": "https://facebook.com/kigalirent",
+            "instagram": "https://instagram.com/kigalirent",
+            "linkedin": "https://linkedin.com/kigalirent",
+            "youtube": "https://youtube.com/@kigalirent",
+            "tiktok": "https://www.tiktok.com/@kigalirent",
         }, group="site"))
         from app.core.legal_defaults import DEFAULT_LEGAL
 
