@@ -3,7 +3,6 @@ import { notFound } from "next/navigation";
 import { AreaGuidePage } from "@/components/areas/area-guide-page";
 import { getAreaSeoContent } from "@/lib/area-content";
 import { getAreaHref, getAreaIndexHref } from "@/lib/areas";
-import { buildAreaListingStats } from "@/lib/area-listing-stats";
 import {
   fetchNeighborhoodBySlugSafe,
   fetchSearchFilterNeighborhoodsSafe,
@@ -60,7 +59,6 @@ export default async function AreaLandingPage({ params }: PageProps) {
     return [{ slug: area.slug, name: area.name }];
   });
 
-  const stats = buildAreaListingStats(properties.items);
   const pageUrl = `https://kigalirent.com${getAreaHref(neighborhood.slug)}`;
   const areaIndexUrl = `https://kigalirent.com${getAreaIndexHref()}`;
   const jsonLd = {
@@ -101,7 +99,6 @@ export default async function AreaLandingPage({ params }: PageProps) {
         slug={neighborhood.slug}
         districtName={neighborhood.district_name}
         content={content}
-        stats={stats}
         properties={properties}
         related={related}
       />
