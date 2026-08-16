@@ -180,7 +180,7 @@ async def seed():
             prop = Property(
                 title=pdata["title"],
                 slug=slugify(pdata["title"]),
-                description=f"Premium {pdata['title']} available through Kigalifinders.",
+                description=f"Premium {pdata['title']} available through Kigali Rent.",
                 short_description=f"Beautiful property in {pdata.get('neighborhood', 'Kigali')}.",
                 listing_type=pdata["listing_type"],
                 status=PropertyStatusEnum.PUBLISHED,
@@ -210,7 +210,7 @@ async def seed():
                 "Aline Mukamana",
                 "Homeowner",
                 "Nyarutarama",
-                "Kigalifinders made finding our family home stress-free. Professional, responsive, and they truly understand the Kigali market.",
+                "Kigali Rent made finding our family home stress-free. Professional, responsive, and they truly understand the Kigali market.",
                 "https://images.unsplash.com/photo-1589156191108-c762ff4b96ab?w=120&h=120&fit=crop&crop=faces&auto=format&q=80",
             ),
             (
@@ -224,7 +224,7 @@ async def seed():
                 "Patrick Niyonzima",
                 "Investor",
                 "Kicukiro",
-                "I bought a plot through Kigalifinders. Transparent process, all documents verified, and zero surprises.",
+                "I bought a plot through Kigali Rent. Transparent process, all documents verified, and zero surprises.",
                 "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=120&h=120&fit=crop&crop=faces&auto=format&q=80",
             ),
         ]
@@ -274,9 +274,9 @@ async def seed():
 
         db.add(Setting(key="stats", value={"properties_listed": 1200, "happy_clients": 850, "years_experience": 10, "client_rating": 4.9}, group="site"))
         db.add(Setting(key="hero", value={
-            "tagline": "RWANDA'S #1 LUXURY REAL ESTATE",
+            "tagline": "KIGALI'S #1 RENTAL AND PROPERTY MARKETPLACE",
             "title": "Find Your Dream Home in Kigali",
-            "subtitle": "Discover an exclusive collection of furnished houses, rental homes, and prime plots for sale across Kigali.",
+            "subtitle": "We know what housing costs in Kigali, where to live, what neighborhoods are like, and what is actually available.",
             "background_image": "/images/hero-kigali.webp",
             "cta_primary": "Book a Visit",
             "cta_secondary": "Browse Properties",

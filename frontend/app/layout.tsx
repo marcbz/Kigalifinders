@@ -18,13 +18,13 @@ const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
 
 export const metadata: Metadata = {
   title: {
-    default: "Kigali Rent | Luxury Real Estate in Kigali, Rwanda",
+    default: "Kigali Rent | Kigali's Rental and Property Marketplace",
     template: "%s | Kigali Rent",
   },
-  description: "Find furnished houses, rental homes, and plots for sale in Kigali. Book property visits and discover your next home with Kigali Rent.",
+  description: "Kigali housing costs, neighbourhood guides, and current rentals and homes for sale. See what is actually available with Kigali Rent.",
   openGraph: {
-    title: "Kigali Rent | Luxury Real Estate in Kigali, Rwanda",
-    description: "Rwanda's most trusted real estate agency. Houses for rent, furnished homes, and plots for sale in Kigali.",
+    title: "Kigali Rent | Kigali's Rental and Property Marketplace",
+    description: "We know what housing costs in Kigali, where to live, and which properties are actually available.",
     type: "website",
     locale: "en_RW",
     siteName: "Kigali Rent",

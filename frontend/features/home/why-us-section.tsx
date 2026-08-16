@@ -7,7 +7,7 @@ const features = [
   { icon: Shield, title: "Verified Listings", desc: "Every property is personally inspected and verified by our team." },
   { icon: Handshake, title: "Trusted Service", desc: "850+ happy clients across Rwanda and the diaspora." },
   { icon: Headphones, title: "24/7 Support", desc: "Round-the-clock assistance via WhatsApp, call, and email." },
-  { icon: MapPin, title: "Local Expertise", desc: "Deep knowledge of every Kigali neighborhood and market trends." },
+  { icon: MapPin, title: "Neighbourhood guides", desc: "What it is like to live in Kibagabaga, Nyarutarama, Kiyovu, and the rest — written from how Kigali actually works." },
 ];
 
 export function WhyUsSection() {
@@ -19,11 +19,11 @@ export function WhyUsSection() {
           <div>
             <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">WHY CHOOSE US</span>
             <h2 className="font-serif text-4xl md:text-5xl font-bold mt-3 mb-6 leading-tight">
-              A Standard of <span className="gold-text italic">Excellence</span> in Real Estate
+              Local housing knowledge, <span className="gold-text italic">not guesswork</span>
             </h2>
             <div className="section-divider mb-6" />
             <p className="text-gray-300 mb-10 leading-relaxed">
-              For over a decade, Kigali Rent has been the trusted name for discerning clients seeking premium properties in Rwanda&apos;s capital.
+              We know what housing costs in Kigali, where to live, what neighbourhoods are like, and which properties are actually available. That is the job — not slogans.
             </p>
             <div className="grid grid-cols-2 gap-6">
               {features.map(({ icon: Icon, title, desc }) => (

@@ -32,9 +32,11 @@ export function HeroSection({
   const displayBg = resolveHeroImage(backgroundImage) || DEFAULT_HERO_IMAGE;
   const isLocalHero = displayBg.startsWith("/images/hero-kigali");
 
-  const displayTagline = tagline || "RWANDA'S #1 LUXURY REAL ESTATE";
+  const displayTagline = tagline || "KIGALI'S #1 RENTAL AND PROPERTY MARKETPLACE";
   const displayTitle = title || "Find Your Dream Home in Kigali";
-  const displaySubtitle = subtitle || "";
+  const displaySubtitle =
+    subtitle ||
+    "We know what housing costs in Kigali, where to live, what neighborhoods are like, and what is actually available.";
   const displayCtaPrimary = ctaPrimary || "Book a Visit";
   const displayCtaSecondary = ctaSecondary || "Browse Properties";
   const displayBookingUrl = bookingUrl || SITE_BOOKING_URL;

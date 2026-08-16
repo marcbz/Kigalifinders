@@ -35,11 +35,10 @@ export function NeighborhoodsDirectory({
     <div className={className}>
       <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">EXPLORE KIGALI</span>
       <HeadingTag className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-4">
-        Neighborhoods We Serve
+        Neighborhood guides
       </HeadingTag>
       <p className="text-gray-600 dark:text-gray-400 max-w-2xl leading-relaxed mb-12">
-        Find rental homes, furnished apartments, and land by neighborhood. Each area page includes local context and
-        current listings to help you search smarter in Kigali.
+        What it costs, what the streets are like, and which Kigali Rent listings are live — by neighbourhood, not by slogan.
       </p>
 
       <div className="space-y-10">

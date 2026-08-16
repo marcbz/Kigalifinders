@@ -46,7 +46,7 @@ export function Footer({
               </div>
             </div>
             <p className="text-sm leading-relaxed text-gray-400 mb-5">
-              Rwanda&apos;s most trusted luxury real estate agency. Helping families and investors find their perfect property in Kigali since 2014.
+              Rwanda&apos;s rental and property marketplace for Kigali: prices, neighbourhoods, and homes you can actually view.
             </p>
             <div className="flex gap-3">
               {SOCIAL_ICONS.map(({ key, Icon, label }) => {

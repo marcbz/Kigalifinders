@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { PropertyCard } from "@/components/property/property-card";
-import { Button } from "@/components/ui/button";
+import { AreaGuidePage } from "@/components/areas/area-guide-page";
 import { getAreaSeoContent } from "@/lib/area-content";
-import { getAreaHref, getAreaIndexHref, getPropertiesFilterHref } from "@/lib/areas";
+import { getAreaHref, getAreaIndexHref } from "@/lib/areas";
+import { buildAreaListingStats } from "@/lib/area-listing-stats";
 import {
   fetchNeighborhoodBySlugSafe,
   fetchSearchFilterNeighborhoodsSafe,
@@ -28,14 +27,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   if (!neighborhood) return { title: "Area Not Found" };
 
   const content = getAreaSeoContent(neighborhood);
+  const canonical = `https://kigalirent.com${getAreaHref(neighborhood.slug)}`;
   return {
     title: content.metaTitle,
     description: content.metaDescription,
-    alternates: { canonical: getAreaHref(neighborhood.slug) },
+    alternates: { canonical },
     openGraph: {
       title: content.metaTitle,
       description: content.metaDescription,
       type: "website",
+      url: canonical,
     },
   };
 }
@@ -48,23 +49,26 @@ export default async function AreaLandingPage({ params }: PageProps) {
   const content = getAreaSeoContent(neighborhood);
   const properties = await fetchPropertiesSafe({
     neighborhood_slug: neighborhood.slug,
-    page_size: 9,
+    page_size: 24,
     sort_by: "created_at",
     sort_order: "desc",
   });
+  const allAreas = await fetchSearchFilterNeighborhoodsSafe();
+  const related = content.relatedSlugs
+    .map((relatedSlug) => allAreas.find((area) => area.slug === relatedSlug))
+    .filter((area): area is NonNullable<typeof area> => Boolean(area) && area.slug !== neighborhood.slug)
+    .map((area) => ({ slug: area.slug, name: area.name }));
 
-  const advancedSearchHref = getPropertiesFilterHref(neighborhood.slug);
-
-  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
-  const pageUrl = `${siteUrl}${getAreaHref(neighborhood.slug)}`;
-  const areaIndexUrl = `${siteUrl}${getAreaIndexHref()}`;
+  const stats = buildAreaListingStats(properties.items);
+  const pageUrl = `https://kigalirent.com${getAreaHref(neighborhood.slug)}`;
+  const areaIndexUrl = `https://kigalirent.com${getAreaIndexHref()}`;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "BreadcrumbList",
         itemListElement: [
-          { "@type": "ListItem", position: 1, name: "Home", item: siteUrl },
+          { "@type": "ListItem", position: 1, name: "Home", item: "https://kigalirent.com" },
           { "@type": "ListItem", position: 2, name: "Neighborhoods", item: areaIndexUrl },
           { "@type": "ListItem", position: 3, name: neighborhood.name, item: pageUrl },
         ],
@@ -76,7 +80,7 @@ export default async function AreaLandingPage({ params }: PageProps) {
         url: pageUrl,
         about: {
           "@type": "Place",
-          name: `${neighborhood.name}, Kigali`,
+          name: `${neighborhood.name}${neighborhood.district_name ? `, ${neighborhood.district_name}` : ""}`,
           address: {
             "@type": "PostalAddress",
             addressLocality: neighborhood.name,
@@ -91,93 +95,15 @@ export default async function AreaLandingPage({ params }: PageProps) {
   return (
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-
-      <div className="bg-navy-800 text-white py-16 px-6">
-        <div className="max-w-5xl mx-auto">
-          <nav className="text-sm text-gray-300 mb-6" aria-label="Breadcrumb">
-            <ol className="flex flex-wrap items-center gap-2">
-              <li>
-                <Link href="/" className="hover:text-gold-500">
-                  Home
-                </Link>
-              </li>
-              <li aria-hidden="true">/</li>
-              <li>
-                <Link href={getAreaIndexHref()} className="hover:text-gold-500">
-                  Neighborhoods
-                </Link>
-              </li>
-              <li aria-hidden="true">/</li>
-              <li className="text-gold-500">{neighborhood.name}</li>
-            </ol>
-          </nav>
-          <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">KIGALI NEIGHBORHOOD</span>
-          <h1 className="font-serif text-4xl md:text-5xl font-bold mt-3">{content.headline}</h1>
-          {neighborhood.district_name && (
-            <p className="text-gray-300 mt-3">
-              {neighborhood.district_name} District · Kigali, Rwanda
-            </p>
-          )}
-        </div>
-      </div>
-
-      <section className="py-14 px-6">
-        <div className="max-w-5xl mx-auto">
-          <div className="prose dark:prose-invert max-w-none text-gray-600 dark:text-gray-400 leading-relaxed space-y-4 mb-8">
-            {content.intro.map((paragraph) => (
-              <p key={paragraph.slice(0, 32)}>{paragraph}</p>
-            ))}
-          </div>
-          <ul className="flex flex-wrap gap-2 mb-10">
-            {content.highlights.map((item) => (
-              <li
-                key={item}
-                className="text-sm px-3 py-1.5 rounded-full border border-gold-500/30 bg-cream/60 dark:bg-secondary/40 text-navy-800 dark:text-gray-200"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
-
-          <div className="mb-8">
-            <h2 className="font-serif text-2xl md:text-3xl font-bold text-navy-800 dark:text-white">
-              Available Properties
-              {properties.total > 0 && (
-                <span className="text-lg font-normal text-gray-500 ml-2">({properties.total})</span>
-              )}
-            </h2>
-          </div>
-
-          {properties.items.length > 0 ? (
-            <>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {properties.items.map((property, index) => (
-                  <PropertyCard key={property.id} property={property} />
-                ))}
-              </div>
-              <div className="mt-12 flex justify-center">
-                <Button asChild className="rounded-full px-8">
-                  <Link href={advancedSearchHref}>
-                    Advanced search in {neighborhood.name}
-                  </Link>
-                </Button>
-              </div>
-            </>
-          ) : (
-            <div className="rounded-xl border border-dashed border-gray-300 dark:border-gray-700 p-10 text-center">
-              <p className="text-gray-600 dark:text-gray-400 mb-4">
-                No active listings in {neighborhood.name} right now. Contact us and we&apos;ll help you find a match.
-              </p>
-              <Link
-                href="/contact"
-                className="inline-flex items-center justify-center rounded-full bg-navy-800 text-white px-6 py-3 text-sm font-semibold hover:bg-navy-700 transition"
-              >
-                Contact Kigali Rent
-              </Link>
-            </div>
-          )}
-        </div>
-      </section>
+      <AreaGuidePage
+        name={neighborhood.name}
+        slug={neighborhood.slug}
+        districtName={neighborhood.district_name}
+        content={content}
+        stats={stats}
+        properties={properties}
+        related={related}
+      />
     </>
   );
 }

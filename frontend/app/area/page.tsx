@@ -5,9 +5,9 @@ import { fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Kigali Neighborhoods",
+  title: "Kigali Neighborhood Guides",
   description:
-    "Explore Kigali neighborhoods served by Kigali Rent — find rental homes, apartments, and properties by area across Gasabo, Kicukiro, and Nyarugenge.",
+    "Area guides for Kibagabaga, Nyarutarama, Kiyovu, and the rest of Kigali — housing, transport, and current Kigali Rent listings.",
   alternates: { canonical: "/area" },
 };
 
