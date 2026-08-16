@@ -54,10 +54,11 @@ export default async function AreaLandingPage({ params }: PageProps) {
     sort_order: "desc",
   });
   const allAreas = await fetchSearchFilterNeighborhoodsSafe();
-  const related = content.relatedSlugs
-    .map((relatedSlug) => allAreas.find((area) => area.slug === relatedSlug))
-    .filter((area): area is NonNullable<typeof area> => Boolean(area) && area.slug !== neighborhood.slug)
-    .map((area) => ({ slug: area.slug, name: area.name }));
+  const related = content.relatedSlugs.flatMap((relatedSlug) => {
+    const area = allAreas.find((item) => item.slug === relatedSlug);
+    if (!area || area.slug === neighborhood.slug) return [];
+    return [{ slug: area.slug, name: area.name }];
+  });
 
   const stats = buildAreaListingStats(properties.items);
   const pageUrl = `https://kigalirent.com${getAreaHref(neighborhood.slug)}`;
