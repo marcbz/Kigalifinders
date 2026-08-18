@@ -11,13 +11,16 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react"],
   },
-  async rewrites() {
+  async headers() {
     return [
-      { source: "/sitemap.xml", destination: "/sitemaps" },
-      { source: "/sitemap-pages.xml", destination: "/sitemaps/pages" },
-      { source: "/sitemap-areas.xml", destination: "/sitemaps/areas" },
-      { source: "/sitemap-properties.xml", destination: "/sitemaps/properties" },
-      { source: "/sitemap-blog.xml", destination: "/sitemaps/blog" },
+      {
+        source: "/robots.txt",
+        headers: [
+          { key: "Content-Type", value: "text/plain; charset=utf-8" },
+          { key: "Cache-Control", value: "public, max-age=3600, s-maxage=86400" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+      },
     ];
   },
 };
