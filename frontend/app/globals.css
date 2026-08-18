@@ -150,12 +150,64 @@
     @apply text-gold-600 underline hover:text-gold-500;
   }
 
+  .property-description h1 {
+    @apply font-serif text-2xl font-bold text-navy-800 dark:text-white mt-8 mb-4;
+  }
+
+  .property-description blockquote {
+    @apply border-l-4 border-gold-500 pl-4 my-4 italic text-gray-700 dark:text-gray-300;
+  }
+
+  .property-description img {
+    @apply rounded-lg max-w-full h-auto my-4;
+  }
+
+  .blog-table-scroll {
+    @apply overflow-x-auto -mx-2 px-2 mb-4;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .property-description .blog-table,
+  .blog-tiptap-editor .blog-table,
+  .blog-tiptap-editor table {
+    @apply w-full min-w-[480px] border-collapse text-sm mb-0;
+  }
+
+  .property-description .blog-table th,
+  .property-description .blog-table td,
+  .blog-tiptap-editor th,
+  .blog-tiptap-editor td {
+    @apply border border-gray-200 dark:border-border px-3 py-2 text-left align-top;
+  }
+
+  .property-description .blog-table th,
+  .blog-tiptap-editor th {
+    @apply bg-cream dark:bg-navy-800 font-semibold text-navy-800 dark:text-white;
+  }
+
+  .property-description .blog-table tbody tr:nth-child(even),
+  .blog-tiptap-editor tbody tr:nth-child(even) {
+    @apply bg-gray-50/80 dark:bg-navy-900/40;
+  }
+
   .tiptap-editor p {
     @apply mb-3 last:mb-0;
   }
 
+  .tiptap-editor h1 {
+    @apply font-serif text-xl font-bold mb-2;
+  }
+
   .tiptap-editor h2 {
     @apply font-serif text-lg font-bold mb-2;
+  }
+
+  .tiptap-editor h3 {
+    @apply font-serif text-base font-semibold mb-2;
+  }
+
+  .tiptap-editor blockquote {
+    @apply border-l-4 border-gold-500 pl-4 my-3 italic;
   }
 
   .tiptap-editor ul,

@@ -7,7 +7,7 @@ import { Plus, Pencil, Trash2, ExternalLink } from "lucide-react";
 import { adminService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Shimmer, TableSkeleton } from "@/components/ui/shimmer";
-import { RichTextEditor } from "@/components/admin/rich-text-editor";
+import { BlogRichTextEditor } from "@/components/admin/blog-rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import type { BlogPost } from "@/types";
 import { formatDateTime } from "@/lib/utils";
@@ -195,10 +195,12 @@ export default function AdminBlogPage() {
               <div className="space-y-2">
                 <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Article content</label>
                 <p className="text-xs text-gray-400">
-                  Use headings, bold text, links, and lists. Add paragraph breaks for readability and SEO.
+                  Paste Markdown, HTML, or rich text — tables, headings, links, and lists are converted automatically.
+                  Use Preview to see exactly how the article will appear.
                 </p>
-                <RichTextEditor
+                <BlogRichTextEditor
                   value={form.content}
+                  contentFormat={form.content_format}
                   onChange={(html) => {
                     const readTime = estimateReadTime(html);
                     setForm((prev) => ({
