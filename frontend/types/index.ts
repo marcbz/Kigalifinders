@@ -163,7 +163,9 @@ export interface PropertySearchParams {
   listing_type?: string;
   district_id?: string;
   neighborhood_id?: string;
+  neighborhood_slug?: string;
   property_type_id?: string;
+  property_type_slug?: string;
   min_price?: number;
   max_price?: number;
   bedrooms?: number;
