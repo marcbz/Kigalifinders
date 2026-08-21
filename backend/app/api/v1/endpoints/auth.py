@@ -16,6 +16,7 @@ from app.schemas import (
     PropertyDetail,
     PropertyListItem,
     PropertySearchParams,
+    RefreshTokenRequest,
     Token,
     UserCreate,
     UserLogin,
@@ -46,6 +47,30 @@ async def login(data: UserLogin, db: Annotated[AsyncSession, Depends(get_db)]):
     user = await service.authenticate(data.email, data.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid credentials")
+    return service.create_tokens(user)
+
+
+@router.post("/refresh", response_model=Token)
+async def refresh_tokens(data: RefreshTokenRequest, db: Annotated[AsyncSession, Depends(get_db)]):
+    from app.core.security import decode_token
+    from sqlalchemy import select
+    from app.models import User as UserModel
+
+    payload = decode_token(data.refresh_token)
+    if not payload or payload.get("type") != "refresh" or not payload.get("sub"):
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    try:
+        user_id = UUID(str(payload["sub"]))
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    result = await db.execute(select(UserModel).where(UserModel.id == user_id))
+    user = result.scalar_one_or_none()
+    if not user or not user.is_active:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    service = AuthService(db)
     return service.create_tokens(user)
 
 

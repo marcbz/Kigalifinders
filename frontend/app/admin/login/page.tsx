@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { BrandName } from "@/components/brand/brand-name";
 import { authService } from "@/services/api";
-import { clearAuthTokens, getAccessToken, isAdminRole } from "@/lib/auth";
+import { clearAuthTokens, getAccessToken, isAdminRole, setAuthTokens } from "@/lib/auth";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -38,8 +38,7 @@ export default function AdminLoginPage() {
       }
 
       const tokens = await authService.login(email.trim(), password);
-      localStorage.setItem("access_token", tokens.access_token);
-      localStorage.setItem("refresh_token", tokens.refresh_token);
+      setAuthTokens(tokens.access_token, tokens.refresh_token);
 
       const user = await authService.me();
       if (!isAdminRole(user.role)) {

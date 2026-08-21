@@ -46,8 +46,9 @@ class Settings(BaseSettings):
 
     JWT_SECRET_KEY: str = "change-me-jwt-secret-key"
     JWT_ALGORITHM: str = "HS256"
-    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
-    REFRESH_TOKEN_EXPIRE_DAYS: int = 7
+    # Long-lived admin sessions: 12h access + 30d refresh (frontend refreshes silently)
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 720
+    REFRESH_TOKEN_EXPIRE_DAYS: int = 30
 
     GOOGLE_CLIENT_ID: str = ""
     GOOGLE_CLIENT_SECRET: str = ""

@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import type {
   BlogPost,
   FAQ,
@@ -10,7 +10,7 @@ import type {
   PropertyType,
   Testimonial,
 } from "@/types";
-import { clearAuthTokens } from "@/lib/auth";
+import { clearAuthTokens, getRefreshToken, setAuthTokens } from "@/lib/auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -18,6 +18,35 @@ export const api = axios.create({
   baseURL: API_URL,
   headers: { "Content-Type": "application/json" },
 });
+
+type RetryConfig = InternalAxiosRequestConfig & { _retry?: boolean };
+
+let refreshPromise: Promise<string | null> | null = null;
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refreshToken = getRefreshToken();
+  if (!refreshToken) return null;
+
+  try {
+    // Use plain axios to avoid interceptor recursion
+    const { data } = await axios.post<{
+      access_token: string;
+      refresh_token: string;
+    }>(`${API_URL}/auth/refresh`, { refresh_token: refreshToken });
+    setAuthTokens(data.access_token, data.refresh_token);
+    return data.access_token;
+  } catch {
+    return null;
+  }
+}
+
+function redirectToLogin() {
+  clearAuthTokens();
+  const path = window.location.pathname;
+  if (path.startsWith("/admin") && path !== "/admin/login") {
+    window.location.href = "/admin/login";
+  }
+}
 
 api.interceptors.request.use((config) => {
   if (typeof window !== "undefined") {
@@ -33,13 +62,28 @@ api.interceptors.request.use((config) => {
 
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
-    if (error.response?.status === 401 && typeof window !== "undefined") {
-      const path = window.location.pathname;
-      if (path.startsWith("/admin") && path !== "/admin/login") {
-        clearAuthTokens();
-        window.location.href = "/admin/login";
+  async (error: AxiosError) => {
+    const config = error.config as RetryConfig | undefined;
+    if (
+      error.response?.status === 401 &&
+      typeof window !== "undefined" &&
+      config &&
+      !config._retry &&
+      !config.url?.includes("/auth/login") &&
+      !config.url?.includes("/auth/refresh")
+    ) {
+      config._retry = true;
+      if (!refreshPromise) {
+        refreshPromise = refreshAccessToken().finally(() => {
+          refreshPromise = null;
+        });
       }
+      const newToken = await refreshPromise;
+      if (newToken) {
+        config.headers.Authorization = `Bearer ${newToken}`;
+        return api(config);
+      }
+      redirectToLogin();
     }
     return Promise.reject(error);
   },
@@ -141,6 +185,12 @@ export const authService = {
   register: (data: { email: string; password: string; first_name?: string; last_name?: string }) =>
     api.post("/auth/register", data).then((r) => r.data),
   me: () => api.get<UserProfile>("/auth/me").then((r) => r.data),
+  refresh: (refreshToken: string) =>
+    api
+      .post<{ access_token: string; refresh_token: string }>("/auth/refresh", {
+        refresh_token: refreshToken,
+      })
+      .then((r) => r.data),
 };
 
 export const adminService = {

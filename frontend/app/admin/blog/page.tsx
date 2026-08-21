@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { Plus, Pencil, Trash2, ExternalLink } from "lucide-react";
@@ -11,6 +11,17 @@ import { BlogRichTextEditor } from "@/components/admin/blog-rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import type { BlogPost } from "@/types";
 import { formatDateTime } from "@/lib/utils";
+import {
+  clearAdminDraft,
+  draftHasContent,
+  formatDraftSavedAt,
+  loadAdminDraft,
+  saveAdminDraft,
+} from "@/lib/admin-drafts";
+
+function blogDraftKey(postId?: string | null) {
+  return postId ? `blog:${postId}` : "blog:new";
+}
 
 interface BlogFormState {
   title: string;
@@ -51,6 +62,9 @@ export default function AdminBlogPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<BlogFormState>(emptyForm);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [draftNotice, setDraftNotice] = useState<string | null>(null);
+  const skipNextDraftSave = useRef(false);
+  const draftKey = blogDraftKey(editingId);
 
   const { data: posts = [], isLoading } = useQuery({
     queryKey: ["admin-blog"],
@@ -64,26 +78,62 @@ export default function AdminBlogPage() {
   });
 
   useEffect(() => {
-    if (!editingPost) return;
-    setForm({
-      title: editingPost.title || "",
-      slug: editingPost.slug || "",
-      excerpt: editingPost.excerpt || "",
-      content: editingPost.content || "",
-      content_format: editingPost.content_format || "html",
-      featured_image: editingPost.featured_image || "",
-      meta_title: editingPost.meta_title || "",
-      meta_description: editingPost.meta_description || "",
-      read_time_minutes: editingPost.read_time_minutes || 5,
-      status: editingPost.status || (editingPost.is_published ? "published" : "draft"),
-      is_featured: editingPost.is_featured ?? false,
-    });
-  }, [editingPost]);
+    skipNextDraftSave.current = true;
+    setDraftNotice(null);
+
+    if (editingId && !editingPost) return;
+
+    const serverForm: BlogFormState | null = editingPost
+      ? {
+          title: editingPost.title || "",
+          slug: editingPost.slug || "",
+          excerpt: editingPost.excerpt || "",
+          content: editingPost.content || "",
+          content_format: editingPost.content_format || "html",
+          featured_image: editingPost.featured_image || "",
+          meta_title: editingPost.meta_title || "",
+          meta_description: editingPost.meta_description || "",
+          read_time_minutes: editingPost.read_time_minutes || 5,
+          status: editingPost.status || (editingPost.is_published ? "published" : "draft"),
+          is_featured: editingPost.is_featured ?? false,
+        }
+      : null;
+
+    const draft = loadAdminDraft<BlogFormState>(draftKey);
+    if (draft && draftHasContent(draft.data)) {
+      setForm({ ...emptyForm, ...draft.data });
+      setDraftNotice(`Unsaved draft restored (saved ${formatDraftSavedAt(draft.savedAt)}).`);
+      return;
+    }
+
+    if (serverForm) {
+      setForm(serverForm);
+    } else if (!editingId) {
+      setForm(emptyForm);
+    }
+  }, [editingPost, editingId, draftKey]);
+
+  useEffect(() => {
+    if (skipNextDraftSave.current) {
+      skipNextDraftSave.current = false;
+      return;
+    }
+    const timer = window.setTimeout(() => {
+      if (!draftHasContent(form)) {
+        clearAdminDraft(draftKey);
+        return;
+      }
+      saveAdminDraft(draftKey, form);
+    }, 600);
+    return () => window.clearTimeout(timer);
+  }, [form, draftKey]);
 
   const resetForm = () => {
     setEditingId(null);
     setForm(emptyForm);
     setSaveError(null);
+    setDraftNotice(null);
+    skipNextDraftSave.current = true;
   };
 
   const saveMutation = useMutation({
@@ -103,6 +153,7 @@ export default function AdminBlogPage() {
       return adminService.createBlogPost(payload);
     },
     onSuccess: () => {
+      clearAdminDraft(draftKey);
       queryClient.invalidateQueries({ queryKey: ["admin-blog"] });
       resetForm();
     },
@@ -146,6 +197,24 @@ export default function AdminBlogPage() {
       <div className="grid lg:grid-cols-2 gap-8">
         <div className="bg-white dark:bg-card rounded-xl border p-6 space-y-5 max-h-[calc(100vh-10rem)] overflow-y-auto">
           <h3 className="font-semibold">{editingId ? "Edit Post" : "Create Post"}</h3>
+
+          {draftNotice && (
+            <div className="rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2 text-sm text-navy-800 dark:text-cream flex items-start justify-between gap-3">
+              <p>
+                {draftNotice} Your work is kept in this browser if you get logged out.
+              </p>
+              <button
+                type="button"
+                className="text-xs underline shrink-0"
+                onClick={() => {
+                  clearAdminDraft(draftKey);
+                  setDraftNotice(null);
+                }}
+              >
+                Discard draft
+              </button>
+            </div>
+          )}
 
           {loadingPost && editingId ? (
             <Shimmer className="h-40 w-full" />
