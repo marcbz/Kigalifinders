@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import { toSavedSnapshot, trackRecentlyViewed } from "@/lib/property-memory";
+import { scheduleQualifiedView } from "@/lib/qualified-view";
 import type { PropertyDetail } from "@/types";
 
 export function TrackPropertyView({ property }: { property: PropertyDetail }) {
@@ -29,6 +30,8 @@ export function TrackPropertyView({ property }: { property: PropertyDetail }) {
       }),
     );
   }, [property]);
+
+  useEffect(() => scheduleQualifiedView("property", property.slug), [property.slug]);
 
   return null;
 }

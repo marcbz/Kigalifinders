@@ -108,26 +108,42 @@ export function useCurrency() {
   return ctx;
 }
 
-export function CurrencyToggle({ className = "" }: { className?: string }) {
+export function CurrencyToggle({
+  className = "",
+  onDark = false,
+}: {
+  className?: string;
+  onDark?: boolean;
+}) {
   const { currency, setCurrency } = useCurrency();
   return (
-    <div className={`inline-flex rounded-full border border-gray-200 dark:border-border text-xs overflow-hidden ${className}`}>
-      <button
-        type="button"
-        className={`px-2.5 py-1 font-semibold ${currency === "USD" ? "bg-navy-800 text-white" : "text-gray-600"}`}
-        onClick={() => setCurrency("USD")}
-        aria-pressed={currency === "USD"}
-      >
-        USD
-      </button>
-      <button
-        type="button"
-        className={`px-2.5 py-1 font-semibold ${currency === "RWF" ? "bg-navy-800 text-white" : "text-gray-600"}`}
-        onClick={() => setCurrency("RWF")}
-        aria-pressed={currency === "RWF"}
-      >
-        RWF
-      </button>
+    <div
+      className={`inline-flex rounded-full border text-xs overflow-hidden shrink-0 ${
+        onDark ? "border-white/35" : "border-gray-200 dark:border-border"
+      } ${className}`}
+    >
+      {(["USD", "RWF"] as const).map((code) => {
+        const active = currency === code;
+        return (
+          <button
+            key={code}
+            type="button"
+            className={`px-2.5 py-1 font-semibold transition-colors ${
+              active
+                ? onDark
+                  ? "bg-white text-navy-800"
+                  : "bg-navy-800 text-white dark:bg-gold-500 dark:text-navy-900"
+                : onDark
+                  ? "text-white/75"
+                  : "text-gray-600 dark:text-gray-300"
+            }`}
+            onClick={() => setCurrency(code)}
+            aria-pressed={active}
+          >
+            {code}
+          </button>
+        );
+      })}
     </div>
   );
 }

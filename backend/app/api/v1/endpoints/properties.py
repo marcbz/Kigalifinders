@@ -2,14 +2,14 @@ from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
 from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_admin, require_staff
 from app.database.session import get_db
-from app.models import Property, PropertyImage, PropertyStatusEnum, User
+from app.models import Analytics, Property, PropertyImage, PropertyStatusEnum, User
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
 from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
@@ -132,10 +132,62 @@ async def featured_properties(
 @router.get("/{slug}", response_model=PropertyDetail)
 async def get_property(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     repo = PropertyRepository(db)
-    prop = await repo.get_by_slug(slug, track_view=True, published_only=True)
+    # Do not count SSR/metadata/bot fetches as views — clients report qualified views separately.
+    prop = await repo.get_by_slug(slug, track_view=False, published_only=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     return prop
+
+
+@router.post("/{slug}/view", status_code=status.HTTP_204_NO_CONTENT)
+async def record_property_view(
+    slug: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    session_id: Optional[str] = Header(None, alias="X-View-Session"),
+):
+    """Count a qualified view once per visitor session (dwell reported by the client)."""
+    from datetime import datetime, timezone, timedelta
+
+    repo = PropertyRepository(db)
+    prop = await repo.get_by_slug(slug, track_view=False, published_only=True)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+
+    visitor = (session_id or "").strip()[:100] or None
+    if not visitor:
+        # Fall back to a coarse fingerprint so anonymous clients still dedupe lightly
+        ua = (request.headers.get("user-agent") or "")[:80]
+        ip = request.client.host if request.client else ""
+        visitor = f"{ip}:{ua}"[:100]
+
+    since = datetime.now(timezone.utc) - timedelta(hours=12)
+    existing = await db.execute(
+        select(Analytics.id).where(
+            Analytics.event_type == "property_view",
+            Analytics.entity_id == str(prop.id),
+            Analytics.session_id == visitor,
+            Analytics.created_at >= since,
+        ).limit(1)
+    )
+    if existing.scalar_one_or_none():
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    db.add(
+        Analytics(
+            event_type="property_view",
+            entity_type="property",
+            entity_id=str(prop.id),
+            session_id=visitor,
+            ip_address=request.client.host if request.client else None,
+            user_agent=(request.headers.get("user-agent") or "")[:500] or None,
+        )
+    )
+    db_prop = await repo.get_by_id(prop.id)
+    if db_prop:
+        db_prop.views_count = int(db_prop.views_count or 0) + 1
+    await db.flush()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/{slug}/related", response_model=PaginatedResponse[PropertyListItem])

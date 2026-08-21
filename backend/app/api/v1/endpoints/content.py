@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -75,8 +75,7 @@ async def blog_detail(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
-    post.views_count += 1
-    await db.flush()
+    # Views are recorded via POST /blog/{slug}/view (qualified client dwell), not on every SSR fetch.
     return BlogPostDetail(
         id=post.id, title=post.title, slug=post.slug, excerpt=post.excerpt,
         featured_image=post.featured_image,
@@ -86,6 +85,59 @@ async def blog_detail(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
         meta_title=post.meta_title, meta_description=post.meta_description,
         tags=[t.name for t in post.tags], views_count=post.views_count, likes_count=post.likes_count,
     )
+
+
+@router.post("/blog/{slug}/view", status_code=status.HTTP_204_NO_CONTENT)
+async def record_blog_view(
+    slug: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    session_id: Annotated[str | None, Header(alias="X-View-Session")] = None,
+):
+    from datetime import datetime, timedelta, timezone
+    from fastapi.responses import Response
+    from app.models import Analytics
+
+    result = await db.execute(
+        select(BlogPost).where(BlogPost.slug == slug, BlogPost.status == "published")
+    )
+    post = result.scalar_one_or_none()
+    if not post:
+        raise HTTPException(status_code=404, detail="Post not found")
+
+    visitor = (session_id or "").strip()[:100] or None
+    if not visitor:
+        ua = (request.headers.get("user-agent") or "")[:80]
+        ip = request.client.host if request.client else ""
+        visitor = f"{ip}:{ua}"[:100]
+
+    since = datetime.now(timezone.utc) - timedelta(hours=12)
+    existing = await db.execute(
+        select(Analytics.id)
+        .where(
+            Analytics.event_type == "blog_view",
+            Analytics.entity_id == str(post.id),
+            Analytics.session_id == visitor,
+            Analytics.created_at >= since,
+        )
+        .limit(1)
+    )
+    if existing.scalar_one_or_none():
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    db.add(
+        Analytics(
+            event_type="blog_view",
+            entity_type="blog",
+            entity_id=str(post.id),
+            session_id=visitor,
+            ip_address=request.client.host if request.client else None,
+            user_agent=(request.headers.get("user-agent") or "")[:500] or None,
+        )
+    )
+    post.views_count = int(post.views_count or 0) + 1
+    await db.flush()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.post("/contact", status_code=status.HTTP_201_CREATED)

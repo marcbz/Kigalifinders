@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { contentService } from "@/services/api";
 import { BlogPostContent } from "@/components/blog/blog-post-content";
+import { TrackBlogView } from "@/components/blog/track-blog-view";
 import { buildFaqJsonLd, extractBlogFaqs } from "@/lib/blog-faq-schema";
 
 interface Props {
@@ -36,6 +37,7 @@ export default async function BlogDetailPage({ params }: Props) {
 
   return (
     <article className="py-20 px-6">
+      <TrackBlogView slug={slug} />
       {faqJsonLd && (
         <script
           type="application/ld+json"
