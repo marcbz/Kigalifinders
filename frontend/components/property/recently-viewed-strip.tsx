@@ -43,7 +43,7 @@ export function RecentlyViewedStrip({
 
   useEffect(() => {
     const load = () => {
-      setItems(getRecentlyViewed().filter((p) => p.id !== excludeId).slice(0, 6));
+      setItems(getRecentlyViewed().filter((p) => p.id !== excludeId).slice(0, 3));
     };
     load();
     window.addEventListener("kigalirent-storage", load);
@@ -64,9 +64,11 @@ export function RecentlyViewedStrip({
             Saved homes →
           </Link>
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {items.map((p) => (
-            <PropertyCard key={p.id} property={toListItem(p)} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {items.map((p, index) => (
+            <div key={p.id} className={index > 0 ? "hidden lg:block" : undefined}>
+              <PropertyCard property={toListItem(p)} />
+            </div>
           ))}
         </div>
       </div>

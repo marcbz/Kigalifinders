@@ -25,7 +25,7 @@ export function PropertyPrice({
           {format(previousPrice, currency, period)}
         </div>
       )}
-      <div className="font-serif text-2xl font-bold text-navy-800 dark:text-white">
+      <div className="font-serif text-xl sm:text-2xl font-bold text-navy-800 dark:text-white leading-tight">
         {format(price, currency, period)}
       </div>
     </div>

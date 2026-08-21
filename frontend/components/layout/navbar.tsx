@@ -43,14 +43,14 @@ function NavLinkLabel({
   return (
     <span
       className={cn(
-        "relative inline-block px-1.5 py-0.5 font-semibold",
+        "relative inline-flex items-center justify-center px-2 py-0.5 font-semibold leading-none",
         onDark ? "text-gold-400" : "text-navy-900 dark:text-gold-400",
       )}
     >
       <span
         aria-hidden
         className={cn(
-          "absolute inset-x-0 bottom-0 top-1/3 -skew-x-3 rounded-sm opacity-80",
+          "absolute inset-0 -skew-x-3 rounded-sm opacity-80",
           onDark ? "bg-gold-500/35" : "bg-gold-400/55 dark:bg-gold-500/40",
         )}
       />
