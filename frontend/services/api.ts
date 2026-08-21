@@ -97,6 +97,7 @@ export interface PropertyCreatePayload {
   listing_type: string;
   status: string;
   price: number;
+  previous_price?: number;
   price_period?: string;
   currency?: string;
   bedrooms?: number;

@@ -44,6 +44,7 @@ const defaultForm = {
   listing_type: "rent",
   status: "draft",
   price: "",
+  previous_price: "",
   price_period: "month",
   currency: "USD",
   bedrooms: "",
@@ -176,6 +177,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
           listing_type: property.listing_type,
           status: property.status,
           price: String(property.price),
+          previous_price: detail?.previous_price != null ? String(detail.previous_price) : "",
           price_period: property.price_period || "month",
           currency: property.currency || "USD",
           bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
@@ -248,6 +250,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     listing_type: form.listing_type,
     status: form.status,
     price: parseFloat(form.price),
+    previous_price: form.previous_price ? parseFloat(form.previous_price) : undefined,
     price_period: form.price_period ? form.price_period : undefined,
     currency: form.currency,
     bedrooms: form.bedrooms ? parseInt(form.bedrooms) : undefined,
@@ -383,6 +386,11 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div>
               <label className="text-xs font-semibold text-gray-500">PRICE *</label>
               <input type="number" min="0" className="lux-input mt-1" value={form.price} onChange={(e) => setForm({ ...form, price: e.target.value })} required />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">PREVIOUS PRICE (optional)</label>
+              <p className="text-xs text-gray-400 mt-0.5 mb-1">Set higher than current price to show a “Price reduced” badge. Auto-filled when you lower price.</p>
+              <input type="number" min="0" className="lux-input" value={form.previous_price} onChange={(e) => setForm({ ...form, previous_price: e.target.value })} />
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500">PRICE PERIOD</label>

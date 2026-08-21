@@ -90,9 +90,16 @@ async def blog_detail(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
 
 @router.post("/contact", status_code=status.HTTP_201_CREATED)
 async def contact(data: ContactCreate, db: Annotated[AsyncSession, Depends(get_db)]):
+    from app.services.lead_notify import notify_lead_whatsapp
+
     msg = ContactMessage(**data.model_dump())
     db.add(msg)
     await db.flush()
+    await notify_lead_whatsapp(
+        db,
+        f"New contact form\nFrom: {data.name}\nEmail: {data.email}\nPhone: {data.phone or '—'}\n"
+        f"Subject: {data.subject or '—'}\n{data.message}",
+    )
     return {"message": "Thank you for contacting us"}
 
 
@@ -109,9 +116,15 @@ async def newsletter(data: NewsletterSubscribe, db: Annotated[AsyncSession, Depe
 @router.post("/appointments", status_code=status.HTTP_201_CREATED)
 async def create_appointment(data: AppointmentCreate, db: Annotated[AsyncSession, Depends(get_db)]):
     from app.models import Appointment
+    from app.services.lead_notify import notify_lead_whatsapp
+
     appt = Appointment(**data.model_dump())
     db.add(appt)
     await db.flush()
+    await notify_lead_whatsapp(
+        db,
+        f"New appointment request\nFrom: {data.name}\nEmail: {data.email}\nPhone: {data.phone or '—'}",
+    )
     return {"message": "Appointment scheduled successfully", "id": str(appt.id)}
 
 
@@ -130,10 +143,20 @@ async def legal_content(db: Annotated[AsyncSession, Depends(get_db)]):
 
 @router.post("/viewing-requests", status_code=status.HTTP_201_CREATED)
 async def create_viewing_request(data: ViewingRequestCreate, db: Annotated[AsyncSession, Depends(get_db)]):
-    from app.models import ViewingRequest
+    from app.models import ViewingRequest, Property
+    from app.services.lead_notify import notify_lead_whatsapp
+
     req = ViewingRequest(**data.model_dump())
     db.add(req)
     await db.flush()
+
+    prop = await db.get(Property, data.property_id)
+    title = prop.title if prop else str(data.property_id)
+    await notify_lead_whatsapp(
+        db,
+        f"New property inquiry\nListing: {title}\nFrom: {data.name}\nEmail: {data.email}\n"
+        f"Phone: {data.phone or '—'}\n{data.message or ''}",
+    )
     return {"message": "Viewing request submitted", "id": str(req.id)}
 
 

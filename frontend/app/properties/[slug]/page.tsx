@@ -6,8 +6,9 @@ import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyDescription } from "@/components/property/property-description";
 import { PropertyFeaturesTable } from "@/components/property/property-features-table";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
+import { PropertyPrice } from "@/components/property/property-price";
+import { TrackPropertyView } from "@/components/property/track-property-view";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
-import { formatPrice } from "@/lib/utils";
 import { getListingBadge } from "@/lib/property-features";
 import { fetchPropertySafe } from "@/lib/server-api";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
@@ -63,9 +64,17 @@ export default async function PropertyDetailPage({ params }: Props) {
 
   return (
     <>
+      <TrackPropertyView property={property} />
       <div className="bg-navy-800 text-white py-12 px-6">
         <div className="max-w-7xl mx-auto">
-          <span className="badge-gold px-3 py-1 rounded text-xs mb-4 inline-block">{listingBadge}</span>
+          <div className="flex flex-wrap gap-2 mb-4">
+            <span className="badge-gold px-3 py-1 rounded text-xs inline-block">{listingBadge}</span>
+            {property.previous_price != null && property.previous_price > property.price && (
+              <span className="bg-red-600 text-white text-xs font-bold tracking-widest uppercase px-3 py-1 rounded">
+                Price reduced
+              </span>
+            )}
+          </div>
           <h1 className="font-serif text-3xl md:text-5xl font-bold mb-3">{property.title}</h1>
           <div className="flex items-center gap-2 text-gray-200">
             <MapPin className="w-4 h-4 text-gold-500" />
@@ -112,9 +121,13 @@ export default async function PropertyDetailPage({ params }: Props) {
 
           <div className="lg:sticky lg:top-24 h-fit">
             <div className="bg-white dark:bg-card rounded-2xl shadow-xl p-8 border">
-              <div className="font-serif text-3xl font-bold text-navy-800 dark:text-white mb-6">
-                {formatPrice(property.price, property.currency, property.listing_type !== "sale" ? property.price_period : null)}
-              </div>
+              <PropertyPrice
+                className="mb-6"
+                price={property.price}
+                currency={property.currency}
+                period={property.listing_type !== "sale" ? property.price_period : null}
+                previousPrice={property.previous_price}
+              />
               {property.agent_name && (
                 <p className="text-sm text-gray-500 mb-6">Agent: <strong>{property.agent_name}</strong></p>
               )}

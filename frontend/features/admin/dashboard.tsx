@@ -2,10 +2,21 @@
 
 import { Building2, Users, Mail, Eye, Home, FileText } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import Link from "next/link";
 import { adminService } from "@/services/api";
 import { Shimmer } from "@/components/ui/shimmer";
 
-function StatCard({ title, value, icon: Icon, color }: { title: string; value: number | string; icon: React.ElementType; color: string }) {
+function StatCard({
+  title,
+  value,
+  icon: Icon,
+  color,
+}: {
+  title: string;
+  value: number | string;
+  icon: React.ElementType;
+  color: string;
+}) {
   return (
     <div className="bg-white dark:bg-card rounded-xl shadow-sm p-6 border">
       <div className="flex justify-between items-start">
@@ -50,6 +61,8 @@ export function AdminDashboard() {
     { title: "Blog Views", value: stats?.blog_views ?? "—", icon: FileText, color: "bg-amber-100 text-amber-700" },
   ];
 
+  const funnel = stats?.funnel || [];
+
   return (
     <div className="space-y-6">
       <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white">Dashboard Overview</h2>
@@ -61,6 +74,46 @@ export function AdminDashboard() {
       <p className="text-sm text-gray-500">
         Total views across properties and blog: {(stats?.total_views ?? 0).toLocaleString()}.
       </p>
+
+      <div className="bg-white dark:bg-card rounded-xl border overflow-hidden">
+        <div className="p-4 border-b">
+          <h3 className="font-semibold text-navy-800 dark:text-white">Listing funnel</h3>
+          <p className="text-xs text-gray-500 mt-1">Views → inquiries → bookings (top viewed published listings)</p>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 dark:bg-navy-800 text-left">
+              <tr>
+                <th className="p-3">Listing</th>
+                <th className="p-3 text-right">Views</th>
+                <th className="p-3 text-right">Inquiries</th>
+                <th className="p-3 text-right">Bookings</th>
+              </tr>
+            </thead>
+            <tbody>
+              {funnel.map((row: { id: string; title: string; slug: string; views: number; inquiries: number; bookings: number }) => (
+                <tr key={row.id} className="border-t">
+                  <td className="p-3">
+                    <Link href={`/properties/${row.slug}`} className="hover:text-gold-600" target="_blank">
+                      {row.title}
+                    </Link>
+                  </td>
+                  <td className="p-3 text-right">{row.views}</td>
+                  <td className="p-3 text-right">{row.inquiries}</td>
+                  <td className="p-3 text-right">{row.bookings}</td>
+                </tr>
+              ))}
+              {funnel.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="p-6 text-center text-gray-500">
+                    No funnel data yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }

@@ -256,6 +256,7 @@ class Property(Base):
     status: Mapped[PropertyStatusEnum] = mapped_column(Enum(PropertyStatusEnum), default=PropertyStatusEnum.DRAFT)
 
     price: Mapped[float] = mapped_column(Float, nullable=False)
+    previous_price: Mapped[float | None] = mapped_column(Float)
     price_period: Mapped[str | None] = mapped_column(String(20), default="month")
     currency: Mapped[str] = mapped_column(String(3), default="USD")
 

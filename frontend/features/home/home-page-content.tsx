@@ -4,6 +4,7 @@ import { fetchHomepageSafe } from "@/lib/server-api";
 import { StatsSection } from "@/features/home/stats-section";
 import { WhyUsSection, TestimonialsSection } from "@/features/home/why-us-section";
 import { BlogSection, CTASection, MapSection } from "@/features/home/content-sections";
+import { RecentlyViewedHomeStrip } from "@/features/home/recently-viewed-home-strip";
 
 const PropertyGridSection = dynamic(
   () => import("@/features/home/property-sections").then((mod) => mod.PropertyGridSection),
@@ -60,6 +61,7 @@ export async function HomePageContent() {
     <>
       {!ok && <ApiErrorBanner />}
       <StatsSection stats={data.stats} />
+      <RecentlyViewedHomeStrip />
       <PropertyGridSection
         title="Featured Properties"
         subtitle="Hand-picked premium homes available right now across Kigali's most desirable neighborhoods."

@@ -3,11 +3,11 @@ import Link from "next/link";
 import { ArrowRight, Bath, Bed, MapPin, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PropertyListItem } from "@/types";
-import { formatPrice } from "@/lib/utils";
 import { getListingBadge, getPropertyAreaLabel } from "@/lib/property-features";
 import { getPropertyHref } from "@/lib/property-url";
 import { PropertyCardActions } from "@/components/property/property-card-actions";
 import { PropertyImageFrame } from "@/components/property/property-image-frame";
+import { PropertyPrice } from "@/components/property/property-price";
 
 interface PropertyCardProps {
   property: PropertyListItem;
@@ -18,6 +18,8 @@ export function PropertyCard({ property }: PropertyCardProps) {
   const areaLabel = getPropertyAreaLabel(property);
   const isPlot = property.listing_type === "sale" && property.lot_size_sqm;
   const href = getPropertyHref(property);
+  const priceReduced =
+    property.previous_price != null && property.previous_price > property.price;
 
   return (
     <article className="property-card group relative">
@@ -39,10 +41,15 @@ export function PropertyCard({ property }: PropertyCardProps) {
           sizes="(max-width: 768px) 100vw, 33vw"
           draggable={false}
         />
-        <span className="absolute top-4 left-4 badge-gold px-3 py-1 rounded z-10">
-          {listingBadge}
-        </span>
-        <PropertyCardActions />
+        <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 items-start">
+          <span className="badge-gold px-3 py-1 rounded">{listingBadge}</span>
+          {priceReduced && (
+            <span className="bg-red-600 text-white text-[10px] font-bold tracking-widest uppercase px-2.5 py-1 rounded">
+              Price reduced
+            </span>
+          )}
+        </div>
+        <PropertyCardActions property={property} />
       </PropertyImageFrame>
 
       <div className="p-6 relative z-[2] pointer-events-none">
@@ -77,9 +84,12 @@ export function PropertyCard({ property }: PropertyCardProps) {
         <div className="flex justify-between items-center">
           <div>
             {!isPlot && <div className="text-[11px] tracking-widest text-gray-400 uppercase">From</div>}
-            <div className="font-serif text-2xl font-bold text-navy-800 dark:text-white">
-              {formatPrice(property.price, property.currency, property.listing_type !== "sale" ? property.price_period : null)}
-            </div>
+            <PropertyPrice
+              price={property.price}
+              currency={property.currency}
+              period={property.listing_type !== "sale" ? property.price_period : null}
+              previousPrice={property.previous_price}
+            />
           </div>
           <Button asChild size="sm" className="rounded-full gap-2 pointer-events-auto">
             <Link href={href} prefetch>

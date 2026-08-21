@@ -71,6 +71,8 @@ class Settings(BaseSettings):
     TWILIO_ACCOUNT_SID: str = ""
     TWILIO_AUTH_TOKEN: str = ""
     TWILIO_PHONE_NUMBER: str = ""
+    WHATSAPP_CALLMEBOT_APIKEY: str = ""
+    LEAD_NOTIFY_WEBHOOK_URL: str = ""
 
     STRIPE_SECRET_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""

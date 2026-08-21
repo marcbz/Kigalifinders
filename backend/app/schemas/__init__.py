@@ -86,6 +86,7 @@ class PropertyListItem(BaseModel):
     listing_type: str
     status: str
     price: float
+    previous_price: Optional[float] = None
     price_period: Optional[str] = None
     currency: str
     bedrooms: Optional[int] = None
@@ -150,6 +151,7 @@ class PropertyCreate(BaseModel):
     listing_type: str = "rent"
     status: str = "draft"
     price: float
+    previous_price: Optional[float] = None
     price_period: Optional[str] = "month"
     currency: str = "USD"
     bedrooms: Optional[int] = None
@@ -191,6 +193,7 @@ class PropertyUpdate(BaseModel):
     listing_type: Optional[str] = None
     status: Optional[str] = None
     price: Optional[float] = None
+    previous_price: Optional[float] = None
     price_period: Optional[str] = None
     currency: Optional[str] = None
     bedrooms: Optional[int] = None
@@ -486,6 +489,15 @@ class HomepageData(BaseModel):
     social: Optional[dict] = None
 
 
+class PropertyFunnelRow(BaseModel):
+    id: str
+    title: str
+    slug: str
+    views: int
+    inquiries: int
+    bookings: int
+
+
 class DashboardStats(BaseModel):
     total_properties: int
     published_properties: int
@@ -497,3 +509,4 @@ class DashboardStats(BaseModel):
     property_views: int
     blog_views: int
     total_views: int
+    funnel: list[PropertyFunnelRow] = []

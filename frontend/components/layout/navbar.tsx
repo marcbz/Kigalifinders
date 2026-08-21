@@ -6,15 +6,17 @@ import { CalendarCheck, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BrandName } from "@/components/brand/brand-name";
+import { CurrencyToggle } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
   { href: "/#home", label: "Home" },
   { href: "/properties", label: "Properties" },
+  { href: "/favorites", label: "Saved" },
   { href: "/#area", label: "Areas" },
   { href: "/#why", label: "Why Us" },
   { href: "/blog", label: "Blog" },
-  { href: "/#faq", label: "FAQ" },
+  { href: "/list-your-property", label: "List property" },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -50,6 +52,7 @@ export function Navbar({ bookingUrl }: NavbarProps) {
           </div>
 
           <div className="flex items-center gap-3">
+            <CurrencyToggle className="hidden sm:inline-flex" />
             <ThemeToggle />
             {bookingUrl && (
             <Button asChild className="hidden md:inline-flex rounded-full" size="sm">
@@ -84,6 +87,7 @@ export function Navbar({ bookingUrl }: NavbarProps) {
           <X className="w-6 h-6" />
         </button>
         <BrandName variant="admin" size="lg" className="mb-10 mt-4" />
+        <CurrencyToggle className="mb-6" />
         <nav className="flex flex-col gap-5 text-lg">
           {navLinks.map((link) => (
             <Link key={link.href} href={link.href} className="hover:text-gold-500" onClick={() => setMobileOpen(false)}>

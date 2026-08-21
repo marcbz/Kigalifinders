@@ -73,11 +73,11 @@ export function Footer({
             <ul className="space-y-2 text-sm">
               {[
                 { label: "All Properties", href: "/properties" },
-                { label: "Neighborhoods", href: "/#area" },
+                { label: "Saved Homes", href: "/favorites" },
+                { label: "List Your Property", href: "/list-your-property" },
                 { label: "Houses for Rent", href: "/properties?listing_type=rent" },
                 { label: "Furnished Houses", href: "/properties?listing_type=furnished" },
                 { label: "Properties for Sale", href: "/properties?listing_type=sale" },
-                { label: "Luxury Homes", href: "/properties?listing_type=rent" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-gold-500 transition">{item.label}</Link>

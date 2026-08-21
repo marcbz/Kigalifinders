@@ -47,6 +47,7 @@ class PropertyRepository:
             listing_type=prop.listing_type.value,
             status=prop.status.value,
             price=prop.price,
+            previous_price=prop.previous_price,
             price_period=prop.price_period,
             currency=prop.currency,
             bedrooms=prop.bedrooms,

@@ -175,6 +175,7 @@ async def create_property(
         listing_type=ListingType(data.listing_type),
         status=status_enum,
         price=data.price,
+        previous_price=data.previous_price,
         price_period=data.price_period or None,
         published_at=published_at,
         currency=data.currency,
@@ -245,6 +246,10 @@ async def update_property(
         updates["slug"] = await _unique_slug(db, updates["slug"], exclude_id=property_id)
     if "price_period" in updates and not updates["price_period"]:
         updates["price_period"] = None
+    if "price" in updates and "previous_price" not in updates:
+        new_price = updates["price"]
+        if prop.price is not None and new_price is not None and float(new_price) < float(prop.price):
+            updates["previous_price"] = float(prop.price)
     if "property_type_ids" in updates or "property_type_id" in updates:
         primary_type_id, type_ids = _resolve_property_types(
             updates.get("property_type_id", prop.property_type_id),

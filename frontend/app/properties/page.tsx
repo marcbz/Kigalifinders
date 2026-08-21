@@ -4,6 +4,8 @@ import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder
 import { ActivePropertyFilters } from "@/components/search/active-property-filters";
 import { PropertiesInfiniteGrid } from "@/components/property/properties-infinite-grid";
 import { PropertyGridSkeleton } from "@/components/ui/shimmer";
+import { RecentlyViewedStrip } from "@/components/property/recently-viewed-strip";
+import { WhatsAppMatchAlert } from "@/components/property/whatsapp-match-alert";
 
 export const metadata = {
   title: "Properties",
@@ -22,10 +24,16 @@ export default function PropertiesPage() {
       <Suspense fallback={<SearchBarPlaceholder />}>
         <SearchBar />
       </Suspense>
+      <Suspense fallback={null}>
+        <RecentlyViewedStrip />
+      </Suspense>
       <section className="py-16 px-6">
         <div className="max-w-7xl mx-auto">
           <Suspense fallback={null}>
             <ActivePropertyFilters />
+          </Suspense>
+          <Suspense fallback={null}>
+            <WhatsAppMatchAlert />
           </Suspense>
           <Suspense fallback={<PropertyGridSkeleton count={6} />}>
             <PropertiesInfiniteGrid />

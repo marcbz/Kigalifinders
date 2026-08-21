@@ -217,6 +217,47 @@ class DashboardService:
         property_views = int(total_property_views)
         blog_views = int(total_blog_views)
 
+        from app.models import ViewingRequest
+        from app.schemas import PropertyFunnelRow
+
+        inquiry_rows = (
+            await self.db.execute(
+                select(ViewingRequest.property_id, func.count())
+                .group_by(ViewingRequest.property_id)
+            )
+        ).all()
+        inquiry_map = {str(pid): int(cnt) for pid, cnt in inquiry_rows if pid}
+
+        booking_rows = (
+            await self.db.execute(
+                select(Appointment.property_id, func.count())
+                .where(Appointment.property_id.is_not(None))
+                .group_by(Appointment.property_id)
+            )
+        ).all()
+        booking_map = {str(pid): int(cnt) for pid, cnt in booking_rows if pid}
+
+        top_props = (
+            await self.db.execute(
+                select(Property)
+                .where(Property.status == PropertyStatusEnum.PUBLISHED)
+                .order_by(Property.views_count.desc())
+                .limit(10)
+            )
+        ).scalars().all()
+
+        funnel = [
+            PropertyFunnelRow(
+                id=str(p.id),
+                title=p.title,
+                slug=p.slug,
+                views=int(p.views_count or 0),
+                inquiries=inquiry_map.get(str(p.id), 0),
+                bookings=booking_map.get(str(p.id), 0),
+            )
+            for p in top_props
+        ]
+
         return DashboardStats(
             total_properties=total_properties,
             published_properties=published,
@@ -228,4 +269,5 @@ class DashboardService:
             property_views=property_views,
             blog_views=blog_views,
             total_views=property_views + blog_views,
+            funnel=funnel,
         )
