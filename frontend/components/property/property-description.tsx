@@ -1,4 +1,4 @@
-import { isRichHtml, sanitizePropertyHtml } from "@/lib/sanitize-html";
+import { renderBlogContent } from "@/lib/blog-html";
 
 interface PropertyDescriptionProps {
   content?: string | null;
@@ -9,15 +9,7 @@ export function PropertyDescription({ content }: PropertyDescriptionProps) {
     return <p className="text-gray-500 dark:text-gray-400">No description provided.</p>;
   }
 
-  if (!isRichHtml(content)) {
-    return (
-      <div className="property-description text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">
-        {content}
-      </div>
-    );
-  }
-
-  const sanitized = sanitizePropertyHtml(content);
+  const sanitized = renderBlogContent(content);
 
   return (
     <div

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { RichTextEditor } from "@/components/admin/rich-text-editor";
+import { BlogRichTextEditor } from "@/components/admin/blog-rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import type { PropertyListItem } from "@/types";
 import {
@@ -23,8 +23,11 @@ interface PropertyFormModalProps {
 
 const defaultForm = {
   title: "",
+  slug: "",
   description: "",
   short_description: "",
+  meta_title: "",
+  meta_description: "",
   listing_type: "rent",
   status: "draft",
   price: "",
@@ -127,8 +130,11 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       const detail = propertyDetail;
       setForm({
         title: property.title,
+        slug: property.slug || "",
         description: detail?.description || "",
         short_description: property.short_description || "",
+        meta_title: detail?.meta_title || "",
+        meta_description: detail?.meta_description || "",
         listing_type: property.listing_type,
         status: property.status,
         price: String(property.price),
@@ -179,9 +185,12 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
 
   const buildPayload = (): PropertyCreatePayload => ({
     title: form.title.trim(),
+    slug: form.slug.trim() || undefined,
     description:
       form.description.trim() && form.description.trim() !== "<p></p>" ? form.description.trim() : undefined,
     short_description: form.short_description.trim() || undefined,
+    meta_title: form.meta_title.trim() || undefined,
+    meta_description: form.meta_description.trim() || undefined,
     listing_type: form.listing_type,
     status: form.status,
     price: parseFloat(form.price),
@@ -264,7 +273,23 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">TITLE *</label>
-              <input className="lux-input mt-1" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} required />
+              <input
+                className="lux-input mt-1"
+                placeholder="e.g. Furnished 2-bedroom apartment in Kimironko"
+                value={form.title}
+                onChange={(e) => setForm({ ...form, title: e.target.value })}
+                required
+              />
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-semibold text-gray-500">URL SLUG (SEO)</label>
+              <p className="text-xs text-gray-400 mt-0.5 mb-1">Auto-generated from title if empty.</p>
+              <input
+                className="lux-input"
+                placeholder="auto-generated from title if empty"
+                value={form.slug}
+                onChange={(e) => setForm({ ...form, slug: e.target.value })}
+              />
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500">LISTING TYPE</label>
@@ -379,24 +404,53 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <YesNoField label="GARDEN" value={form.has_garden} onChange={(v) => setForm({ ...form, has_garden: v })} />
             <YesNoField label="PETS ALLOWED" value={form.pets_allowed} onChange={(v) => setForm({ ...form, pets_allowed: v })} />
             <div className="md:col-span-2">
-              <label className="text-xs font-semibold text-gray-500">SHORT DESCRIPTION</label>
-              <input className="lux-input mt-1" value={form.short_description} onChange={(e) => setForm({ ...form, short_description: e.target.value })} />
+              <label className="text-xs font-semibold text-gray-500">SHORT DESCRIPTION (EXCERPT)</label>
+              <p className="text-xs text-gray-400 mt-0.5 mb-1">
+                Short summary for property cards and search snippets (150–160 chars ideal).
+              </p>
+              <textarea
+                className="lux-input min-h-[72px]"
+                placeholder="A concise intro that hooks readers and supports SEO..."
+                value={form.short_description}
+                onChange={(e) => setForm({ ...form, short_description: e.target.value })}
+              />
             </div>
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">DESCRIPTION</label>
               <p className="text-xs text-gray-400 mt-0.5 mb-2">
-                Use bold, links, lists, and fonts. Add spacing with new paragraphs for a polished listing.
+                Paste Markdown, HTML, or rich text — tables, headings, links, and lists are converted
+                automatically. Use Preview to see exactly how the listing will appear.
               </p>
-              <RichTextEditor
+              <BlogRichTextEditor
                 value={form.description}
                 onChange={(html) => setForm({ ...form, description: html })}
                 placeholder="Describe the property — bedrooms layout, neighborhood perks, nearby amenities..."
               />
             </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">META TITLE (SEO)</label>
+              <p className="text-xs text-gray-400 mt-0.5 mb-1">Page title for Google (≤60 chars).</p>
+              <input
+                className="lux-input"
+                placeholder="Page title for Google (≤60 chars)"
+                value={form.meta_title}
+                onChange={(e) => setForm({ ...form, meta_title: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">META DESCRIPTION (SEO)</label>
+              <p className="text-xs text-gray-400 mt-0.5 mb-1">Search result description (≤160 chars).</p>
+              <textarea
+                className="lux-input min-h-[72px]"
+                placeholder="Search result description (≤160 chars)"
+                value={form.meta_description}
+                onChange={(e) => setForm({ ...form, meta_description: e.target.value })}
+              />
+            </div>
             <div className="md:col-span-2 space-y-3">
               <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES</label>
               <p className="text-xs text-gray-400">
-                Paste image URLs. Mark one as featured — it appears on the homepage catalogue.
+                Paste image URLs. Mark one as featured — it appears on cards and social previews.
               </p>
               {imageRows.map((row, idx) => (
                 <div key={idx} className="flex gap-2 items-start">

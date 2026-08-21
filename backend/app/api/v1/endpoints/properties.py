@@ -204,6 +204,8 @@ async def create_property(
         has_garden=data.has_garden,
         pets_allowed=data.pets_allowed,
         show_features_table=data.show_features_table,
+        meta_title=data.meta_title,
+        meta_description=data.meta_description,
     )
     db.add(prop)
     await db.flush()

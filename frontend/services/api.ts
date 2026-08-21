@@ -47,6 +47,7 @@ api.interceptors.response.use(
 
 export interface PropertyCreatePayload {
   title: string;
+  slug?: string;
   description?: string;
   short_description?: string;
   listing_type: string;
@@ -78,6 +79,8 @@ export interface PropertyCreatePayload {
   has_garden?: boolean;
   pets_allowed?: boolean;
   show_features_table?: boolean;
+  meta_title?: string;
+  meta_description?: string;
   images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];
 }
 

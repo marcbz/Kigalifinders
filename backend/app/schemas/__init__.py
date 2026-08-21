@@ -174,6 +174,8 @@ class PropertyCreate(BaseModel):
     has_garden: bool = False
     pets_allowed: bool = False
     show_features_table: bool = True
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
     images: List[PropertyImageInput] = []
 
 
@@ -213,6 +215,8 @@ class PropertyUpdate(BaseModel):
     has_garden: Optional[bool] = None
     pets_allowed: Optional[bool] = None
     show_features_table: Optional[bool] = None
+    meta_title: Optional[str] = None
+    meta_description: Optional[str] = None
     images: Optional[List[PropertyImageInput]] = None
 
 
