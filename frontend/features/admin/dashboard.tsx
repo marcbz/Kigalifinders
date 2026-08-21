@@ -57,8 +57,8 @@ export function AdminDashboard() {
     { title: "Published", value: stats?.published_properties ?? "—", icon: Home, color: "bg-green-100 text-green-600" },
     { title: "Total Users", value: stats?.total_users ?? "—", icon: Users, color: "bg-purple-100 text-purple-600" },
     { title: "Unread Messages", value: stats?.unread_messages ?? "—", icon: Mail, color: "bg-red-100 text-red-600" },
-    { title: "Qualified Property Views", value: stats?.property_views ?? "—", icon: Eye, color: "bg-gold-500/20 text-gold-600" },
-    { title: "Qualified Blog Views", value: stats?.blog_views ?? "—", icon: FileText, color: "bg-amber-100 text-amber-700" },
+    { title: "Property Views", value: stats?.property_views ?? "—", icon: Eye, color: "bg-gold-500/20 text-gold-600" },
+    { title: "Blog Views", value: stats?.blog_views ?? "—", icon: FileText, color: "bg-amber-100 text-amber-700" },
   ];
 
   const funnel = stats?.funnel || [];
@@ -79,7 +79,7 @@ export function AdminDashboard() {
         <div className="p-4 border-b">
           <h3 className="font-semibold text-navy-800 dark:text-white">Listing funnel</h3>
           <p className="text-xs text-gray-500 mt-1">
-            Qualified views (5s+ on page, once per visitor/12h) → inquiries → bookings
+            Views → inquiries → bookings
           </p>
         </div>
         <div className="overflow-x-auto">

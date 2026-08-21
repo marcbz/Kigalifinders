@@ -9,19 +9,54 @@ import { BrandName } from "@/components/brand/brand-name";
 import { CurrencyToggle } from "@/lib/currency";
 import { cn } from "@/lib/utils";
 
-const navLinks = [
+/** Kept in code but hidden from menus to save space — pages still work if linked. */
+const HIDDEN_NAV_HREFS = new Set(["/#area", "/#why", "/#faq", "/blog", "/faq"]);
+
+const allNavLinks = [
   { href: "/#home", label: "Home" },
   { href: "/properties", label: "Properties" },
   { href: "/favorites", label: "Saved" },
   { href: "/#area", label: "Areas" },
   { href: "/#why", label: "Why Us" },
   { href: "/blog", label: "Blog" },
-  { href: "/list-your-property", label: "List property" },
+  { href: "/#faq", label: "FAQs" },
+  { href: "/list-your-property", label: "List property", highlight: true },
   { href: "/contact", label: "Contact" },
 ];
 
+const navLinks = allNavLinks.filter((link) => !HIDDEN_NAV_HREFS.has(link.href));
+
 interface NavbarProps {
   bookingUrl?: string;
+}
+
+function NavLinkLabel({
+  label,
+  highlight,
+  onDark = false,
+}: {
+  label: string;
+  highlight?: boolean;
+  onDark?: boolean;
+}) {
+  if (!highlight) return <>{label}</>;
+  return (
+    <span
+      className={cn(
+        "relative inline-block px-1.5 py-0.5 font-semibold",
+        onDark ? "text-gold-400" : "text-navy-900 dark:text-gold-400",
+      )}
+    >
+      <span
+        aria-hidden
+        className={cn(
+          "absolute inset-x-0 bottom-0 top-1/3 -skew-x-3 rounded-sm opacity-80",
+          onDark ? "bg-gold-500/35" : "bg-gold-400/55 dark:bg-gold-500/40",
+        )}
+      />
+      <span className="relative z-[1]">{label}</span>
+    </span>
+  );
 }
 
 export function Navbar({ bookingUrl }: NavbarProps) {
@@ -46,7 +81,7 @@ export function Navbar({ bookingUrl }: NavbarProps) {
           <div className="hidden lg:flex gap-8 text-sm font-medium text-navy-800 dark:text-gray-200 mx-auto">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link">
-                {link.label}
+                <NavLinkLabel label={link.label} highlight={link.highlight} />
               </Link>
             ))}
           </div>
@@ -96,7 +131,7 @@ export function Navbar({ bookingUrl }: NavbarProps) {
               className="hover:text-gold-500"
               onClick={() => setMobileOpen(false)}
             >
-              {link.label}
+              <NavLinkLabel label={link.label} highlight={link.highlight} onDark />
             </Link>
           ))}
           {bookingUrl && (
