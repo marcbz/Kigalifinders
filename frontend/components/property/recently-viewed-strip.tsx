@@ -65,27 +65,26 @@ export function RecentlyViewedStrip({
   };
 
   return (
-    <section className="py-12 px-6 bg-cream/60 dark:bg-secondary/40">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-start justify-between gap-4 mb-6">
+    <section className="py-10 px-6">
+      <div className="max-w-7xl mx-auto relative rounded-2xl border border-gold-500/25 bg-cream/80 dark:bg-secondary/50 px-5 py-8 sm:px-8 sm:py-10 shadow-sm">
+        <button
+          type="button"
+          onClick={handleDismiss}
+          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full bg-navy-800 text-white shadow-md hover:bg-navy-900 dark:bg-gold-500 dark:text-navy-900 dark:hover:bg-gold-400 transition"
+          aria-label="Remove recently viewed"
+          title="Remove recently viewed"
+        >
+          <X className="w-4 h-4" strokeWidth={2.5} />
+        </button>
+
+        <div className="flex items-end justify-between gap-4 mb-6 pr-12">
           <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <h2 className="font-serif text-2xl md:text-3xl font-bold text-navy-800 dark:text-white">
-                {title}
-              </h2>
-              <button
-                type="button"
-                onClick={handleDismiss}
-                className="inline-flex items-center justify-center w-8 h-8 rounded-full text-gray-400 hover:text-navy-800 hover:bg-black/5 dark:hover:text-white dark:hover:bg-white/10 transition shrink-0"
-                aria-label="Remove recently viewed"
-                title="Remove recently viewed"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
+            <h2 className="font-serif text-2xl md:text-3xl font-bold text-navy-800 dark:text-white">
+              {title}
+            </h2>
             <p className="text-sm text-gray-500 mt-1">Pick up where you left off.</p>
           </div>
-          <Link href="/favorites" className="text-sm shrink-0 hover:opacity-90 mt-1">
+          <Link href="/favorites" className="text-sm shrink-0 hover:opacity-90">
             <HighlightLabel className="text-gold-700 dark:text-gold-400">
               My Favorites →
             </HighlightLabel>

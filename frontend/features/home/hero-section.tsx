@@ -6,7 +6,7 @@ import {
   resolveHeroImage,
 } from "@/lib/hero-image";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
-import { DreamHomeTypewriter } from "@/features/home/dream-home-typewriter";
+import { HeroIntroCopy } from "@/features/home/hero-intro-copy";
 
 interface HeroCopyProps {
   tagline?: string;
@@ -42,6 +42,7 @@ export function HeroSection({
   const displayCtaSecondary = ctaSecondary || "Browse Properties";
   const displayBookingUrl = bookingUrl || SITE_BOOKING_URL;
   const titleParts = displayTitle.split("Dream Home");
+  const useAnimatedIntro = titleParts.length > 1;
 
   return (
     <section
@@ -75,23 +76,24 @@ export function HeroSection({
             <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">{displayTagline}</span>
           </div>
 
-          <h1 className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">
-            {titleParts.length > 1 ? (
-              <>
-                Find Your <DreamHomeTypewriter />
-                <span className="md:hidden">{titleParts[1]}</span>
-                <span className="hidden md:block">In Kigali</span>
-              </>
-            ) : (
-              displayTitle
-            )}
-          </h1>
-
-          {displaySubtitle ? (
-            <p className="hero-subtitle-mark text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed">
-              {displaySubtitle}
-            </p>
-          ) : null}
+          {useAnimatedIntro ? (
+            <HeroIntroCopy
+              subtitle={displaySubtitle}
+              showDesktopBreak
+              mobileSuffix={titleParts[1] || " in Kigali"}
+            />
+          ) : (
+            <>
+              <h1 className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">
+                {displayTitle}
+              </h1>
+              {displaySubtitle ? (
+                <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed">
+                  {displaySubtitle}
+                </p>
+              ) : null}
+            </>
+          )}
 
           <div className="flex flex-wrap gap-4">
             <a

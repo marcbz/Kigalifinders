@@ -121,7 +121,7 @@
     @apply text-gold-500;
   }
 
-  /* Sweeping marker highlight on hero subtitle (~2–4s cycle) */
+  /* Sweeping marker on hero subtitle — starts only after typing finishes (via .is-sweeping) */
   .hero-subtitle-mark {
     position: relative;
     z-index: 0;
@@ -145,25 +145,30 @@
       transparent 100%
     );
     background-size: 220% 100%;
-    animation: hero-subtitle-sweep 3s ease-in-out infinite;
+    background-position: 120% 0;
+    opacity: 0;
+  }
+
+  .hero-subtitle-mark.is-sweeping::before {
+    animation: hero-subtitle-sweep 4s ease-in-out 1 forwards;
   }
 
   @keyframes hero-subtitle-sweep {
     0% {
       background-position: 120% 0;
-      opacity: 0.45;
+      opacity: 0.4;
     }
     50% {
-      opacity: 0.95;
+      opacity: 0.9;
     }
     100% {
       background-position: -120% 0;
-      opacity: 0.45;
+      opacity: 0.35;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero-subtitle-mark::before {
+    .hero-subtitle-mark.is-sweeping::before {
       animation: none;
       background: rgba(201, 169, 97, 0.22);
       background-size: 100% 100%;
