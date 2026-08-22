@@ -81,7 +81,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
           )}
         </div>
 
-        <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-end">
+        <div className="flex justify-between items-end gap-3">
           <div className="min-w-0">
             {!isPlot && <div className="text-[11px] tracking-widest text-gray-400 uppercase">From</div>}
             <PropertyPrice
@@ -91,9 +91,11 @@ export function PropertyCard({ property }: PropertyCardProps) {
               previousPrice={property.previous_price}
             />
           </div>
-          <Button asChild size="sm" className="rounded-full gap-2 pointer-events-auto shrink-0 self-start sm:self-auto">
+          <Button asChild size="sm" className="rounded-full gap-1.5 pointer-events-auto shrink-0 px-3 sm:px-4">
             <Link href={href} prefetch>
-              View in Catalogue <ArrowRight className="w-4 h-4" />
+              <span className="sm:hidden">View Listing</span>
+              <span className="hidden sm:inline">View in Catalogue</span>
+              <ArrowRight className="w-4 h-4" />
             </Link>
           </Button>
         </div>
