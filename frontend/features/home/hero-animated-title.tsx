@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 
 const PHRASE = "Dream Home";
 const TYPE_MS = 1500;
 const RETYPE_MS = 7000;
+const SWEEP_MS = 2000;
 const SWEEP_INTERVAL_MS = 4000;
 
 /** Small client island — typing + title highlight; h1 stays server-rendered in hero-section. */
@@ -13,13 +14,6 @@ export function HeroAnimatedTitleLine() {
   const [shown, setShown] = useState(PHRASE);
   const [typingDone, setTypingDone] = useState(true);
   const [sweeping, setSweeping] = useState(false);
-
-  const restartSweep = useCallback(() => {
-    setSweeping(false);
-    requestAnimationFrame(() => {
-      requestAnimationFrame(() => setSweeping(true));
-    });
-  }, []);
 
   useEffect(() => {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -66,16 +60,34 @@ export function HeroAnimatedTitleLine() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     if (reduced) return;
 
-    restartSweep();
-    const id = window.setInterval(restartSweep, SWEEP_INTERVAL_MS);
-    return () => window.clearInterval(id);
-  }, [typingDone, restartSweep]);
+    let cancelled = false;
+    let sweepEndId = 0;
+
+    const playSweep = () => {
+      if (cancelled) return;
+      setSweeping(true);
+      sweepEndId = window.setTimeout(() => {
+        if (cancelled) return;
+        setSweeping(false);
+      }, SWEEP_MS);
+    };
+
+    playSweep();
+    const intervalId = window.setInterval(playSweep, SWEEP_INTERVAL_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.clearTimeout(sweepEndId);
+      setSweeping(false);
+    };
+  }, [typingDone]);
 
   return (
     <span
       className={cn(
         "hero-title-mark relative inline-block whitespace-nowrap",
-        typingDone && sweeping && "hero-title-mark--sweep",
+        sweeping && "hero-title-mark--sweep",
       )}
     >
       <span className="relative z-[1]">

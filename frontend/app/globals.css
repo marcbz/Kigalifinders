@@ -121,56 +121,57 @@
     @apply text-gold-500;
   }
 
-  /* Moving marker highlight on “Find Your Dream Home” */
+  /* Light marker sweep on “Find Your Dream Home” — single pass, fades out */
   .hero-title-mark::before {
     content: "";
     position: absolute;
-    inset: -0.14em -0.22em;
+    inset: -0.1em -0.16em;
     z-index: 0;
-    border-radius: 0.32em;
-    transform: skewX(-8deg);
+    border-radius: 0.28em;
+    transform: skewX(-6deg);
     pointer-events: none;
+    opacity: 0;
     background: linear-gradient(
       105deg,
       transparent 0%,
-      transparent 22%,
-      rgba(201, 169, 97, 0.72) 38%,
-      rgba(255, 228, 160, 0.95) 50%,
-      rgba(201, 169, 97, 0.72) 62%,
-      transparent 78%,
+      transparent 44%,
+      rgba(201, 169, 97, 0.12) 49%,
+      rgba(216, 188, 122, 0.22) 50%,
+      rgba(201, 169, 97, 0.12) 51%,
+      transparent 56%,
       transparent 100%
     );
-    background-size: 240% 100%;
-    background-position: 130% 0;
-    opacity: 0;
-    box-shadow: 0 0 0 1px rgba(201, 169, 97, 0.15);
+    background-size: 280% 100%;
+    background-position: 110% 0;
   }
 
   .hero-title-mark--sweep::before {
-    animation: hero-title-sweep 2s ease-in-out 1 forwards;
-    will-change: background-position, opacity;
+    animation: hero-title-sweep 2s ease-out 1 forwards;
   }
 
   @keyframes hero-title-sweep {
     0% {
-      background-position: 130% 0;
-      opacity: 0.55;
+      background-position: 110% 0;
+      opacity: 0;
     }
-    45% {
-      opacity: 1;
+    12% {
+      opacity: 0.85;
+    }
+    88% {
+      opacity: 0.85;
     }
     100% {
-      background-position: -130% 0;
-      opacity: 0.5;
+      background-position: -110% 0;
+      opacity: 0;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .hero-title-mark--sweep::before {
       animation: none;
-      background: rgba(201, 169, 97, 0.35);
+      background: rgba(201, 169, 97, 0.14);
       background-size: 100% 100%;
-      opacity: 0.75;
+      opacity: 0.5;
     }
   }
 
