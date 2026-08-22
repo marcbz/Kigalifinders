@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 
 const PHRASE = "Dream Home";
 const TYPE_MS = 1500;
-const HOLD_MS = 4000; // wait 4s after typing before repeating; subtitle sweeps over this window
+const HOLD_MS = 7000; // wait 7s after typing before repeating
 
 export function HeroIntroCopy({
   subtitle,

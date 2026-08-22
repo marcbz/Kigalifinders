@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { X } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
-import { HighlightLabel } from "@/components/ui/highlight-label";
 import {
   clearRecentlyViewed,
   getRecentlyViewed,
@@ -86,15 +85,16 @@ export function RecentlyViewedStrip({
               Pick up where you left off.
             </p>
           </div>
-          <Link href="/favorites" className="text-xs sm:text-sm self-start sm:self-auto shrink-0 hover:opacity-90">
-            <HighlightLabel className="text-gold-700 dark:text-gold-400 !px-1.5 !py-0.5 text-xs sm:text-sm">
-              My Favorites →
-            </HighlightLabel>
+          <Link
+            href="/favorites"
+            className="inline-flex items-center self-start sm:self-auto shrink-0 rounded-full border border-gold-500/40 bg-gold-500/15 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-navy-800 dark:text-gold-400 hover:bg-gold-500/25 transition"
+          >
+            My Favorites →
           </Link>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
           {items.map((p, index) => (
-            <div key={p.id} className={index > 0 ? "hidden lg:block" : undefined}>
+            <div key={p.id} className={index >= 2 ? "hidden lg:block" : undefined}>
               <PropertyCard property={toListItem(p)} />
             </div>
           ))}
