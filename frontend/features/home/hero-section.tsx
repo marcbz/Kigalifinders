@@ -88,7 +88,9 @@ export function HeroSection({
           </h1>
 
           {displaySubtitle ? (
-            <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed">{displaySubtitle}</p>
+            <p className="hero-subtitle-mark text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed">
+              {displaySubtitle}
+            </p>
           ) : null}
 
           <div className="flex flex-wrap gap-4">

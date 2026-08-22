@@ -25,7 +25,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
     <article className="property-card group relative">
       <Link
         href={href}
-        prefetch
+        prefetch={false}
         className="absolute inset-0 z-[1] rounded-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500"
         aria-label={`View ${property.title}`}
       />
@@ -92,7 +92,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
             />
           </div>
           <Button asChild size="sm" className="rounded-full gap-1.5 pointer-events-auto shrink-0">
-            <Link href={href} prefetch>
+            <Link href={href} prefetch={false}>
               View Listing <ArrowRight className="w-4 h-4" />
             </Link>
           </Button>

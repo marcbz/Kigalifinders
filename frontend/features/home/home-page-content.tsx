@@ -31,11 +31,6 @@ const FAQSection = dynamic(
   { loading: () => <div className="py-20" aria-hidden /> },
 );
 
-const NewsletterSection = dynamic(
-  () => import("@/features/home/newsletter-section").then((mod) => mod.NewsletterSection),
-  { loading: () => <div className="py-16" aria-hidden /> },
-);
-
 function ApiErrorBanner() {
   return (
     <div className="bg-amber-50 border-b border-amber-200 text-amber-900 text-sm text-center py-3 px-4">
@@ -82,7 +77,6 @@ export async function HomePageContent() {
       <BlogSection posts={data.blog_posts} />
       <FAQSection faqs={data.faqs} />
       <CTASection bookingUrl={consultationUrl} whatsapp={whatsapp} />
-      <NewsletterSection />
     </>
   );
 }

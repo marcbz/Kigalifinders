@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import Image from "next/image";
-import Link from "next/link";
 import { Star, Phone, MessageCircle } from "lucide-react";
 import { api } from "@/services/api";
 
@@ -76,9 +75,6 @@ export default async function AgentsPage() {
                     </a>
                   )}
                 </div>
-                <Link href={`/agents/${agent.id}`} className="inline-block mt-6 text-gold-500 font-semibold text-sm hover:underline">
-                  View Profile →
-                </Link>
               </div>
             </div>
           ))}

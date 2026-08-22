@@ -55,14 +55,6 @@ export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; what
   const resolvedWhatsapp = whatsapp?.trim() || "250784806641";
   return (
     <section id="contact" className="py-24 px-6 relative bg-gradient-to-br from-navy-800 to-navy-700 overflow-hidden">
-      <Image
-        src="https://images.unsplash.com/photo-1600596542815-ffad4c1539a9?w=1600&q=75"
-        alt=""
-        fill
-        className="object-cover object-center opacity-10"
-        sizes="100vw"
-        loading="lazy"
-      />
       <div className="max-w-5xl mx-auto relative text-center text-white">
         <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">READY TO MOVE?</span>
         <h2 className="font-serif text-4xl md:text-6xl font-bold mt-4 mb-6 leading-tight">

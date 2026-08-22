@@ -10,22 +10,13 @@ import { CurrencyToggle } from "@/lib/currency";
 import { HighlightLabel } from "@/components/ui/highlight-label";
 import { cn } from "@/lib/utils";
 
-/** Kept in code but hidden from menus to save space — pages still work if linked. */
-const HIDDEN_NAV_HREFS = new Set(["/#area", "/#why", "/#faq", "/blog", "/faq"]);
-
-const allNavLinks = [
+const navLinks = [
   { href: "/#home", label: "Home" },
   { href: "/properties", label: "Properties" },
   { href: "/favorites", label: "My Favorites" },
-  { href: "/#area", label: "Areas" },
-  { href: "/#why", label: "Why Us" },
-  { href: "/blog", label: "Blog" },
-  { href: "/#faq", label: "FAQs" },
   { href: "/list-your-property", label: "List property", highlight: true },
   { href: "/contact", label: "Contact" },
 ];
-
-const navLinks = allNavLinks.filter((link) => !HIDDEN_NAV_HREFS.has(link.href));
 
 interface NavbarProps {
   bookingUrl?: string;

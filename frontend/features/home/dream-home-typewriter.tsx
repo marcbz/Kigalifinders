@@ -3,8 +3,11 @@
 import { useEffect, useState } from "react";
 
 const PHRASE = "Dream Home";
+/** Full type cycle capped at 1.5s, then a short pause, then repeats. */
+const TYPE_MS = 1500;
+const PAUSE_MS = 700;
 
-/** Types “Dream Home” once over ~1–2s; keeps gold italic styling. */
+/** Loops typing “Dream Home” in gold italic. */
 export function DreamHomeTypewriter() {
   const [shown, setShown] = useState("");
   const [done, setDone] = useState(false);
@@ -20,20 +23,36 @@ export function DreamHomeTypewriter() {
       return;
     }
 
-    const durationMs = 1000 + Math.floor(Math.random() * 1000); // 1–2s
-    const stepMs = Math.max(40, Math.floor(durationMs / PHRASE.length));
-    let index = 0;
+    let cancelled = false;
+    let intervalId = 0;
+    let timeoutId = 0;
+    const stepMs = Math.max(35, Math.floor(TYPE_MS / PHRASE.length));
 
-    const id = window.setInterval(() => {
-      index += 1;
-      setShown(PHRASE.slice(0, index));
-      if (index >= PHRASE.length) {
-        window.clearInterval(id);
-        setDone(true);
-      }
-    }, stepMs);
+    const runCycle = () => {
+      if (cancelled) return;
+      let index = 0;
+      setShown("");
+      setDone(false);
 
-    return () => window.clearInterval(id);
+      intervalId = window.setInterval(() => {
+        if (cancelled) return;
+        index += 1;
+        setShown(PHRASE.slice(0, index));
+        if (index >= PHRASE.length) {
+          window.clearInterval(intervalId);
+          setDone(true);
+          timeoutId = window.setTimeout(runCycle, PAUSE_MS);
+        }
+      }, stepMs);
+    };
+
+    runCycle();
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(intervalId);
+      window.clearTimeout(timeoutId);
+    };
   }, []);
 
   return (
@@ -44,7 +63,10 @@ export function DreamHomeTypewriter() {
       <span className="col-start-1 row-start-1 whitespace-pre">
         {shown}
         {!done && (
-          <span className="inline-block w-[0.08em] h-[0.85em] ml-0.5 align-[-0.05em] bg-gold-400 animate-pulse" aria-hidden />
+          <span
+            className="inline-block w-[0.08em] h-[0.85em] ml-0.5 align-[-0.05em] bg-gold-400 animate-pulse"
+            aria-hidden
+          />
         )}
       </span>
     </span>

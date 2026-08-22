@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 
 type DisplayCurrency = "USD" | "RWF";
 
@@ -32,6 +32,7 @@ async function fetchUsdToRwf(): Promise<number> {
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
   const [currency, setCurrencyState] = useState<DisplayCurrency>("USD");
   const [usdToRwf, setUsdToRwf] = useState(FALLBACK_USD_TO_RWF);
+  const fxLoaded = useRef(false);
 
   useEffect(() => {
     try {
@@ -40,19 +41,32 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     } catch {
       // ignore
     }
+  }, []);
+
+  const ensureFx = useCallback(() => {
+    if (fxLoaded.current) return;
+    fxLoaded.current = true;
     fetchUsdToRwf()
       .then(setUsdToRwf)
       .catch(() => setUsdToRwf(FALLBACK_USD_TO_RWF));
   }, []);
 
-  const setCurrency = useCallback((c: DisplayCurrency) => {
-    setCurrencyState(c);
-    try {
-      localStorage.setItem(STORAGE_KEY, c);
-    } catch {
-      // ignore
-    }
-  }, []);
+  useEffect(() => {
+    if (currency === "RWF") ensureFx();
+  }, [currency, ensureFx]);
+
+  const setCurrency = useCallback(
+    (c: DisplayCurrency) => {
+      setCurrencyState(c);
+      if (c === "RWF") ensureFx();
+      try {
+        localStorage.setItem(STORAGE_KEY, c);
+      } catch {
+        // ignore
+      }
+    },
+    [ensureFx],
+  );
 
   const convert = useCallback(
     (amount: number, fromCurrency: string) => {
