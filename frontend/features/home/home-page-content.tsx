@@ -52,8 +52,33 @@ export async function HomePageContent() {
   const phone = links.phone || settings.phone;
   const whatsapp = links.whatsapp || settings.whatsapp;
 
+  const faqJsonLd =
+    data.faqs?.length > 0
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: data.faqs.map((faq) => ({
+            "@type": "Question",
+            name: faq.question,
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: String(faq.answer || "")
+                .replace(/<[^>]+>/g, " ")
+                .replace(/\s+/g, " ")
+                .trim(),
+            },
+          })),
+        }
+      : null;
+
   return (
     <>
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
       {!ok && <ApiErrorBanner />}
       <StatsSection stats={data.stats} />
       <RecentlyViewedHomeStrip />

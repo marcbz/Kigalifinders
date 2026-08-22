@@ -15,7 +15,7 @@ export function FloatingCTAs({ phone, whatsapp }: { phone?: string; whatsapp?: s
         href={`https://wa.me/${whatsapp}`}
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 right-6 z-[60] bg-[#25D366] text-white w-[60px] h-[60px] rounded-full flex items-center justify-center shadow-xl animate-float"
+        className="fixed bottom-6 right-6 z-[60] bg-[#25D366] text-white w-[60px] h-[60px] rounded-full flex items-center justify-center shadow-xl"
         title="WhatsApp"
       >
         <WhatsAppIcon className="w-8 h-8" />

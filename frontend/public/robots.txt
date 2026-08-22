@@ -2,5 +2,6 @@ User-Agent: *
 Allow: /
 Disallow: /admin/
 Disallow: /api/
+Disallow: /favorites
 
 Sitemap: https://kigalirent.com/sitemap.xml

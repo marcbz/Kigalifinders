@@ -37,6 +37,17 @@ function toListItem(p: SavedPropertySnapshot): PropertyListItem {
   };
 }
 
+function FavoritesLink({ className = "" }: { className?: string }) {
+  return (
+    <Link
+      href="/favorites"
+      className={`inline-flex items-center shrink-0 rounded-full border border-gold-500/45 bg-gold-500/20 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-navy-800 dark:text-gold-400 hover:bg-gold-500/30 transition ${className}`}
+    >
+      My Favorites →
+    </Link>
+  );
+}
+
 export function RecentlyViewedStrip({
   title = "Recently viewed",
   excludeId,
@@ -76,7 +87,12 @@ export function RecentlyViewedStrip({
           <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
         </button>
 
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-4 sm:mb-6 pr-10 sm:pr-12">
+        {/* Mobile: favorites between top edge and title — easy to spot, still light */}
+        <div className="sm:hidden flex justify-center pr-10 mb-3">
+          <FavoritesLink />
+        </div>
+
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-4 sm:mb-6 sm:pr-12">
           <div className="min-w-0">
             <h2 className="font-serif text-lg sm:text-2xl md:text-3xl font-bold text-navy-800 dark:text-white leading-snug">
               {title}
@@ -85,13 +101,9 @@ export function RecentlyViewedStrip({
               Pick up where you left off.
             </p>
           </div>
-          <Link
-            href="/favorites"
-            className="inline-flex items-center self-start sm:self-auto shrink-0 rounded-full border border-gold-500/40 bg-gold-500/15 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-navy-800 dark:text-gold-400 hover:bg-gold-500/25 transition"
-          >
-            My Favorites →
-          </Link>
+          <FavoritesLink className="hidden sm:inline-flex" />
         </div>
+
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
           {items.map((p, index) => (
             <div key={p.id} className={index >= 2 ? "hidden lg:block" : undefined}>
