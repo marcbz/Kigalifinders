@@ -91,11 +91,9 @@ export function PropertyCard({ property }: PropertyCardProps) {
               previousPrice={property.previous_price}
             />
           </div>
-          <Button asChild size="sm" className="rounded-full gap-1.5 pointer-events-auto shrink-0 px-3 sm:px-4">
+          <Button asChild size="sm" className="rounded-full gap-1.5 pointer-events-auto shrink-0">
             <Link href={href} prefetch>
-              <span className="sm:hidden">View Listing</span>
-              <span className="hidden sm:inline">View in Catalogue</span>
-              <ArrowRight className="w-4 h-4" />
+              View Listing <ArrowRight className="w-4 h-4" />
             </Link>
           </Button>
         </div>
