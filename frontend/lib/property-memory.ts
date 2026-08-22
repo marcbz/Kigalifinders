@@ -76,6 +76,10 @@ export function trackRecentlyViewed(property: SavedPropertySnapshot) {
   writeList(RECENT_KEY, list.slice(0, MAX_RECENT));
 }
 
+export function clearRecentlyViewed() {
+  writeList(RECENT_KEY, []);
+}
+
 export function toSavedSnapshot(property: {
   id: string;
   title: string;
