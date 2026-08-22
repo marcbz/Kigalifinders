@@ -77,11 +77,7 @@ export function HeroSection({
           </div>
 
           {useAnimatedIntro ? (
-            <HeroIntroCopy
-              subtitle={displaySubtitle}
-              showDesktopBreak
-              mobileSuffix={titleParts[1] || " in Kigali"}
-            />
+            <HeroIntroCopy subtitle={displaySubtitle} />
           ) : (
             <>
               <h1 className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">

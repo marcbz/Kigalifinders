@@ -7,15 +7,7 @@ const PHRASE = "Dream Home";
 const TYPE_MS = 1500;
 const HOLD_MS = 7000; // wait 7s after typing before repeating
 
-export function HeroIntroCopy({
-  subtitle,
-  showDesktopBreak,
-  mobileSuffix,
-}: {
-  subtitle: string;
-  showDesktopBreak: boolean;
-  mobileSuffix: string;
-}) {
+export function HeroIntroCopy({ subtitle }: { subtitle: string }) {
   const [shown, setShown] = useState("");
   const [typingDone, setTypingDone] = useState(false);
   const [sweeping, setSweeping] = useState(false);
@@ -68,28 +60,26 @@ export function HeroIntroCopy({
 
   return (
     <>
-      <h1 className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">
-        Find Your{" "}
-        <span className="gold-text italic inline-grid align-baseline" aria-label={PHRASE}>
-          <span className="invisible col-start-1 row-start-1 whitespace-pre" aria-hidden>
-            {PHRASE}
-          </span>
-          <span className="col-start-1 row-start-1 whitespace-pre">
-            {shown}
-            {!typingDone && (
-              <span
-                className="inline-block w-[0.08em] h-[0.85em] ml-0.5 align-[-0.05em] bg-gold-400 animate-pulse"
-                aria-hidden
-              />
-            )}
+      <h1 className="font-serif text-[2rem] sm:text-4xl md:text-6xl font-bold leading-[1.12] mb-5">
+        <span className="whitespace-nowrap">
+          Find Your{" "}
+          <span className="gold-text italic inline-grid align-baseline" aria-label={PHRASE}>
+            <span className="invisible col-start-1 row-start-1 whitespace-pre" aria-hidden>
+              {PHRASE}
+            </span>
+            <span className="col-start-1 row-start-1 whitespace-pre">
+              {shown}
+              {!typingDone && (
+                <span
+                  className="inline-block w-[0.08em] h-[0.85em] ml-0.5 align-[-0.05em] bg-gold-400 animate-pulse"
+                  aria-hidden
+                />
+              )}
+            </span>
           </span>
         </span>
-        {showDesktopBreak ? (
-          <>
-            <span className="md:hidden">{mobileSuffix}</span>
-            <span className="hidden md:block">In Kigali</span>
-          </>
-        ) : null}
+        <br />
+        In Kigali
       </h1>
 
       {subtitle ? (
