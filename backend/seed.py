@@ -274,7 +274,7 @@ async def seed():
 
         db.add(Setting(key="stats", value={"properties_listed": 1200, "happy_clients": 850, "years_experience": 10, "client_rating": 4.9}, group="site"))
         db.add(Setting(key="hero", value={
-            "tagline": "KIGALI'S #1 RENTAL AND PROPERTY MARKETPLACE",
+            "tagline": "KIGALI RENTAL AND PROPERTY MARKETPLACE",
             "title": "Find Your Dream Home in Kigali",
             "subtitle": "We know what housing costs in Kigali, where to live, what neighborhoods are like, and what is actually available.",
             "background_image": "/images/hero-kigali.webp",

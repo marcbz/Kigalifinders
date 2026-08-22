@@ -448,6 +448,15 @@ class NewsletterSubscribe(BaseModel):
     email: EmailStr
 
 
+class ListingAlertCreate(BaseModel):
+    email: EmailStr
+    budget: Optional[str] = None
+    area: Optional[str] = None
+    bedrooms: Optional[str] = None
+    intent: Optional[str] = None
+    search_url: Optional[str] = None
+
+
 class AppointmentCreate(BaseModel):
     property_id: Optional[UUID] = None
     name: str

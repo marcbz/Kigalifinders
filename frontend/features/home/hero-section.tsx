@@ -33,7 +33,7 @@ export function HeroSection({
   const displayBg = resolveHeroImage(backgroundImage) || DEFAULT_HERO_IMAGE;
   const isLocalHero = displayBg.startsWith("/images/hero-kigali");
 
-  const displayTagline = tagline || "KIGALI'S #1 RENTAL AND PROPERTY MARKETPLACE";
+  const displayTagline = tagline || "KIGALI RENTAL AND PROPERTY MARKETPLACE";
   const displayTitle = title || "Find Your Dream Home in Kigali";
   const displaySubtitle =
     subtitle ||

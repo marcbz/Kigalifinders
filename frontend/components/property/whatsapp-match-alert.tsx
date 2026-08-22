@@ -2,8 +2,9 @@
 
 import { useEffect, useId, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { MessageCircle, X } from "lucide-react";
+import { Loader2, MessageCircle, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { contentService } from "@/services/api";
 
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
@@ -13,6 +14,7 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
   const searchParams = useSearchParams();
   const titleId = useId();
   const [open, setOpen] = useState(false);
+  const [email, setEmail] = useState("");
   const [budget, setBudget] = useState("");
   const [area, setArea] = useState("");
   const [beds, setBeds] = useState(searchParams.get("bedrooms") || "");
@@ -23,6 +25,8 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
         ? "rent"
         : "",
   );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
 
   const phone = digitsOnly(whatsapp || "250784806641");
 
@@ -30,6 +34,7 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
     const lookingFor = intent === "buy" ? "buy" : intent === "rent" ? "rent" : "any";
     const lines = [
       "Hi Kigali Rent — please WhatsApp me when a matching listing appears.",
+      email.trim() ? `Email: ${email.trim()}` : null,
       `Looking for: ${lookingFor}`,
       beds ? `Bedrooms: ${beds}` : null,
       area.trim() ? `Area: ${area.trim()}` : null,
@@ -37,7 +42,7 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
       `Current search: https://kigalirent.com/properties?${searchParams.toString()}`,
     ].filter(Boolean);
     return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
-  }, [area, beds, budget, intent, phone, searchParams]);
+  }, [area, beds, budget, email, intent, phone, searchParams]);
 
   useEffect(() => {
     if (!open) return;
@@ -53,6 +58,32 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
     };
   }, [open]);
 
+  const handleSubmit = async () => {
+    setError("");
+    const trimmed = email.trim();
+    if (!trimmed || !trimmed.includes("@")) {
+      setError("Enter a valid email so we can save your alert.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await contentService.listingAlert({
+        email: trimmed,
+        budget: budget.trim() || undefined,
+        area: area.trim() || undefined,
+        bedrooms: beds || undefined,
+        intent: intent || "any",
+        search_url: `https://kigalirent.com/properties?${searchParams.toString()}`,
+      });
+      window.open(href, "_blank", "noopener,noreferrer");
+      setOpen(false);
+    } catch {
+      setError("Could not save the alert. Check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <>
       <div className="rounded-xl border border-gold-500/30 bg-gold-500/5 p-5 mb-8 flex flex-col gap-4">
@@ -63,7 +94,8 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
               WhatsApp me when a match appears
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              Tell us your budget and area — we&apos;ll message you on WhatsApp when something fits.
+              Tell us your budget and area — we&apos;ll save your alert and message you on WhatsApp when
+              something fits.
             </p>
           </div>
         </div>
@@ -96,10 +128,10 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
             <div className="flex items-start justify-between gap-3 mb-4">
               <div>
                 <h3 id={titleId} className="font-serif text-xl font-bold text-navy-800 dark:text-white">
-                  WhatsApp match alert
+                  Match alert
                 </h3>
                 <p className="text-sm text-gray-500 mt-1">
-                  Tell us your budget and area — we&apos;ll message you on WhatsApp when something fits.
+                  We save your preferences, then open WhatsApp so you can confirm.
                 </p>
               </div>
               <button
@@ -113,6 +145,19 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
             </div>
 
             <div className="space-y-3">
+              <div>
+                <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">
+                  EMAIL
+                </label>
+                <input
+                  type="email"
+                  required
+                  className="lux-input w-full"
+                  placeholder="you@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
               <div>
                 <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">
                   BUDGET
@@ -176,11 +221,16 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
               </div>
             </div>
 
-            <Button asChild className="rounded-full mt-5 gap-2 w-full">
-              <a href={href} target="_blank" rel="noopener noreferrer" onClick={() => setOpen(false)}>
-                <MessageCircle className="w-4 h-4" />
-                Send on WhatsApp
-              </a>
+            {error ? <p className="text-sm text-red-600 mt-3">{error}</p> : null}
+
+            <Button
+              type="button"
+              className="rounded-full mt-5 gap-2 w-full"
+              onClick={handleSubmit}
+              disabled={saving}
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageCircle className="w-4 h-4" />}
+              Save alert &amp; WhatsApp
             </Button>
           </div>
         </div>

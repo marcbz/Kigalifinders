@@ -8,7 +8,7 @@ from sqlalchemy.orm import selectinload
 from app.core.deps import require_admin
 from app.database.session import get_db
 from app.core.legal_defaults import DEFAULT_LEGAL
-from app.models import BlogPost, ContactMessage, FAQ, Newsletter, Setting, Testimonial, User
+from app.models import BlogPost, ContactMessage, FAQ, ListingAlert, Newsletter, Setting, Testimonial, User
 from app.schemas import (
     AppointmentCreate,
     BlogPostDetail,
@@ -18,6 +18,7 @@ from app.schemas import (
     FAQResponse,
     HomepageData,
     LegalContentResponse,
+    ListingAlertCreate,
     NewsletterSubscribe,
     TestimonialResponse,
     ViewingRequestCreate,
@@ -157,12 +158,51 @@ async def contact(data: ContactCreate, db: Annotated[AsyncSession, Depends(get_d
 
 @router.post("/newsletter", status_code=status.HTTP_201_CREATED)
 async def newsletter(data: NewsletterSubscribe, db: Annotated[AsyncSession, Depends(get_db)]):
+    from app.services.lead_notify import notify_lead_whatsapp
+
     existing = await db.execute(select(Newsletter).where(Newsletter.email == data.email))
     if existing.scalar_one_or_none():
         return {"message": "Already subscribed"}
     db.add(Newsletter(email=data.email))
     await db.flush()
+    await notify_lead_whatsapp(db, f"New newsletter subscriber\nEmail: {data.email}")
     return {"message": "Successfully subscribed"}
+
+
+@router.post("/listing-alerts", status_code=status.HTTP_201_CREATED)
+async def create_listing_alert(data: ListingAlertCreate, db: Annotated[AsyncSession, Depends(get_db)]):
+    from app.services.lead_notify import notify_lead_whatsapp
+
+    intent = (data.intent or "any").strip().lower() or "any"
+    if intent not in {"rent", "buy", "any"}:
+        intent = "any"
+
+    alert = ListingAlert(
+        email=str(data.email).lower(),
+        budget=(data.budget or "").strip() or None,
+        area=(data.area or "").strip() or None,
+        bedrooms=(data.bedrooms or "").strip() or None,
+        intent=intent,
+        search_url=(data.search_url or "").strip() or None,
+    )
+    db.add(alert)
+
+    existing = await db.execute(select(Newsletter).where(Newsletter.email == alert.email))
+    if not existing.scalar_one_or_none():
+        db.add(Newsletter(email=alert.email))
+
+    await db.flush()
+    await notify_lead_whatsapp(
+        db,
+        "New listing alert\n"
+        f"Email: {alert.email}\n"
+        f"Looking for: {intent}\n"
+        f"Budget: {alert.budget or '—'}\n"
+        f"Area: {alert.area or '—'}\n"
+        f"Bedrooms: {alert.bedrooms or '—'}\n"
+        f"Search: {alert.search_url or '—'}",
+    )
+    return {"message": "Alert saved", "id": str(alert.id)}
 
 
 @router.post("/appointments", status_code=status.HTTP_201_CREATED)

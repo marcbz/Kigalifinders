@@ -176,6 +176,14 @@ export const contentService = {
   contact: (data: { name: string; email: string; phone?: string; subject?: string; message: string }) =>
     api.post("/contact", data),
   newsletter: (email: string) => api.post("/newsletter", { email }),
+  listingAlert: (data: {
+    email: string;
+    budget?: string;
+    area?: string;
+    bedrooms?: string;
+    intent?: string;
+    search_url?: string;
+  }) => api.post("/listing-alerts", data),
   appointment: (data: Record<string, unknown>) => api.post("/appointments", data),
   viewingRequest: (data: Record<string, unknown>) => api.post("/viewing-requests", data),
 };

@@ -530,6 +530,22 @@ class Newsletter(Base):
     subscribed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class ListingAlert(Base):
+    """Saved search / match alert from the public WhatsApp alert form."""
+
+    __tablename__ = "listing_alerts"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    email: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    budget: Mapped[str | None] = mapped_column(String(120))
+    area: Mapped[str | None] = mapped_column(String(255))
+    bedrooms: Mapped[str | None] = mapped_column(String(40))
+    intent: Mapped[str | None] = mapped_column(String(40))  # rent | buy | any
+    search_url: Mapped[str | None] = mapped_column(String(500))
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Notification(Base):
     __tablename__ = "notifications"
 

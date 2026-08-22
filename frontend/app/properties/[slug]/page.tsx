@@ -32,13 +32,33 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     return { title: "Property Not Found" };
   }
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;
+  const title = property.meta_title || property.title;
+  const description =
+    property.meta_description ||
+    property.short_description ||
+    `${property.title} in ${property.neighborhood_name || property.district_name || "Kigali"} — listed on Kigali Rent.`;
+  const images = property.primary_image
+    ? [{ url: property.primary_image, width: 1200, height: 630, alt: property.title }]
+    : undefined;
+
   return {
-    title: property.meta_title || property.title,
-    description: property.meta_description || property.short_description,
+    title,
+    description,
     alternates: { canonical: propertyUrl },
     openGraph: {
-      images: property.primary_image ? [property.primary_image] : [],
+      title,
+      description,
       url: propertyUrl,
+      type: "website",
+      siteName: "Kigali Rent",
+      locale: "en_RW",
+      images,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: property.primary_image ? [property.primary_image] : undefined,
     },
   };
 }
