@@ -55,7 +55,7 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
 
   return (
     <>
-      <div className="rounded-xl border border-gold-500/30 bg-gold-500/5 p-5 mb-8 flex flex-col sm:flex-row sm:items-center gap-4 sm:justify-between">
+      <div className="rounded-xl border border-gold-500/30 bg-gold-500/5 p-5 mb-8 flex flex-col gap-4">
         <div className="flex items-start gap-3 min-w-0">
           <MessageCircle className="w-5 h-5 text-gold-600 mt-0.5 shrink-0" />
           <div>
@@ -67,14 +67,16 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
             </p>
           </div>
         </div>
-        <Button
-          type="button"
-          className="rounded-full gap-2 shrink-0 w-full sm:w-auto"
-          onClick={() => setOpen(true)}
-        >
-          <MessageCircle className="w-4 h-4" />
-          Set up alert
-        </Button>
+        <div className="flex w-full sm:justify-center">
+          <Button
+            type="button"
+            className="rounded-full gap-2 shrink-0 w-full sm:w-auto"
+            onClick={() => setOpen(true)}
+          >
+            <MessageCircle className="w-4 h-4" />
+            Set up alert
+          </Button>
+        </div>
       </div>
 
       {open && (
