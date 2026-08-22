@@ -76,7 +76,11 @@ export function HeroSection({
 
           <h1 className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">
             {titleParts.length > 1 ? (
-              <>Find Your <span className="gold-text italic">Dream Home</span>{titleParts[1]}</>
+              <>
+                Find Your <span className="gold-text italic">Dream Home</span>
+                <span className="md:hidden">{titleParts[1]}</span>
+                <span className="hidden md:block">In Kigali</span>
+              </>
             ) : (
               displayTitle
             )}

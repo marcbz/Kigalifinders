@@ -73,7 +73,7 @@ export function Footer({
             <ul className="space-y-2 text-sm">
               {[
                 { label: "All Properties", href: "/properties" },
-                { label: "Saved Homes", href: "/favorites" },
+                { label: "My Favorites", href: "/favorites" },
                 { label: "List Your Property", href: "/list-your-property" },
                 { label: "Houses for Rent", href: "/properties?listing_type=rent" },
                 { label: "Furnished Houses", href: "/properties?listing_type=furnished" },

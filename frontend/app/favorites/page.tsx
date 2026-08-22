@@ -46,8 +46,8 @@ export default function FavoritesPage() {
     <>
       <div className="bg-navy-800 text-white py-16 px-6">
         <div className="max-w-7xl mx-auto text-center">
-          <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">SAVED</span>
-          <h1 className="font-serif text-4xl md:text-5xl font-bold mt-3">Favorite Homes</h1>
+          <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">FAVORITES</span>
+          <h1 className="font-serif text-4xl md:text-5xl font-bold mt-3">My Favorites</h1>
           <p className="text-gray-300 mt-3 text-sm">Saved on this device — heart a listing to add it here.</p>
         </div>
       </div>
@@ -55,7 +55,7 @@ export default function FavoritesPage() {
         <div className="max-w-7xl mx-auto">
           {items.length === 0 ? (
             <div className="text-center py-16">
-              <p className="text-gray-500 mb-4">No saved homes yet.</p>
+              <p className="text-gray-500 mb-4">No favorites yet.</p>
               <Link href="/properties" className="text-gold-600 hover:underline">
                 Browse listings →
               </Link>

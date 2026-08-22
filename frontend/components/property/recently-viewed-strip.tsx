@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PropertyCard } from "@/components/property/property-card";
+import { HighlightLabel } from "@/components/ui/highlight-label";
 import { getRecentlyViewed, type SavedPropertySnapshot } from "@/lib/property-memory";
 import type { PropertyListItem } from "@/types";
 
@@ -60,8 +61,10 @@ export function RecentlyViewedStrip({
             <h2 className="font-serif text-2xl md:text-3xl font-bold text-navy-800 dark:text-white">{title}</h2>
             <p className="text-sm text-gray-500 mt-1">Pick up where you left off.</p>
           </div>
-          <Link href="/favorites" className="text-sm text-gold-600 hover:underline shrink-0">
-            Saved homes →
+          <Link href="/favorites" className="text-sm shrink-0 hover:opacity-90">
+            <HighlightLabel className="text-gold-700 dark:text-gold-400">
+              My Favorites →
+            </HighlightLabel>
           </Link>
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
