@@ -66,6 +66,10 @@ export function getRecentlyViewed(): SavedPropertySnapshot[] {
   return readList(RECENT_KEY);
 }
 
+export function clearRecentlyViewed() {
+  writeList(RECENT_KEY, []);
+}
+
 export function trackRecentlyViewed(property: SavedPropertySnapshot) {
   const list = getRecentlyViewed().filter((p) => p.id !== property.id);
   list.unshift({ ...property, viewedAt: new Date().toISOString() });

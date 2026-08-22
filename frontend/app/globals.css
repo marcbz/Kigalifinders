@@ -121,60 +121,6 @@
     @apply text-gold-500;
   }
 
-  /* Soft sweeping marker behind “Dream Home” in the hero */
-  .dream-home-mark {
-    position: relative;
-    display: inline-block;
-    z-index: 0;
-  }
-
-  .dream-home-mark::before {
-    content: "";
-    position: absolute;
-    left: -0.12em;
-    right: -0.12em;
-    top: 0.28em;
-    bottom: 0.02em;
-    z-index: -1;
-    border-radius: 0.2em;
-    transform: skewX(-10deg);
-    background: linear-gradient(
-      105deg,
-      transparent 0%,
-      transparent 35%,
-      rgba(201, 169, 97, 0.55) 48%,
-      rgba(216, 188, 122, 0.75) 52%,
-      rgba(201, 169, 97, 0.55) 56%,
-      transparent 65%,
-      transparent 100%
-    );
-    background-size: 220% 100%;
-    animation: dream-home-sweep 2.6s ease-in-out infinite;
-  }
-
-  @keyframes dream-home-sweep {
-    0% {
-      background-position: 120% 0;
-      opacity: 0.55;
-    }
-    50% {
-      opacity: 0.95;
-    }
-    100% {
-      background-position: -120% 0;
-      opacity: 0.55;
-    }
-  }
-
-  @media (prefers-reduced-motion: reduce) {
-    .dream-home-mark::before {
-      animation: none;
-      background: rgba(201, 169, 97, 0.4);
-      background-size: 100% 100%;
-      opacity: 0.75;
-    }
-  }
-
   .property-description p {
     @apply mb-4 last:mb-0;
   }
