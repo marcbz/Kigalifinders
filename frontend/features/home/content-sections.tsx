@@ -108,11 +108,11 @@ export function MapSection({
               <div><strong className="text-navy-800 dark:text-white">Hours</strong><br />{hours}</div>
             </div>
           </div>
-          <div className="w-full max-w-lg mx-auto lg:mx-0">
-            <div className="rounded-lg overflow-hidden border border-gold-500/35 bg-white dark:bg-card shadow-sm aspect-[4/3] max-h-[340px]">
-              <LazyGoogleMap src={mapSrc} title="Kigali Rent Office Location" />
+          <div className="w-full max-w-sm mx-auto lg:mx-0">
+            <div className="rounded-lg overflow-hidden border border-gold-500/35 bg-white dark:bg-card shadow-sm aspect-[4/3] max-h-[255px]">
+              <LazyGoogleMap src={mapSrc} title="Kigali Rent Office Location" clickToLoad />
             </div>
-            <p className="text-xs text-gray-500 mt-2 text-center lg:text-left">Google Maps · Kigali Rent office</p>
+            <p className="text-xs text-gray-500 mt-2 text-center lg:text-left">Google Maps · tap to load</p>
           </div>
         </div>
       </div>

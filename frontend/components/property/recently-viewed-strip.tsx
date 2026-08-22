@@ -37,17 +37,6 @@ function toListItem(p: SavedPropertySnapshot): PropertyListItem {
   };
 }
 
-function FavoritesLink({ className = "" }: { className?: string }) {
-  return (
-    <Link
-      href="/favorites"
-      className={`inline-flex items-center shrink-0 rounded-full border border-gold-500/45 bg-gold-500/20 px-2.5 py-1 text-[11px] sm:text-xs font-semibold text-navy-800 dark:text-gold-400 hover:bg-gold-500/30 transition ${className}`}
-    >
-      My Favorites →
-    </Link>
-  );
-}
-
 export function RecentlyViewedStrip({
   title = "Recently viewed",
   excludeId,
@@ -75,8 +64,16 @@ export function RecentlyViewedStrip({
   };
 
   return (
-    <section className="py-6 sm:py-10 px-4 sm:px-6">
-      <div className="max-w-7xl mx-auto relative rounded-xl sm:rounded-2xl border border-gold-500/25 bg-cream/80 dark:bg-secondary/50 px-4 py-5 sm:px-8 sm:py-10 shadow-sm">
+    <section className="pt-8 pb-6 sm:pt-10 sm:pb-10 px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto relative rounded-xl sm:rounded-2xl border border-gold-500/30 bg-cream/80 dark:bg-secondary/50 px-4 pt-7 pb-5 sm:px-8 sm:pt-9 sm:pb-10 shadow-sm">
+        {/* Tab sits on the top border — half outside, half inside */}
+        <Link
+          href="/favorites"
+          className="absolute left-1/2 -translate-x-1/2 -top-3 z-20 inline-flex items-center rounded-full border border-gold-500/50 bg-cream dark:bg-secondary px-3 py-1 text-[11px] sm:text-xs font-semibold text-navy-800 dark:text-gold-400 shadow-sm hover:bg-gold-500/15 dark:hover:bg-gold-500/20 transition"
+        >
+          My Favorites →
+        </Link>
+
         <button
           type="button"
           onClick={handleDismiss}
@@ -87,21 +84,13 @@ export function RecentlyViewedStrip({
           <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
         </button>
 
-        {/* Mobile: favorites between top edge and title — easy to spot, still light */}
-        <div className="sm:hidden flex justify-center pr-10 mb-3">
-          <FavoritesLink />
-        </div>
-
-        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-4 sm:mb-6 sm:pr-12">
-          <div className="min-w-0">
-            <h2 className="font-serif text-lg sm:text-2xl md:text-3xl font-bold text-navy-800 dark:text-white leading-snug">
-              {title}
-            </h2>
-            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
-              Pick up where you left off.
-            </p>
-          </div>
-          <FavoritesLink className="hidden sm:inline-flex" />
+        <div className="mb-4 sm:mb-6 pr-10 sm:pr-12">
+          <h2 className="font-serif text-lg sm:text-2xl md:text-3xl font-bold text-navy-800 dark:text-white leading-snug">
+            {title}
+          </h2>
+          <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
+            Pick up where you left off.
+          </p>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-8">
