@@ -7,7 +7,7 @@ import {
   resolveHeroImage,
 } from "@/lib/hero-image";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
-import { DreamHomeTypewriter } from "@/features/home/dream-home-typewriter";
+import { HeroAnimatedTitleLine } from "@/features/home/hero-animated-title";
 
 interface HeroCopyProps {
   tagline?: string;
@@ -97,14 +97,12 @@ export function HeroSection({
           {useAnimatedIntro ? (
             <>
               <h1 className="font-serif text-[2rem] sm:text-4xl md:text-6xl font-bold leading-[1.12] mb-5">
-                <span className="whitespace-nowrap">
-                  Find Your <DreamHomeTypewriter />
-                </span>
+                <HeroAnimatedTitleLine />
                 <br />
                 In Kigali
               </h1>
               {displaySubtitle ? (
-                <p className="hero-subtitle-mark text-lg md:text-xl text-gray-100 mb-10 max-w-2xl leading-relaxed">
+                <p className="text-lg md:text-xl text-gray-100 mb-10 max-w-2xl leading-relaxed">
                   {displaySubtitle}
                 </p>
               ) : null}
