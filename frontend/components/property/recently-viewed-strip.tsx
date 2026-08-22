@@ -65,32 +65,34 @@ export function RecentlyViewedStrip({
   };
 
   return (
-    <section className="py-10 px-6">
-      <div className="max-w-7xl mx-auto relative rounded-2xl border border-gold-500/25 bg-cream/80 dark:bg-secondary/50 px-5 py-8 sm:px-8 sm:py-10 shadow-sm">
+    <section className="py-6 sm:py-10 px-4 sm:px-6">
+      <div className="max-w-7xl mx-auto relative rounded-xl sm:rounded-2xl border border-gold-500/25 bg-cream/80 dark:bg-secondary/50 px-4 py-5 sm:px-8 sm:py-10 shadow-sm">
         <button
           type="button"
           onClick={handleDismiss}
-          className="absolute top-3 right-3 sm:top-4 sm:right-4 z-10 inline-flex items-center justify-center w-9 h-9 rounded-full bg-navy-800 text-white shadow-md hover:bg-navy-900 dark:bg-gold-500 dark:text-navy-900 dark:hover:bg-gold-400 transition"
+          className="absolute top-2.5 right-2.5 sm:top-4 sm:right-4 z-10 inline-flex items-center justify-center w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-navy-800 text-white shadow-md hover:bg-navy-900 dark:bg-gold-500 dark:text-navy-900 dark:hover:bg-gold-400 transition"
           aria-label="Remove recently viewed"
           title="Remove recently viewed"
         >
-          <X className="w-4 h-4" strokeWidth={2.5} />
+          <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" strokeWidth={2.5} />
         </button>
 
-        <div className="flex items-end justify-between gap-4 mb-6 pr-12">
+        <div className="flex flex-col gap-2.5 sm:flex-row sm:items-end sm:justify-between sm:gap-4 mb-4 sm:mb-6 pr-10 sm:pr-12">
           <div className="min-w-0">
-            <h2 className="font-serif text-2xl md:text-3xl font-bold text-navy-800 dark:text-white">
+            <h2 className="font-serif text-lg sm:text-2xl md:text-3xl font-bold text-navy-800 dark:text-white leading-snug">
               {title}
             </h2>
-            <p className="text-sm text-gray-500 mt-1">Pick up where you left off.</p>
+            <p className="text-xs sm:text-sm text-gray-500 mt-0.5 sm:mt-1">
+              Pick up where you left off.
+            </p>
           </div>
-          <Link href="/favorites" className="text-sm shrink-0 hover:opacity-90">
-            <HighlightLabel className="text-gold-700 dark:text-gold-400">
+          <Link href="/favorites" className="text-xs sm:text-sm self-start sm:self-auto shrink-0 hover:opacity-90">
+            <HighlightLabel className="text-gold-700 dark:text-gold-400 !px-1.5 !py-0.5 text-xs sm:text-sm">
               My Favorites →
             </HighlightLabel>
           </Link>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-5 sm:gap-8">
           {items.map((p, index) => (
             <div key={p.id} className={index > 0 ? "hidden lg:block" : undefined}>
               <PropertyCard property={toListItem(p)} />
