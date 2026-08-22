@@ -199,8 +199,8 @@ export function SearchBar() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-5 gap-3 p-4">
           <div>
-            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">NEIGHBORHOOD</label>
-            <select className="lux-input" value={neighborhoodId} onChange={(e) => setNeighborhoodId(e.target.value)}>
+            <label htmlFor="search-neighborhood" className="block text-[11px] tracking-wider text-gray-600 mb-1 font-semibold">NEIGHBORHOOD</label>
+            <select id="search-neighborhood" className="lux-input" value={neighborhoodId} onChange={(e) => setNeighborhoodId(e.target.value)}>
               <option value="">All neighborhoods</option>
               {searchNeighborhoods.map((n: { id: string; name: string; slug: string }) => (
                 <option key={n.id} value={n.id}>{neighborhoodFilterLabel(n.name, n.slug)}</option>
@@ -208,8 +208,8 @@ export function SearchBar() {
             </select>
           </div>
           <div>
-            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">PROPERTY TYPE</label>
-            <select className="lux-input" value={propertyTypeId} onChange={(e) => setPropertyTypeId(e.target.value)}>
+            <label htmlFor="search-property-type" className="block text-[11px] tracking-wider text-gray-600 mb-1 font-semibold">PROPERTY TYPE</label>
+            <select id="search-property-type" className="lux-input" value={propertyTypeId} onChange={(e) => setPropertyTypeId(e.target.value)}>
               <option value="">Any</option>
               {propertyTypes.map((pt) => (
                 <option key={pt.id} value={pt.id}>{pt.name}</option>
@@ -217,8 +217,8 @@ export function SearchBar() {
             </select>
           </div>
           <div>
-            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">BEDROOMS</label>
-            <select className="lux-input" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)}>
+            <label htmlFor="search-bedrooms" className="block text-[11px] tracking-wider text-gray-600 mb-1 font-semibold">BEDROOMS</label>
+            <select id="search-bedrooms" className="lux-input" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)}>
               <option value="">Any</option>
               {["1+", "2+", "3+", "4+", "5+"].map((b) => (
                 <option key={b} value={b}>{b}</option>
@@ -226,8 +226,8 @@ export function SearchBar() {
             </select>
           </div>
           <div>
-            <label className="block text-[11px] tracking-wider text-gray-500 mb-1 font-semibold">PRICE RANGE</label>
-            <select className="lux-input" value={priceRange} onChange={(e) => setPriceRange(e.target.value)}>
+            <label htmlFor="search-price" className="block text-[11px] tracking-wider text-gray-600 mb-1 font-semibold">PRICE RANGE</label>
+            <select id="search-price" className="lux-input" value={priceRange} onChange={(e) => setPriceRange(e.target.value)}>
               <option value="">Any</option>
               <option value="0-500">Under $500</option>
               <option value="500-1500">$500 - $1,500</option>

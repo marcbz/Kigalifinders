@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { CalendarCheck, Home } from "lucide-react";
 import {
@@ -6,7 +7,7 @@ import {
   resolveHeroImage,
 } from "@/lib/hero-image";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
-import { HeroIntroCopy } from "@/features/home/hero-intro-copy";
+import { DreamHomeTypewriter } from "@/features/home/dream-home-typewriter";
 
 interface HeroCopyProps {
   tagline?: string;
@@ -47,44 +48,74 @@ export function HeroSection({
   return (
     <section
       id="home"
-      className="relative isolate min-h-[72vh] md:min-h-[68vh] flex items-center text-white overflow-hidden"
+      className="relative isolate min-h-[72vh] md:min-h-[68vh] flex items-center text-white overflow-hidden bg-[#06132b]"
     >
-      {/* LCP target: flat img paints independently of web-font load */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={isLocalHero ? DEFAULT_HERO_IMAGE_MOBILE : displayBg}
-        srcSet={
-          isLocalHero
-            ? `${DEFAULT_HERO_IMAGE_MOBILE} 960w, ${DEFAULT_HERO_IMAGE} 1920w`
-            : undefined
-        }
-        sizes="100vw"
-        alt=""
-        width={1920}
-        height={1080}
-        fetchPriority="high"
-        loading="eager"
-        decoding="async"
-        className="absolute inset-0 h-full w-full object-cover object-center"
-      />
+      {isLocalHero ? (
+        <>
+          <Image
+            src={DEFAULT_HERO_IMAGE_MOBILE}
+            alt=""
+            fill
+            priority
+            fetchPriority="high"
+            sizes="100vw"
+            quality={78}
+            className="object-cover object-center md:hidden"
+          />
+          <Image
+            src={DEFAULT_HERO_IMAGE}
+            alt=""
+            fill
+            priority
+            fetchPriority="high"
+            sizes="100vw"
+            quality={82}
+            className="object-cover object-center hidden md:block"
+          />
+        </>
+      ) : (
+        <Image
+          src={displayBg}
+          alt=""
+          fill
+          priority
+          fetchPriority="high"
+          sizes="100vw"
+          quality={82}
+          className="object-cover object-center"
+        />
+      )}
       <div className="absolute inset-0 bg-[rgba(6,19,43,0.79)]" aria-hidden />
 
       <div className="relative z-10 max-w-7xl mx-auto px-6 py-14 w-full">
         <div className="max-w-3xl">
           <div className="flex items-center gap-3 mb-6">
             <span className="h-px w-12 bg-gradient-to-r from-transparent via-gold-500 to-transparent" />
-            <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">{displayTagline}</span>
+            <span className="text-gold-400 tracking-[0.3em] text-xs font-semibold">{displayTagline}</span>
           </div>
 
           {useAnimatedIntro ? (
-            <HeroIntroCopy subtitle={displaySubtitle} />
+            <>
+              <h1 className="font-serif text-[2rem] sm:text-4xl md:text-6xl font-bold leading-[1.12] mb-5">
+                <span className="whitespace-nowrap">
+                  Find Your <DreamHomeTypewriter />
+                </span>
+                <br />
+                In Kigali
+              </h1>
+              {displaySubtitle ? (
+                <p className="hero-subtitle-mark text-lg md:text-xl text-gray-100 mb-10 max-w-2xl leading-relaxed">
+                  {displaySubtitle}
+                </p>
+              ) : null}
+            </>
           ) : (
             <>
               <h1 className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">
                 {displayTitle}
               </h1>
               {displaySubtitle ? (
-                <p className="text-lg md:text-xl text-gray-200 mb-10 max-w-2xl leading-relaxed">
+                <p className="text-lg md:text-xl text-gray-100 mb-10 max-w-2xl leading-relaxed">
                   {displaySubtitle}
                 </p>
               ) : null}

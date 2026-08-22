@@ -11,7 +11,7 @@ const playfair = Playfair_Display({
   variable: "--font-playfair",
   display: "optional",
   adjustFontFallback: true,
-  preload: true,
+  preload: false,
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
@@ -45,22 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
-        <link
-          rel="preload"
-          as="image"
-          href="/images/hero-kigali-mobile.webp"
-          type="image/webp"
-          fetchPriority="high"
-          media="(max-width: 768px)"
-        />
-        <link
-          rel="preload"
-          as="image"
-          href="/images/hero-kigali.webp"
-          type="image/webp"
-          fetchPriority="high"
-          media="(min-width: 769px)"
-        />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
       </head>
       <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         <OrganizationJsonLd />

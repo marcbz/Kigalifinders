@@ -1,10 +1,15 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { TopBar } from "@/components/layout/top-bar";
 import { Navbar } from "@/components/layout/navbar";
 import { Footer } from "@/components/layout/footer";
-import { FloatingCTAs } from "@/features/home/floating-ctas";
+
+const FloatingCTAs = dynamic(
+  () => import("@/features/home/floating-ctas").then((m) => m.FloatingCTAs),
+  { ssr: false },
+);
 
 export function SiteChrome({
   children,

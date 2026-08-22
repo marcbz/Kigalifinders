@@ -31,7 +31,7 @@ export function WhyUsSection() {
                   <div className="w-14 h-14 rounded-full bg-gold-500/15 flex items-center justify-center mb-3">
                     <Icon className="w-5 h-5 text-gold-500" />
                   </div>
-                  <h4 className="font-semibold mb-1">{title}</h4>
+                  <h3 className="font-semibold mb-1">{title}</h3>
                   <p className="text-sm text-gray-400">{desc}</p>
                 </div>
               ))}

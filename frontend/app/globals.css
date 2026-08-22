@@ -149,8 +149,8 @@
     opacity: 0;
   }
 
-  .hero-subtitle-mark.is-sweeping::before {
-    animation: hero-subtitle-sweep 8s ease-in-out 1 forwards;
+  .hero-subtitle-mark::before {
+    animation: hero-subtitle-sweep 8s ease-in-out 1.6s 1 forwards;
   }
 
   @keyframes hero-subtitle-sweep {
@@ -168,7 +168,7 @@
   }
 
   @media (prefers-reduced-motion: reduce) {
-    .hero-subtitle-mark.is-sweeping::before {
+    .hero-subtitle-mark::before {
       animation: none;
       background: rgba(201, 169, 97, 0.22);
       background-size: 100% 100%;

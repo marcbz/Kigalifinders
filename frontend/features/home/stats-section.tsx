@@ -17,7 +17,7 @@ export function StatsSection({ stats }: StatsSectionProps) {
         {items.map((item) => (
           <div key={item.label}>
             <div className="stat-num font-serif text-5xl md:text-6xl font-bold mb-2">{item.value}</div>
-            <div className="text-sm tracking-widest text-gray-500 uppercase">{item.label}</div>
+            <div className="text-sm tracking-widest text-gray-600 uppercase">{item.label}</div>
           </div>
         ))}
       </div>
