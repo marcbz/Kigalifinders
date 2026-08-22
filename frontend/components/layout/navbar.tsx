@@ -16,7 +16,7 @@ const HIDDEN_NAV_HREFS = new Set(["/#area", "/#why", "/#faq", "/blog", "/faq"]);
 const allNavLinks = [
   { href: "/#home", label: "Home" },
   { href: "/properties", label: "Properties" },
-  { href: "/favorites", label: "My Favorites", highlight: true },
+  { href: "/favorites", label: "My Favorites" },
   { href: "/#area", label: "Areas" },
   { href: "/#why", label: "Why Us" },
   { href: "/blog", label: "Blog" },

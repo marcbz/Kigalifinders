@@ -75,9 +75,10 @@ export function Footer({
                 { label: "All Properties", href: "/properties" },
                 { label: "My Favorites", href: "/favorites" },
                 { label: "List Your Property", href: "/list-your-property" },
-                { label: "Houses for Rent", href: "/properties?listing_type=rent" },
-                { label: "Furnished Houses", href: "/properties?listing_type=furnished" },
-                { label: "Properties for Sale", href: "/properties?listing_type=sale" },
+                { label: "Areas", href: "/#area" },
+                { label: "Why Us", href: "/#why" },
+                { label: "FAQs", href: "/faq" },
+                { label: "Blog", href: "/blog" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-gold-500 transition">{item.label}</Link>

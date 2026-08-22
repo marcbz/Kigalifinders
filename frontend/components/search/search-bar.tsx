@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, RotateCcw, Search } from "lucide-react";
@@ -20,14 +20,17 @@ function tabFromListingType(lt: string | null): string {
   return lt;
 }
 
+function parsePriceRange(min: string | null, max: string | null) {
+  if (!min && !max) return "";
+  return `${min || ""}-${max || ""}`;
+}
+
 export function SearchBar() {
   const router = useRouter();
   const pathname = usePathname();
   const isHomepage = pathname === "/";
   const searchParams = useSearchParams();
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const skipFirstAutoSearch = useRef(true);
-  const skipNextAutoSearch = useRef(0);
+  const actionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: neighborhoods = [] } = useQuery({
     queryKey: ["neighborhoods"],
@@ -45,28 +48,22 @@ export function SearchBar() {
     staleTime: 10 * 60 * 1000,
   });
 
-  const [isResetting, setIsResetting] = useState(false);
-  const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [isBusy, setIsBusy] = useState(false);
+  const [busyLabel, setBusyLabel] = useState<"Searching..." | "Resetting...">("Searching...");
   const [activeTab, setActiveTab] = useState(() => tabFromListingType(searchParams.get("listing_type")));
   const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhood_id") || "");
   const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
   const [bedrooms, setBedrooms] = useState(searchParams.get("bedrooms") || "");
-  const [priceRange, setPriceRange] = useState(() => {
-    const min = searchParams.get("min_price");
-    const max = searchParams.get("max_price");
-    if (!min && !max) return "";
-    return `${min || ""}-${max || ""}`;
-  });
+  const [priceRange, setPriceRange] = useState(() =>
+    parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price")),
+  );
 
   useEffect(() => {
     const lt = searchParams.get("listing_type");
     setActiveTab(tabFromListingType(lt));
     setPropertyTypeId(searchParams.get("property_type_id") || "");
     setBedrooms(searchParams.get("bedrooms") || "");
-    const min = searchParams.get("min_price");
-    const max = searchParams.get("max_price");
-    if (!min && !max) setPriceRange("");
-    else setPriceRange(`${min || ""}-${max || ""}`);
+    setPriceRange(parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price")));
   }, [searchParams]);
 
   useEffect(() => {
@@ -78,6 +75,12 @@ export function SearchBar() {
       setNeighborhoodId(searchParams.get("neighborhood_id") || "");
     }
   }, [searchParams, neighborhoods]);
+
+  useEffect(() => {
+    return () => {
+      if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+    };
+  }, []);
 
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
@@ -97,55 +100,83 @@ export function SearchBar() {
     return params;
   }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, searchParams]);
 
-  const applySearch = useCallback(() => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      const params = buildParams();
-      const query = params.toString();
-      router.push(query ? `/properties?${query}` : "/properties");
-    }, 250);
-  }, [buildParams, router]);
+  const urlHasFilters = useMemo(() => {
+    return Boolean(
+      searchParams.get("listing_type") ||
+        searchParams.get("neighborhood_id") ||
+        searchParams.get("neighborhood_slug") ||
+        searchParams.get("property_type_id") ||
+        searchParams.get("property_type_slug") ||
+        searchParams.get("bedrooms") ||
+        searchParams.get("min_price") ||
+        searchParams.get("max_price"),
+    );
+  }, [searchParams]);
 
-  useEffect(() => {
-    if (isHomepage) return;
-    if (skipFirstAutoSearch.current) {
-      skipFirstAutoSearch.current = false;
-      return;
-    }
-    if (skipNextAutoSearch.current > 0) {
-      skipNextAutoSearch.current -= 1;
-      return;
-    }
-    applySearch();
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
-    };
-  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, applySearch, isHomepage]);
+  const filtersDirty = useMemo(() => {
+    const urlTab = tabFromListingType(searchParams.get("listing_type"));
+    const urlNeighborhoodFromId = searchParams.get("neighborhood_id") || "";
+    const urlSlug = searchParams.get("neighborhood_slug");
+    const urlNeighborhood =
+      urlNeighborhoodFromId ||
+      (urlSlug
+        ? (neighborhoods as { id: string; slug: string }[]).find((n) => n.slug === urlSlug)?.id || ""
+        : "");
+    const urlType = searchParams.get("property_type_id") || "";
+    const urlBeds = searchParams.get("bedrooms") || "";
+    const urlPrice = parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price"));
+    const localBeds = bedrooms.replace("+", "");
+    return (
+      activeTab !== urlTab ||
+      neighborhoodId !== urlNeighborhood ||
+      propertyTypeId !== urlType ||
+      localBeds !== urlBeds ||
+      priceRange !== urlPrice
+    );
+  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, searchParams, neighborhoods]);
+
+  /** On listings: Search until filters are applied; then Reset (unless user changed filters again). */
+  const showReset = !isHomepage && urlHasFilters && !filtersDirty;
+
+  const runWithLoading = (label: "Searching..." | "Resetting...", action: () => void) => {
+    if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+    setBusyLabel(label);
+    setIsBusy(true);
+    const delay = 1000 + Math.floor(Math.random() * 1000); // 1–2s
+    actionTimerRef.current = setTimeout(() => {
+      action();
+      setIsBusy(false);
+    }, delay);
+  };
 
   const handleReset = () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
-    setIsResetting(true);
-    setActiveTab("all");
-    setNeighborhoodId("");
-    setPropertyTypeId("");
-    setBedrooms("");
-    setPriceRange("");
-    skipNextAutoSearch.current = 2;
-    if (pathname !== "/properties" || searchParams.toString()) {
+    runWithLoading("Resetting...", () => {
+      setActiveTab("all");
+      setNeighborhoodId("");
+      setPropertyTypeId("");
+      setBedrooms("");
+      setPriceRange("");
       router.replace("/properties");
-    }
-    resetTimerRef.current = setTimeout(() => setIsResetting(false), 1500);
+    });
   };
 
   const handleSearch = () => {
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    const params = buildParams();
-    const query = params.toString();
-    router.push(query ? `/properties?${query}` : "/properties");
+    runWithLoading("Searching...", () => {
+      const params = buildParams();
+      const query = params.toString();
+      router.push(query ? `/properties?${query}` : "/properties");
+    });
   };
 
-  const handleAction = isHomepage ? handleSearch : handleReset;
+  const handleAction = () => {
+    if (isBusy) return;
+    if (isHomepage) {
+      handleSearch();
+      return;
+    }
+    if (showReset) handleReset();
+    else handleSearch();
+  };
 
   return (
     <section className="relative -mt-16 z-30 px-6">
@@ -209,23 +240,23 @@ export function SearchBar() {
               type="button"
               variant="outline"
               onClick={handleAction}
-              disabled={!isHomepage && isResetting}
+              disabled={isBusy}
               className="w-full rounded-md gap-2"
             >
-              {isHomepage ? (
-                <>
-                  <Search className="w-4 h-4" />
-                  Search
-                </>
-              ) : isResetting ? (
+              {isBusy ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  Resetting...
+                  {busyLabel}
                 </>
-              ) : (
+              ) : showReset ? (
                 <>
                   <RotateCcw className="w-4 h-4" />
                   Reset
+                </>
+              ) : (
+                <>
+                  <Search className="w-4 h-4" />
+                  Search
                 </>
               )}
             </Button>
