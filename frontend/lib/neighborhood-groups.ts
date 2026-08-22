@@ -20,6 +20,9 @@ export const NEIGHBORHOOD_GROUP_EXPANSIONS: Record<string, string[]> = {
 
 export const NEIGHBORHOOD_HUB_SLUGS = new Set(Object.keys(NEIGHBORHOOD_GROUP_EXPANSIONS));
 
+/** Kept in data/search/area pages, but hidden from homepage “areas we serve”. */
+export const HOMEPAGE_HIDDEN_AREA_SLUGS = new Set(["bugesera", "musanze"]);
+
 /** Neighborhood slugs shown in search filter, sitemaps, and area landing pages. */
 export const SEARCH_FILTER_NEIGHBORHOOD_SLUGS = new Set(
   Object.values(NEIGHBORHOOD_GROUP_EXPANSIONS).flat(),
@@ -31,6 +34,15 @@ export function neighborhoodsForSearchFilter<
   return neighborhoods
     .filter((area) => SEARCH_FILTER_NEIGHBORHOOD_SLUGS.has(area.slug))
     .sort((a, b) => b.property_count - a.property_count || a.name.localeCompare(b.name));
+}
+
+/** Homepage areas section only — hides selected hubs without removing them elsewhere. */
+export function neighborhoodsForHomepageAreas<
+  T extends { slug: string; property_count: number; name: string },
+>(neighborhoods: T[]): T[] {
+  return neighborhoodsForSearchFilter(neighborhoods).filter(
+    (area) => !HOMEPAGE_HIDDEN_AREA_SLUGS.has(area.slug.toLowerCase()),
+  );
 }
 
 export function neighborhoodFilterLabel(name: string, slug?: string): string {

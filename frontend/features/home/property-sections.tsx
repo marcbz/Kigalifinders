@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
 import { NeighborhoodsDirectory } from "@/components/areas/neighborhoods-directory";
-import { neighborhoodsForSearchFilter } from "@/lib/neighborhood-groups";
+import { neighborhoodsForHomepageAreas } from "@/lib/neighborhood-groups";
 import type { PropertyListItem } from "@/types";
 
 interface PropertyGridProps {
@@ -111,7 +111,7 @@ interface AreasSectionProps {
 }
 
 export function AreasSection({ neighborhoods }: AreasSectionProps) {
-  const areas = neighborhoodsForSearchFilter(neighborhoods);
+  const areas = neighborhoodsForHomepageAreas(neighborhoods);
 
   return (
     <section id="area" className="py-20 px-6 bg-white dark:bg-background">

@@ -72,13 +72,11 @@ export function Footer({
             <h4 className="text-white font-semibold mb-5 tracking-wider text-sm">EXPLORE</h4>
             <ul className="space-y-2 text-sm">
               {[
-                { label: "All Properties", href: "/properties" },
-                { label: "My Favorites", href: "/favorites" },
                 { label: "List Your Property", href: "/list-your-property" },
-                { label: "Areas", href: "/#area" },
                 { label: "Why Us", href: "/#why" },
-                { label: "FAQs", href: "/faq" },
+                { label: "Areas", href: "/#area" },
                 { label: "Blog", href: "/blog" },
+                { label: "FAQs", href: "/faq" },
               ].map((item) => (
                 <li key={item.label}>
                   <Link href={item.href} className="hover:text-gold-500 transition">{item.label}</Link>
