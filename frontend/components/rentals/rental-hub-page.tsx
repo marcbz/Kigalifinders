@@ -3,6 +3,13 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ResearchChart } from "@/components/research/research-charts";
+import {
+  DataInsights,
+  KeyAttributes,
+  MarketBlock,
+  RelatedNeighborhoods,
+  TrendCharts,
+} from "@/components/rentals/rental-landing-sections";
 import { getPropertyHref } from "@/lib/property-url";
 
 type Listing = {
@@ -65,47 +72,11 @@ export type RentalHubData = {
   featured_searches?: { path: string; title: string; h1: string; match_count?: number }[];
   related_neighborhoods?: { slug: string; name: string; path: string; listing_count: number }[];
   faqs?: { q: string; a: string }[];
+  key_attributes?: string[];
+  data_insights?: string[];
+  trend_verified?: { label: string; median_usd?: number; sample_size?: number }[];
+  trend_external?: { label: string; median_usd?: number; sample_size?: number }[];
 };
-
-function MarketBlock({ snap, title }: { snap: Snap | null | undefined; title: string }) {
-  if (!snap || snap.sample_size < 3) {
-    return (
-      <section className="rounded-2xl border border-dashed p-6 bg-white dark:bg-navy-800">
-        <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white mb-2">{title}</h2>
-        <p className="text-sm text-gray-500">Not enough data yet to show statistics for this section.</p>
-      </section>
-    );
-  }
-  return (
-    <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800">
-      <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white mb-2">{title}</h2>
-      <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">{snap.summary}</p>
-      <dl className="grid sm:grid-cols-3 gap-4 text-sm">
-        <div>
-          <dt className="text-gray-500">Typical rent</dt>
-          <dd className="text-2xl font-serif">{snap.median_usd != null ? `$${snap.median_usd.toLocaleString()}` : "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Common range</dt>
-          <dd className="text-lg font-serif">
-            {snap.p25_usd != null && snap.p75_usd != null
-              ? `$${snap.p25_usd.toLocaleString()}–$${snap.p75_usd.toLocaleString()}`
-              : "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">Sample size</dt>
-          <dd className="text-2xl font-serif">{snap.sample_size}</dd>
-        </div>
-      </dl>
-      {title.toLowerCase().includes("external") && (
-        <p className="text-xs text-gray-500 mt-4">
-          External market observations are not verified by KigaliRent. Availability is not confirmed.
-        </p>
-      )}
-    </section>
-  );
-}
 
 export function RentalHubPage({ data }: { data: RentalHubData }) {
   const listings = data.verified_listings || [];
@@ -164,12 +135,40 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           </section>
         )}
 
+        {data.page_type === "city" && data.neighborhoods && (
+          <section>
+            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Neighborhoods with verified listings</h2>
+            <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {data.neighborhoods
+                .filter((n) => n.listing_count > 0)
+                .slice(0, 12)
+                .map((n) => (
+                  <li key={n.slug}>
+                    <Link href={n.path} className="block rounded-xl border bg-white dark:bg-navy-800 p-4 hover:border-gold-500">
+                      <span className="font-medium text-navy-800 dark:text-white">{n.name}</span>
+                      <p className="text-sm text-gray-500 mt-1">
+                        {n.listing_count} verified
+                        {n.median_usd ? ` · ~$${n.median_usd.toLocaleString()}/mo` : ""}
+                      </p>
+                    </Link>
+                  </li>
+                ))}
+            </ul>
+          </section>
+        )}
+
         {(data.verified_market || data.observation_market) && (
           <div className="grid lg:grid-cols-2 gap-6">
             <MarketBlock snap={data.verified_market} title="KigaliRent Verified" />
             <MarketBlock snap={data.observation_market} title="External Market Observations" />
           </div>
         )}
+
+        {!!data.key_attributes?.length && <KeyAttributes attrs={data.key_attributes} />}
+
+        <DataInsights insights={data.data_insights || []} />
+
+        <TrendCharts verified={data.trend_verified} external={data.trend_external} />
 
         {listings.length > 0 && (
           <section>
@@ -276,18 +275,7 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
         )}
 
         {(data.related_neighborhoods?.length || 0) > 0 && (
-          <section>
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Nearby neighborhoods</h2>
-            <ul className="flex flex-wrap gap-2">
-              {data.related_neighborhoods!.map((n) => (
-                <li key={n.slug}>
-                  <Link href={n.path} className="text-sm px-3 py-1.5 rounded-full border hover:border-gold-500">
-                    {n.name} ({n.listing_count})
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <RelatedNeighborhoods items={data.related_neighborhoods!} />
         )}
 
         {(data.faqs?.length || 0) > 0 && (

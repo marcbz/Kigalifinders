@@ -630,9 +630,14 @@ async def seo_eligibility_summary(db: AsyncSession) -> dict[str, Any]:
         if reason:
             reasons[reason] += 1
     top_reasons = sorted(reasons.items(), key=lambda x: (-x[1], x[0]))[:25]
+    from app.services.landing_pages import publishing_rule_counts
+
+    rule_counts = publishing_rule_counts(intents)
     return {
         "eligible_landing_pages": stats["indexable"],
         "excluded_pages": stats["excluded"],
+        "pages_ready": rule_counts["pages_ready"],
+        "pages_not_ready": rule_counts["pages_not_ready"],
         "total_pages": stats["total"],
         "indexable": stats["indexable"],
         "noindex": stats["noindex"],

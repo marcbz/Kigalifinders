@@ -144,6 +144,16 @@ async def get_rental_landing(
     intent_slug: str,
     db: AsyncSession = Depends(get_db),
 ):
+    from app.services.intent_automation import count_observations
+    from app.services.landing_pages import (
+        build_data_insights,
+        generate_intro_text,
+        key_attributes_from_query,
+        trend_series_for_location,
+    )
+    from app.services.rental_locations import _snap_dict, _snapshots_by_bedroom
+    from app.models import MarketDataKind
+
     path = f"/rentals/{location_slug.lower()}/{intent_slug.lower()}"
     result = await db.execute(
         select(SearchIntent).where(
@@ -156,12 +166,108 @@ async def get_rental_landing(
     if not intent or intent.index_status == SearchIndexStatus.DISABLED.value:
         raise HTTPException(status_code=404, detail="Search page not found")
 
-    matches = await match_verified_properties(db, intent.query, limit=24)
-    matches_sorted = sorted(matches, key=lambda p: score_property(p, intent.query), reverse=True)
-    snap = await get_market_snapshot_for_query(db, intent.query)
+    query = intent.query or {}
+    matches = await match_verified_properties(db, query, limit=24)
+    matches_sorted = sorted(matches, key=lambda p: score_property(p, query), reverse=True)
+    obs_count = await count_observations(db, query)
+
+    loc_slug = intent.location_slug
+    bedrooms = query.get("bedrooms")
+    ptype = query.get("property_type")
+    verified_snap_obj = await get_market_snapshot_for_query(db, query)
+    # Prefer verified snapshot; also fetch location-level verified + external
+    from sqlalchemy import or_
+
+    async def _snap_for_kind(kind: str):
+        from app.models import MarketStatSnapshot
+
+        q = (
+            select(MarketStatSnapshot)
+            .where(
+                MarketStatSnapshot.location_slug == loc_slug,
+                MarketStatSnapshot.data_kind == kind,
+                MarketStatSnapshot.sample_size >= 3,
+            )
+            .order_by(MarketStatSnapshot.period_end.desc())
+        )
+        if bedrooms is not None:
+            q = q.where(or_(MarketStatSnapshot.bedrooms == int(bedrooms), MarketStatSnapshot.bedrooms.is_(None)))
+        if ptype:
+            q = q.where(or_(MarketStatSnapshot.property_type == str(ptype).lower(), MarketStatSnapshot.property_type.is_(None)))
+        else:
+            q = q.where(MarketStatSnapshot.bedrooms.is_(None), MarketStatSnapshot.property_type.is_(None))
+        return (await db.execute(q.limit(1))).scalar_one_or_none()
+
+    verified_row = verified_snap_obj or await _snap_for_kind(MarketDataKind.VERIFIED_KIGALI_RENT.value)
+    observed_row = await _snap_for_kind(MarketDataKind.MARKET_OBSERVATION.value)
+
+    verified_market = _snap_dict(verified_row, "KigaliRent Verified")
+    observation_market = _snap_dict(observed_row, "External Market Observations")
+    by_bed_verified = await _snapshots_by_bedroom(db, loc_slug, MarketDataKind.VERIFIED_KIGALI_RENT.value)
+    by_bed_external = await _snapshots_by_bedroom(db, loc_slug, MarketDataKind.MARKET_OBSERVATION.value)
+    furnished = {
+        "furnished": sum(1 for p in matches_sorted if p.is_furnished),
+        "unfurnished": sum(1 for p in matches_sorted if not p.is_furnished),
+        "total": len(matches_sorted),
+    }
+
+    trend_verified = await trend_series_for_location(
+        db,
+        location_slug=loc_slug,
+        data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value,
+        bedrooms=int(bedrooms) if bedrooms is not None else None,
+        property_type=str(ptype).lower() if ptype else None,
+    )
+    trend_external = await trend_series_for_location(
+        db,
+        location_slug=loc_slug,
+        data_kind=MarketDataKind.MARKET_OBSERVATION.value,
+        bedrooms=int(bedrooms) if bedrooms is not None else None,
+        property_type=str(ptype).lower() if ptype else None,
+    )
+
+    location_name = loc_slug.replace("-", " ").title() if loc_slug != "kigali" else "Kigali"
+    intro_text = generate_intro_text(
+        query,
+        match_count=len(matches_sorted),
+        observation_count=obs_count,
+        verified_snap=verified_market,
+        observation_snap=observation_market,
+        location_name=location_name,
+    )
+    insights = build_data_insights(
+        match_count=len(matches_sorted),
+        observation_count=obs_count,
+        verified_snap=verified_market,
+        observation_snap=observation_market,
+        furnished=furnished,
+        by_bedroom_verified=by_bed_verified,
+        by_bedroom_external=by_bed_external,
+    )
+
     related = await related_intents(db, intent)
+    related_neighborhoods: list[dict] = []
+    if loc_slug == "kigali":
+        from app.services.rental_locations import _neighborhoods_with_counts
+
+        hoods = await _neighborhoods_with_counts(db)
+        related_neighborhoods = [
+            {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
+            for n in sorted(hoods, key=lambda x: -x["listing_count"])[:8]
+            if n["listing_count"] > 0
+        ]
+    elif loc_slug:
+        from app.services.rental_locations import _neighborhoods_with_counts
+
+        hoods = await _neighborhoods_with_counts(db)
+        related_neighborhoods = [
+            {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
+            for n in sorted(hoods, key=lambda x: -x["listing_count"])[:6]
+            if n["slug"] != loc_slug and n["listing_count"] > 0
+        ]
 
     robots = "index,follow" if intent.index_status == SearchIndexStatus.INDEXABLE.value else "noindex,follow"
+    primary_snap = verified_market or observation_market
     return SearchLandingPageResponse(
         path=intent.path or path,
         location_slug=intent.location_slug,
@@ -170,15 +276,26 @@ async def get_rental_landing(
         h1=intent.h1,
         meta_description=intent.meta_description,
         intro_html=intent.intro_html,
+        intro=intro_text,
         answer=answer_sentence(intent, matches_sorted),
         index_status=intent.index_status,
         robots=robots,
         canonical=f"{SITE}{intent.path}",
         quality_score=intent.quality_score,
         match_count=len(matches_sorted),
+        observation_count=obs_count,
         last_updated=intent.last_built_at or intent.updated_at,
-        verified_matches=[_card(p, intent.query) for p in matches_sorted],
-        market_snapshot=_snap_public(snap, "Market snapshot"),
+        verified_matches=[_card(p, query) for p in matches_sorted],
+        market_snapshot=_snap_public(verified_row or observed_row, "Market snapshot") if primary_snap else None,
+        verified_market=_snap_public(verified_row, "KigaliRent Verified") if verified_market else None,
+        observation_market=_snap_public(observed_row, "External Market Observations") if observation_market else None,
+        key_attributes=key_attributes_from_query(query),
+        data_insights=insights,
+        by_bedroom_verified=by_bed_verified,
+        by_bedroom_external=by_bed_external,
+        furnished_breakdown=furnished if furnished.get("total", 0) > 0 else None,
+        trend_verified=trend_verified,
+        trend_external=trend_external,
         related=[
             RelatedIntentLink(
                 path=r.path,
@@ -189,6 +306,7 @@ async def get_rental_landing(
             )
             for r in related
         ],
+        related_neighborhoods=related_neighborhoods,
         methodology_note=METHODOLOGY,
     )
 

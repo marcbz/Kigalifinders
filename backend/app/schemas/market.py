@@ -154,6 +154,13 @@ class RelatedIntentLink(BaseModel):
     intent_slug: str
 
 
+class TrendPoint(BaseModel):
+    label: str
+    median_usd: Optional[float] = None
+    sample_size: int = 0
+    period_end: Optional[str] = None
+
+
 class SearchLandingPageResponse(BaseModel):
     path: str
     location_slug: str
@@ -162,16 +169,28 @@ class SearchLandingPageResponse(BaseModel):
     h1: str
     meta_description: Optional[str] = None
     intro_html: Optional[str] = None
+    intro: Optional[str] = None
     answer: str
     index_status: str
     robots: str
     canonical: str
     quality_score: float
     match_count: int
+    observation_count: int = 0
     last_updated: Optional[datetime] = None
     verified_matches: List[ScoredPropertyCard]
     market_snapshot: Optional[MarketSnapshotPublic] = None
+    verified_market: Optional[MarketSnapshotPublic] = None
+    observation_market: Optional[MarketSnapshotPublic] = None
+    key_attributes: List[str] = []
+    data_insights: List[str] = []
+    by_bedroom_verified: List[dict[str, Any]] = []
+    by_bedroom_external: List[dict[str, Any]] = []
+    furnished_breakdown: Optional[dict[str, int]] = None
+    trend_verified: List[TrendPoint] = []
+    trend_external: List[TrendPoint] = []
     related: List[RelatedIntentLink] = []
+    related_neighborhoods: List[dict[str, Any]] = []
     methodology_note: str
 
 

@@ -41,16 +41,28 @@ export type SearchLandingPage = {
   h1: string;
   meta_description?: string;
   intro_html?: string;
+  intro?: string;
   answer: string;
   index_status: string;
   robots: string;
   canonical: string;
   quality_score: number;
   match_count: number;
+  observation_count?: number;
   last_updated?: string;
   verified_matches: ScoredPropertyCard[];
   market_snapshot?: MarketSnapshot | null;
+  verified_market?: MarketSnapshot | null;
+  observation_market?: MarketSnapshot | null;
+  key_attributes?: string[];
+  data_insights?: string[];
+  by_bedroom_verified?: { bedrooms: number; median_usd?: number; p25_usd?: number; p75_usd?: number; sample_size: number }[];
+  by_bedroom_external?: { bedrooms: number; median_usd?: number; p25_usd?: number; p75_usd?: number; sample_size: number }[];
+  furnished_breakdown?: { furnished: number; unfurnished: number; total: number };
+  trend_verified?: { label: string; median_usd?: number; sample_size?: number }[];
+  trend_external?: { label: string; median_usd?: number; sample_size?: number }[];
   related: { path: string; title: string; h1: string; location_slug: string; intent_slug: string }[];
+  related_neighborhoods?: { slug: string; name: string; path: string; listing_count: number }[];
   methodology_note: string;
 };
 

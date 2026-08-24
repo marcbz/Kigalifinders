@@ -11,6 +11,11 @@ type Settings = {
   min_quality_for_index: number;
 };
 
+type RuleResults = {
+  pages_ready: number;
+  pages_not_ready: number;
+};
+
 export default function AdminSeoSettingsPage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({
@@ -18,6 +23,7 @@ export default function AdminSeoSettingsPage() {
     queryFn: () => adminService.getSeoSettings(),
   });
   const [form, setForm] = useState<Settings | null>(null);
+  const [results, setResults] = useState<RuleResults | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
@@ -26,6 +32,12 @@ export default function AdminSeoSettingsPage() {
         min_verified_for_index: data.settings.min_verified_for_index,
         min_dimensions_for_index: data.settings.min_dimensions_for_index,
         min_quality_for_index: data.settings.min_quality_for_index ?? 40,
+      });
+    }
+    if (data?.summary) {
+      setResults({
+        pages_ready: data.summary.pages_ready ?? data.summary.eligible ?? 0,
+        pages_not_ready: data.summary.pages_not_ready ?? data.summary.excluded_pages ?? 0,
       });
     }
   }, [data]);
@@ -37,8 +49,15 @@ export default function AdminSeoSettingsPage() {
         min_dimensions_for_index: form!.min_dimensions_for_index,
         min_quality_for_index: form!.min_quality_for_index,
       }),
-    onSuccess: () => {
+    onSuccess: (res: { summary?: RuleResults; recalculation?: { after?: RuleResults } }) => {
       setMessage("Settings saved. Search pages were recalculated.");
+      const summary = res?.summary;
+      if (summary) {
+        setResults({
+          pages_ready: summary.pages_ready ?? 0,
+          pages_not_ready: summary.pages_not_ready ?? 0,
+        });
+      }
       qc.invalidateQueries({ queryKey: ["admin-seo-settings"] });
       qc.invalidateQueries({ queryKey: ["admin-search-intents"] });
     },
@@ -49,15 +68,41 @@ export default function AdminSeoSettingsPage() {
       <div>
         <h2 className="text-xl font-semibold text-navy-800 dark:text-white">Publishing rules</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Choose when a rental search page is good enough to publish to Google.{" "}
+          Set minimum quality thresholds, then see which search pages are ready to publish.{" "}
           <Link href="/admin/seo-market" className="underline">
-            View search pages
+            Manage search pages
           </Link>
         </p>
       </div>
 
       {message && <p className="text-sm text-green-700 bg-green-50 border rounded-lg px-4 py-2">{message}</p>}
       {isLoading && <p className="text-sm text-gray-500">Loading…</p>}
+
+      {results && (
+        <div className="border rounded-xl p-5 bg-white dark:bg-navy-800 space-y-3">
+          <p className="text-sm font-medium text-navy-800 dark:text-white">Current results</p>
+          <p className="text-2xl font-serif text-navy-800 dark:text-white">
+            {results.pages_ready} page{results.pages_ready === 1 ? "" : "s"} ready to publish
+          </p>
+          <p className="text-lg text-gray-600 dark:text-gray-300">
+            {results.pages_not_ready} page{results.pages_not_ready === 1 ? "" : "s"} not ready
+          </p>
+          <div className="flex flex-wrap gap-3 pt-2">
+            <Link
+              href="/admin/seo-market?status=ready"
+              className="px-4 py-2 text-sm rounded-lg bg-navy-800 text-white"
+            >
+              View ready pages
+            </Link>
+            <Link
+              href="/admin/seo-market?status=not_ready"
+              className="px-4 py-2 text-sm rounded-lg border"
+            >
+              View not ready pages
+            </Link>
+          </div>
+        </div>
+      )}
 
       {form && (
         <form
@@ -100,7 +145,7 @@ export default function AdminSeoSettingsPage() {
             />
           </label>
           <button type="submit" className="px-4 py-2 text-sm rounded-lg bg-navy-800 text-white w-full" disabled={save.isPending}>
-            {save.isPending ? "Saving…" : "Save settings"}
+            {save.isPending ? "Saving & recalculating…" : "Save settings"}
           </button>
         </form>
       )}

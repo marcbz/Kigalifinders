@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { adminService } from "@/services/api";
-import type { EligibilityDetails, SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
+import type { SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
 type SimpleStatus = "all" | "ready" | "published" | "noindex" | "not_ready";
 type SortMode = "best" | "properties" | "quality";
@@ -65,14 +65,6 @@ function statusLabel(s: Exclude<SimpleStatus, "all">) {
   return "🔴 Not ready";
 }
 
-function whyUseful(row: SearchIntentAdmin) {
-  const parts: string[] = [];
-  if (row.match_count) parts.push(`${row.match_count} matching propert${row.match_count === 1 ? "y" : "ies"}`);
-  if (row.quality_score >= 40) parts.push("sufficient data");
-  if (!parts.length) return "Does not yet meet publishing rules.";
-  return `${parts.join(" and ")}.`;
-}
-
 function fmtDate(v?: string | null) {
   if (!v) return "—";
   try {
@@ -86,6 +78,26 @@ function friendlyStatus(s: string) {
   return s.replace(/_/g, " ");
 }
 
+function sitemapDestination(path: string): string {
+  const p = (path || "").replace(/\/$/, "") || "/";
+  if (p === "/rentals") return "Rentals";
+  const parts = p.split("/").filter(Boolean);
+  if (parts.length === 2 && parts[0] === "rentals") return "Rentals / Areas";
+  if (parts.length >= 3 && parts[0] === "rentals") return "Rentals / Search";
+  return "Rentals";
+}
+
+function sitemapCell(row: SearchIntentAdmin) {
+  const dest = sitemapDestination(row.path);
+  if (row.index_status !== "indexable") {
+    return `${dest} · excluded (not published)`;
+  }
+  if (row.sitemap_status === "included") {
+    return `${dest} · included`;
+  }
+  return `${dest} · excluded`;
+}
+
 export default function SeoMarketAdminPage() {
   const qc = useQueryClient();
 
@@ -95,8 +107,6 @@ export default function SeoMarketAdminPage() {
   const [sort, setSort] = useState<SortMode>("best");
   const [searchPage, setSearchPage] = useState(1);
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
-  const [reviewId, setReviewId] = useState<string | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   // --- Market data state ---
@@ -116,6 +126,11 @@ export default function SeoMarketAdminPage() {
   useEffect(() => {
     if (window.location.hash === "#market-data") {
       document.getElementById("market-data")?.scrollIntoView({ behavior: "smooth" });
+    }
+    const params = new URLSearchParams(window.location.search);
+    const status = params.get("status") as SimpleStatus | null;
+    if (status && TABS.some((t) => t.id === status)) {
+      setTab(status);
     }
   }, []);
 
@@ -147,15 +162,8 @@ export default function SeoMarketAdminPage() {
       }) as Promise<{ items: ObservationRow[]; total: number; page_size: number }>,
   });
 
-  const review = useQuery({
-    queryKey: ["admin-intent-eligibility", reviewId],
-    queryFn: () => adminService.getSearchIntentEligibility(reviewId!) as Promise<EligibilityDetails>,
-    enabled: Boolean(reviewId) && showDetails,
-  });
-
   const searchItems = searchQuery.data?.items ?? [];
   const searchTotalPages = Math.max(1, Math.ceil((searchQuery.data?.total ?? 0) / (searchQuery.data?.page_size ?? 40)));
-  const reviewRow = searchItems.find((r) => r.id === reviewId);
   const obsItems = observations.data?.items ?? [];
   const obsTotalPages = Math.max(1, Math.ceil((observations.data?.total ?? 0) / (observations.data?.page_size ?? 30)));
   const summary = marketSummary.data;
@@ -175,7 +183,6 @@ export default function SeoMarketAdminPage() {
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "indexable"),
     onSuccess: () => {
       flash("Page published.");
-      setReviewId(null);
       invalidateSearch();
     },
   });
@@ -184,7 +191,23 @@ export default function SeoMarketAdminPage() {
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "noindex"),
     onSuccess: () => {
       flash("Page set to noindex.");
-      setReviewId(null);
+      invalidateSearch();
+    },
+  });
+
+  const includeSitemap = useMutation({
+    mutationFn: (id: string) => adminService.setSearchIntentSitemap(id, "included"),
+    onSuccess: () => {
+      flash("Page included in sitemap.");
+      invalidateSearch();
+    },
+    onError: () => flash("Could not include in sitemap — page must be published first."),
+  });
+
+  const excludeSitemap = useMutation({
+    mutationFn: (id: string) => adminService.setSearchIntentSitemap(id, "excluded"),
+    onSuccess: () => {
+      flash("Page excluded from sitemap.");
       invalidateSearch();
     },
   });
@@ -305,10 +328,30 @@ export default function SeoMarketAdminPage() {
           >
             Noindex selected
           </button>
+          <button
+            type="button"
+            className="underline"
+            onClick={() => {
+              if (!selectedPages.size || !window.confirm(`Include ${selectedPages.size} page(s) in sitemap? Only published pages will be included.`)) return;
+              bulkPages.mutate("sitemap_include");
+            }}
+          >
+            Include in sitemap
+          </button>
+          <button
+            type="button"
+            className="underline"
+            onClick={() => {
+              if (!selectedPages.size || !window.confirm(`Exclude ${selectedPages.size} page(s) from sitemap?`)) return;
+              bulkPages.mutate("sitemap_exclude");
+            }}
+          >
+            Exclude from sitemap
+          </button>
         </div>
 
         <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
-          <table className="w-full text-sm min-w-[640px]">
+          <table className="w-full text-sm min-w-[780px]">
             <thead className="bg-gray-50 dark:bg-navy-900 text-left">
               <tr>
                 <th className="p-3 w-8" />
@@ -316,13 +359,14 @@ export default function SeoMarketAdminPage() {
                 <th className="p-3">Properties</th>
                 <th className="p-3">Quality</th>
                 <th className="p-3">Status</th>
+                <th className="p-3">Sitemap</th>
                 <th className="p-3">Action</th>
               </tr>
             </thead>
             <tbody>
               {searchQuery.isLoading && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-gray-500">
+                  <td colSpan={7} className="p-6 text-gray-500">
                     Loading…
                   </td>
                 </tr>
@@ -353,10 +397,8 @@ export default function SeoMarketAdminPage() {
                     <td className="p-3">{row.match_count}</td>
                     <td className="p-3">{Math.round(row.quality_score)}/100</td>
                     <td className="p-3">{statusLabel(status)}</td>
+                    <td className="p-3 text-xs text-gray-600">{sitemapCell(row)}</td>
                     <td className="p-3 space-x-2 whitespace-nowrap text-xs">
-                      <button type="button" className="underline" onClick={() => { setReviewId(row.id); setShowDetails(false); }}>
-                        Review
-                      </button>
                       {row.automatic_eligibility === "eligible" && row.index_status !== "indexable" && (
                         <button type="button" className="underline" onClick={() => publish.mutate(row.id)}>
                           Publish
@@ -367,13 +409,26 @@ export default function SeoMarketAdminPage() {
                           Noindex
                         </button>
                       )}
+                      {row.index_status === "indexable" && row.sitemap_status !== "included" && (
+                        <button type="button" className="underline" onClick={() => includeSitemap.mutate(row.id)}>
+                          Include
+                        </button>
+                      )}
+                      {row.index_status === "indexable" && row.sitemap_status === "included" && (
+                        <button type="button" className="underline" onClick={() => excludeSitemap.mutate(row.id)}>
+                          Exclude
+                        </button>
+                      )}
+                      <Link href={row.path} target="_blank" rel="noreferrer" className="underline">
+                        Open
+                      </Link>
                     </td>
                   </tr>
                 );
               })}
               {!searchQuery.isLoading && !searchItems.length && (
                 <tr>
-                  <td colSpan={6} className="p-6 text-gray-500">
+                  <td colSpan={7} className="p-6 text-gray-500">
                     No pages match.
                   </td>
                 </tr>
@@ -647,57 +702,6 @@ export default function SeoMarketAdminPage() {
           </div>
         )}
       </section>
-
-      {reviewId && reviewRow && (
-        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setReviewId(null)}>
-          <div className="bg-white dark:bg-navy-800 rounded-xl max-w-md w-full p-6 space-y-4" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold">Review page</h3>
-            <dl className="text-sm space-y-2">
-              <div>
-                <dt className="text-gray-500">Search</dt>
-                <dd className="font-medium">{pageName(reviewRow)}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Properties</dt>
-                <dd>{reviewRow.match_count}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Quality</dt>
-                <dd>{Math.round(reviewRow.quality_score)}/100</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Why it&apos;s useful</dt>
-                <dd>{whyUseful(reviewRow)}</dd>
-              </div>
-            </dl>
-            <div className="flex flex-wrap gap-2">
-              {reviewRow.automatic_eligibility === "eligible" && reviewRow.index_status !== "indexable" && (
-                <button type="button" className="px-4 py-2 text-sm rounded-lg bg-navy-800 text-white" onClick={() => publish.mutate(reviewRow.id)}>
-                  Publish
-                </button>
-              )}
-              <button type="button" className="px-4 py-2 text-sm rounded-lg border" onClick={() => noindex.mutate(reviewRow.id)}>
-                Noindex
-              </button>
-              <button type="button" className="text-sm underline" onClick={() => setShowDetails((v) => !v)}>
-                {showDetails ? "Hide details" : "More details"}
-              </button>
-            </div>
-            {showDetails && review.data && (
-              <ul className="text-xs space-y-1 border-t pt-3 max-h-40 overflow-auto">
-                {review.data.checks.map((c) => (
-                  <li key={c.label}>
-                    {c.passed ? "✓" : "✗"} {c.label}: {c.detail}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button type="button" className="text-sm underline" onClick={() => setReviewId(null)}>
-              Close
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

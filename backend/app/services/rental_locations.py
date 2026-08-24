@@ -98,6 +98,19 @@ async def _snapshots_by_bedroom(db: AsyncSession, location_slug: str, data_kind:
 async def _property_type_breakdown(db: AsyncSession, location_slug: str) -> list[dict[str, Any]]:
     from app.models import PropertyType
 
+    if location_slug == "kigali":
+        rows = await db.execute(
+            select(PropertyType.slug, PropertyType.name, func.count(Property.id))
+            .join(Property, Property.property_type_id == PropertyType.id)
+            .where(
+                Property.status == PropertyStatusEnum.PUBLISHED,
+                Property.listing_type.in_([ListingType.RENT, ListingType.FURNISHED]),
+            )
+            .group_by(PropertyType.slug, PropertyType.name)
+            .order_by(func.count(Property.id).desc())
+        )
+        return [{"slug": slug, "name": name, "count": int(cnt)} for slug, name, cnt in rows.all()]
+
     nids = await db.execute(
         select(Neighborhood.id).where(Neighborhood.slug == location_slug, Neighborhood.is_active == True)  # noqa: E712
     )
@@ -284,6 +297,8 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
 
 
 async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
+    from app.services.landing_pages import build_data_insights, trend_series_for_location
+
     verified = await _latest_snapshot(db, location_slug="kigali", data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value)
     observed = await _latest_snapshot(
         db, location_slug="kigali", data_kind=MarketDataKind.MARKET_OBSERVATION.value, min_sample=1
@@ -296,6 +311,14 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
     matches = await match_verified_properties(db, {"location": "kigali"}, limit=12)
     matches_sorted = sorted(matches, key=lambda p: score_property(p, {"location": "kigali"}), reverse=True)
     obs_count = await count_observations(db, {"location": "kigali"})
+    verified_dict = _snap_dict(verified, "KigaliRent Verified")
+    observed_dict = _snap_dict(observed, "External Market Observations")
+    trend_verified = await trend_series_for_location(
+        db, location_slug="kigali", data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value
+    )
+    trend_external = await trend_series_for_location(
+        db, location_slug="kigali", data_kind=MarketDataKind.MARKET_OBSERVATION.value
+    )
 
     intro = (
         f"Overview of the Kigali rental market using {len(matches)} verified KigaliRent listings"
@@ -319,12 +342,24 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "last_updated": _now().isoformat(),
         "listing_count": len(matches),
         "observation_count": obs_count,
-        "verified_market": _snap_dict(verified, "KigaliRent Verified"),
-        "observation_market": _snap_dict(observed, "External Market Observations"),
+        "verified_market": verified_dict,
+        "observation_market": observed_dict,
         "by_bedroom_verified": by_bedroom_verified,
         "by_bedroom_external": by_bedroom_external,
         "furnished_breakdown": furnished,
-        "property_types": [],
+        "property_types": await _property_type_breakdown(db, "kigali"),
+        "key_attributes": ["Kigali-wide", "All property types"],
+        "data_insights": build_data_insights(
+            match_count=len(matches),
+            observation_count=obs_count,
+            verified_snap=verified_dict,
+            observation_snap=observed_dict,
+            furnished=furnished,
+            by_bedroom_verified=by_bedroom_verified,
+            by_bedroom_external=by_bedroom_external,
+        ),
+        "trend_verified": trend_verified,
+        "trend_external": trend_external,
         "neighborhoods": [n for n in neighborhoods if n["listing_count"] > 0][:20],
         "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in matches_sorted],
         "related_searches": await _related_intents_for_location(db, "kigali", limit=10),
@@ -347,6 +382,8 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
 
 
 async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any] | None:
+    from app.services.landing_pages import build_data_insights, key_attributes_from_query, trend_series_for_location
+
     result = await db.execute(
         select(Neighborhood, District.name)
         .join(District, Neighborhood.district_id == District.id)
@@ -379,6 +416,15 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
     if verified and verified.median_usd:
         intro += f" Verified asking rents in this area typically centre around ${verified.median_usd:,.0f}/month (n={verified.sample_size})."
 
+    verified_dict = _snap_dict(verified, "KigaliRent Verified")
+    observed_dict = _snap_dict(observed, "External Market Observations")
+    trend_verified = await trend_series_for_location(
+        db, location_slug=hood.slug, data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value
+    )
+    trend_external = await trend_series_for_location(
+        db, location_slug=hood.slug, data_kind=MarketDataKind.MARKET_OBSERVATION.value
+    )
+
     related = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
     related.sort(key=lambda n: -n["listing_count"])
 
@@ -397,12 +443,24 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "last_updated": _now().isoformat(),
         "listing_count": len(matches),
         "observation_count": obs_count,
-        "verified_market": _snap_dict(verified, "KigaliRent Verified"),
-        "observation_market": _snap_dict(observed, "External Market Observations"),
+        "verified_market": verified_dict,
+        "observation_market": observed_dict,
         "by_bedroom_verified": by_bedroom_verified,
         "by_bedroom_external": by_bedroom_external,
         "furnished_breakdown": furnished,
         "property_types": await _property_type_breakdown(db, hood.slug),
+        "key_attributes": key_attributes_from_query(query),
+        "data_insights": build_data_insights(
+            match_count=len(matches),
+            observation_count=obs_count,
+            verified_snap=verified_dict,
+            observation_snap=observed_dict,
+            furnished=furnished,
+            by_bedroom_verified=by_bedroom_verified,
+            by_bedroom_external=by_bedroom_external,
+        ),
+        "trend_verified": trend_verified,
+        "trend_external": trend_external,
         "verified_listings": [_listing_card(p, query) for p in matches_sorted],
         "related_searches": await _related_intents_for_location(db, hood.slug, limit=8),
         "related_neighborhoods": [
