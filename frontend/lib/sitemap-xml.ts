@@ -47,11 +47,15 @@ export function buildSitemapIndexXml(entries: SitemapIndexEntry[]): string {
   return `<?xml version="1.0" encoding="UTF-8"?>\n<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${sitemaps}\n</sitemapindex>`;
 }
 
-export function xmlResponse(body: string): Response {
+export function xmlResponse(
+  body: string,
+  options?: { cacheControl?: string },
+): Response {
   return new Response(body, {
     headers: {
       "Content-Type": "application/xml; charset=utf-8",
-      "Cache-Control": "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
+      "Cache-Control":
+        options?.cacheControl || "public, max-age=0, s-maxage=3600, stale-while-revalidate=86400",
     },
   });
 }

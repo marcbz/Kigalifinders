@@ -101,8 +101,42 @@ async def rental_location_page(location_slug: str, db: AsyncSession = Depends(ge
 
 
 @router.get("/rentals/sitemap")
-async def rentals_sitemap(db: AsyncSession = Depends(get_db)):
-    from app.models import SitemapStatus
+async def rentals_sitemap(
+    debug: bool = Query(False),
+    db: AsyncSession = Depends(get_db),
+):
+    """Sitemap entries for /sitemap-rentals.xml — lightweight, production DB state only.
+
+    Includes:
+    - hub pages (/rentals, /rentals/kigali, neighborhood hubs with listings)
+    - search intents that are enabled + indexable + sitemap included
+    """
+    from sqlalchemy import func
+
+    from app.models import ListingType, Neighborhood, Property, PropertyStatusEnum, SitemapStatus
+
+    # Fast hub list: neighborhoods that currently have published rentals
+    hood_rows = await db.execute(
+        select(Neighborhood.slug, Neighborhood.name, func.count(Property.id))
+        .outerjoin(
+            Property,
+            (Property.neighborhood_id == Neighborhood.id)
+            & (Property.status == PropertyStatusEnum.PUBLISHED)
+            & (Property.listing_type.in_([ListingType.RENT, ListingType.FURNISHED])),
+        )
+        .where(Neighborhood.is_active == True)  # noqa: E712
+        .group_by(Neighborhood.slug, Neighborhood.name)
+        .order_by(Neighborhood.name.asc())
+    )
+    hub_items: list[dict] = [
+        {"path": "/rentals", "last_built_at": None, "title": "Kigali Rentals Directory"},
+        {"path": "/rentals/kigali", "last_built_at": None, "title": "Kigali Rental Market Overview"},
+    ]
+    for slug, name, count in hood_rows.all():
+        if int(count or 0) > 0:
+            hub_items.append(
+                {"path": f"/rentals/{slug}", "last_built_at": None, "title": f"Rentals in {name}"}
+            )
 
     result = await db.execute(
         select(SearchIntent).where(
@@ -113,29 +147,60 @@ async def rentals_sitemap(db: AsyncSession = Depends(get_db)):
             SearchIntent.path != "",
         )
     )
-    items = result.scalars().all()
-    from app.services.rental_locations import build_rental_directory
-
-    directory = await build_rental_directory(db)
-    hub_items = [
-        {"path": "/rentals", "last_built_at": None, "title": "Kigali Rentals Directory"},
-        {"path": "/rentals/kigali", "last_built_at": None, "title": "Kigali Rental Market Overview"},
-    ]
-    for n in directory.get("neighborhoods", []):
-        if n.get("listing_count", 0) > 0:
-            hub_items.append(
-                {"path": n["path"], "last_built_at": None, "title": f"Rentals in {n['name']}"}
-            )
+    intents = list(result.scalars().all())
     intent_items = [
-            {
-                "path": i.path,
-                "last_built_at": i.last_built_at,
-                "title": i.title,
-            }
-            for i in items
-            if i.path.startswith("/rentals/") and i.path.count("/") >= 3
-        ]
-    return {"items": hub_items + intent_items}
+        {
+            "path": i.path,
+            "last_built_at": i.last_built_at,
+            "title": i.title,
+        }
+        for i in intents
+        if i.path
+        and i.path.startswith("/rentals/")
+        and i.path.count("/") >= 3  # /rentals/{location}/{intent}
+    ]
+
+    items = hub_items + intent_items
+    payload: dict = {
+        "items": items,
+        "count": len(items),
+        "hub_count": len(hub_items),
+        "intent_count": len(intent_items),
+    }
+    if debug:
+        payload["diagnostics"] = {
+            "filters": {
+                "is_enabled": True,
+                "index_status": SearchIndexStatus.INDEXABLE.value,
+                "sitemap_status": SitemapStatus.INCLUDED.value,
+                "path_prefix": "/rentals/",
+                "min_path_segments": 3,
+            },
+            "table": "search_intents",
+            "intent_paths_sample": [i["path"] for i in intent_items[:15]],
+            "indexable_total": int(
+                (
+                    await db.execute(
+                        select(func.count())
+                        .select_from(SearchIntent)
+                        .where(SearchIntent.index_status == SearchIndexStatus.INDEXABLE.value)
+                    )
+                ).scalar()
+                or 0
+            ),
+            "sitemap_included_total": int(
+                (
+                    await db.execute(
+                        select(func.count())
+                        .select_from(SearchIntent)
+                        .where(SearchIntent.sitemap_status == SitemapStatus.INCLUDED.value)
+                    )
+                ).scalar()
+                or 0
+            ),
+            "eligible_intent_total": len(intent_items),
+        }
+    return payload
 
 
 @router.get("/rentals/{location_slug}/{intent_slug}", response_model=SearchLandingPageResponse)

@@ -70,15 +70,46 @@ export async function getBlogSitemapEntries(now = new Date()): Promise<SitemapUr
   }));
 }
 
-export async function getRentalsSitemapEntries(now = new Date()): Promise<SitemapUrlEntry[]> {
+export type RentalsSitemapMeta = {
+  apiUrl: string;
+  count: number;
+  hubCount?: number;
+  intentCount?: number;
+  error?: string;
+  diagnostics?: Record<string, unknown>;
+};
+
+export async function getRentalsSitemapEntries(
+  now = new Date(),
+  options?: { debug?: boolean },
+): Promise<{ entries: SitemapUrlEntry[]; meta: RentalsSitemapMeta }> {
   const base = getSiteBaseUrl();
-  const data = await fetchRentalsSitemapSafe();
-  return (data?.items || []).map((item) => ({
+  const { data, error, apiUrl } = await fetchRentalsSitemapSafe({ debug: options?.debug });
+
+  if (!data) {
+    return {
+      entries: [],
+      meta: { apiUrl, count: 0, error: error || "upstream_empty" },
+    };
+  }
+
+  const entries = (data.items || []).map((item) => ({
     loc: `${base}${item.path}`,
     lastModified: item.last_built_at ? new Date(item.last_built_at) : now,
     changeFrequency: "weekly" as const,
     priority: 0.85,
   }));
+
+  return {
+    entries,
+    meta: {
+      apiUrl,
+      count: entries.length,
+      hubCount: data.hub_count,
+      intentCount: data.intent_count,
+      diagnostics: data.diagnostics,
+    },
+  };
 }
 
 export function getResearchSitemapEntries(now = new Date()): SitemapUrlEntry[] {

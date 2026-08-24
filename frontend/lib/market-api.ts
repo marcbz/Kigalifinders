@@ -34,11 +34,37 @@ export function fetchRentalLandingSafe(location: string, intent: string) {
   );
 }
 
-export function fetchRentalsSitemapSafe() {
-  return fetchSafe<{ items: { path: string; last_built_at?: string; title: string }[] }>(
-    "/rentals/sitemap",
-    3600,
-  );
+export type RentalsSitemapPayload = {
+  items: { path: string; last_built_at?: string; title: string }[];
+  count?: number;
+  hub_count?: number;
+  intent_count?: number;
+  diagnostics?: Record<string, unknown>;
+};
+
+/** Live sitemap fetch — no Next cache, longer timeout for cold API starts. */
+export async function fetchRentalsSitemapSafe(options?: {
+  debug?: boolean;
+}): Promise<{ data: RentalsSitemapPayload | null; error?: string; apiUrl: string }> {
+  const apiUrl = API_URL;
+  const path = options?.debug ? "/rentals/sitemap?debug=true" : "/rentals/sitemap";
+  const url = `${apiUrl}${path}`;
+  const timeoutMs = 25000;
+  try {
+    const res = await fetch(url, {
+      cache: "no-store",
+      headers: { Accept: "application/json" },
+      signal: AbortSignal.timeout(timeoutMs),
+    });
+    if (!res.ok) {
+      return { data: null, error: `HTTP ${res.status}`, apiUrl };
+    }
+    const data = (await res.json()) as RentalsSitemapPayload;
+    return { data, apiUrl };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return { data: null, error: message, apiUrl };
+  }
 }
 
 export function fetchResearchOverviewSafe() {
