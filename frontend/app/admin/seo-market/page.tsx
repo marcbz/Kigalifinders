@@ -59,10 +59,25 @@ function simpleStatus(row: SearchIntentAdmin): Exclude<SimpleStatus, "all"> {
 }
 
 function statusLabel(s: Exclude<SimpleStatus, "all">) {
-  if (s === "published") return "🟢 Published";
-  if (s === "ready") return "🟢 Ready";
-  if (s === "noindex") return "🟡 Noindex";
-  return "🔴 Not ready";
+  if (s === "published") return "Published";
+  if (s === "ready") return "Ready";
+  if (s === "noindex") return "Noindex";
+  return "Not ready";
+}
+
+function StatusDot({ status }: { status: Exclude<SimpleStatus, "all"> }) {
+  const color =
+    status === "published" || status === "ready"
+      ? "bg-green-500"
+      : status === "noindex"
+        ? "bg-amber-400"
+        : "bg-red-500";
+  return (
+    <span className="inline-flex items-center gap-2">
+      <span className={`inline-block w-2 h-2 rounded-full ${color}`} aria-hidden />
+      {statusLabel(status)}
+    </span>
+  );
 }
 
 function fmtDate(v?: string | null) {
@@ -223,8 +238,12 @@ export default function SeoMarketAdminPage() {
 
   const importCsv = useMutation({
     mutationFn: (file: File) => adminService.importObservationsCsv(file),
-    onSuccess: () => {
-      flash("CSV imported. Research refreshed.");
+    onSuccess: (res: { import_reference?: string }) => {
+      flash(
+        res.import_reference
+          ? `CSV imported (${res.import_reference}). Research refreshed.`
+          : "CSV imported. Research refreshed."
+      );
       invalidateMarket();
     },
   });
@@ -395,8 +414,8 @@ export default function SeoMarketAdminPage() {
                       </Link>
                     </td>
                     <td className="p-3">{row.match_count}</td>
-                    <td className="p-3">{Math.round(row.quality_score)}/100</td>
-                    <td className="p-3">{statusLabel(status)}</td>
+                    <td className="p-3">{Math.round(row.quality_score)}%</td>
+                    <td className="p-3"><StatusDot status={status} /></td>
                     <td className="p-3 text-xs text-gray-600">{sitemapCell(row)}</td>
                     <td className="p-3 space-x-2 whitespace-nowrap text-xs">
                       {row.automatic_eligibility === "eligible" && row.index_status !== "indexable" && (

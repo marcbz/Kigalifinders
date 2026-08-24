@@ -67,27 +67,42 @@ export function fetchResearchNeighborhoodsSafe() {
 export function fetchResearchTrendsSafe() {
   return fetchSafe<{
     median_series: { period_end: string; median_usd?: number; sample_size: number }[];
+    external_median_series?: { period_end: string; median_usd?: number; sample_size: number }[];
     observation_activity: { month: string; observations: number }[];
     disclaimer: string;
     summary: string;
+    has_external_trend_history?: boolean;
+    verified_label?: string;
+    external_label?: string;
   }>("/research/kigali-rental-market/trends", 600);
 }
 
 export function fetchResearchMethodologySafe() {
-  return fetchSafe<{ title: string; body: string; rules: string[] }>(
-    "/research/kigali-rental-market/methodology",
-    3600,
-  );
+  return fetchSafe<{
+    title: string;
+    body: string;
+    rules: string[];
+    labels?: { verified: string; external: string };
+    transparency?: import("@/components/research/research-transparency").ResearchTransparencyData;
+    import_batches?: {
+      reference: string;
+      imported_at: string;
+      rows_processed: number;
+      sources?: string[];
+    }[];
+  }>("/research/kigali-rental-market/methodology", 3600);
 }
 
 export function fetchResearchSourcesSafe() {
   return fetchSafe<{
+    combined_summary?: string;
     sources: {
       source: string;
       source_key?: string | null;
       source_url?: string | null;
       observation_count: number | null;
       kind: string;
+      attribution?: string;
     }[];
   }>("/research/kigali-rental-market/sources", 600);
 }
@@ -153,5 +168,6 @@ export function fetchResearchChartsSafe() {
     has_trend_history: boolean;
     has_external_trend_history?: boolean;
     last_updated?: string | null;
+    transparency?: import("@/components/research/research-transparency").ResearchTransparencyData;
   }>("/research/kigali-rental-market/charts", 60);
 }

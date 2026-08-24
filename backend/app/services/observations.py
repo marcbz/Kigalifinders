@@ -107,6 +107,7 @@ async def ingest_observation_rows(
     invalid_rows = 0
     errors: list[str] = []
     rows_processed = 0
+    sources_seen: set[str] = set()
 
     for i, raw in enumerate(rows, start=1):
         rows_processed += 1
@@ -127,6 +128,7 @@ async def ingest_observation_rows(
                 errors.append(f"Row {i}: missing source_url (required for attribution)")
                 continue
 
+            sources_seen.add(source)
             price = float(row["asking_price"])
             currency = (str(row.get("currency") or "USD")).upper()
             source_listing_id = row.get("source_listing_id") or None
@@ -221,6 +223,7 @@ async def ingest_observation_rows(
         "skipped": duplicates,
         "invalid_rows": invalid_rows,
         "errors": errors[:50],
+        "sources": sorted(sources_seen),
     }
 
 
@@ -258,7 +261,22 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
     for raw in reader:
         row = {k.strip().lower(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items() if k}
         rows.append(row)
-    return await ingest_observation_rows(db, rows)
+    result = await ingest_observation_rows(db, rows)
+    if result.get("rows_processed", 0) > 0 and (result.get("imported", 0) + result.get("updated", 0)) > 0:
+        from app.services.import_batches import infer_period_from_observations, record_import_batch
+
+        period_start, period_end = await infer_period_from_observations(db)
+        batch = await record_import_batch(
+            db,
+            rows_processed=result.get("rows_processed", 0),
+            rows_new=result.get("imported", 0),
+            rows_updated=result.get("updated", 0),
+            source_names=result.get("sources"),
+            period_start=period_start,
+            period_end=period_end,
+        )
+        result["import_reference"] = batch.reference
+    return result
 
 
 async def refresh_research_after_import(db: AsyncSession) -> dict:

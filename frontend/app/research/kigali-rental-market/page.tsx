@@ -6,13 +6,14 @@ import {
   fetchResearchReportsSafe,
 } from "@/lib/market-api";
 import { ResearchChart, ResearchRangeCard } from "@/components/research/research-charts";
+import { CiteThisResearch, ResearchTransparency } from "@/components/research/research-transparency";
 
 export const revalidate = 60;
 
 export const metadata: Metadata = {
-  title: "Kigali Rental Market Research | KigaliRent",
+  title: "Kigali Rental Market Data & Research | KigaliRent",
   description:
-    "USD-first research on Kigali rental prices — KigaliRent verified inventory clearly labeled apart from external market observations.",
+    "Continuously updated Kigali rental market research — KigaliRent Verified listings and External Market Observations shown separately with full source attribution.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market" },
 };
 
@@ -39,10 +40,16 @@ export default async function ResearchHubPage() {
           </h1>
           <p className="text-lg text-gray-100 max-w-3xl">
             {overview?.summary ||
+              charts?.transparency?.combined_summary ||
               "Transparent rental-market statistics for Kigali, with verified inventory clearly labeled apart from external observations."}
           </p>
-          {charts?.last_updated && (
-            <p className="text-sm text-gray-300 mt-4">Last updated {charts.last_updated}</p>
+          {(charts?.transparency?.last_updated_display || charts?.last_updated) && (
+            <p className="text-sm text-gray-300 mt-4">
+              Updated {charts?.transparency?.last_updated_display || charts?.last_updated}
+              {charts?.transparency?.total_count
+                ? ` · ${charts.transparency.total_count} observations`
+                : ""}
+            </p>
           )}
         </div>
       </header>
@@ -71,6 +78,8 @@ export default async function ResearchHubPage() {
             Sources
           </Link>
         </nav>
+
+        <ResearchTransparency data={charts?.transparency} />
 
         <section className="grid md:grid-cols-2 gap-6">
           <ResearchRangeCard
@@ -213,6 +222,13 @@ export default async function ResearchHubPage() {
               ? "Not enough historical data yet."
               : "No external observations imported yet."
           }
+        />
+
+        <CiteThisResearch
+          title={overview?.title || "Kigali Rental Market Research"}
+          citationText={charts?.transparency?.citation_text}
+          canonicalUrl="https://kigalirent.com/research/kigali-rental-market"
+          lastUpdated={charts?.transparency?.last_updated_display}
         />
 
         <p className="text-xs text-gray-500 border-t pt-6">

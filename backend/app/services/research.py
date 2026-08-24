@@ -389,6 +389,10 @@ async def research_chart_payload(db: AsyncSession) -> dict:
     )
     external_active_count = int(obs_count.scalar() or 0)
 
+    from app.services.research_meta import research_transparency
+
+    transparency = await research_transparency(db)
+
     return {
         "verified_label": "KigaliRent Verified",
         "external_label": "External Market Observations",
@@ -397,6 +401,7 @@ async def research_chart_payload(db: AsyncSession) -> dict:
             "A listing that disappears is marked not found — never assumed rented."
         ),
         "external_active_count": external_active_count,
+        "transparency": transparency,
         "price_range": {
             "verified": friendly_range_label(v),
             "external": friendly_range_label(o),

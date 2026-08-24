@@ -311,8 +311,22 @@ async def get_rental_landing(
     )
 
 
+@router.get("/research/kigali-rental-market/meta")
+async def research_meta(
+    page_title: str = Query("Kigali Rental Market Research"),
+    canonical_url: str = Query("https://kigalirent.com/research/kigali-rental-market"),
+    db: AsyncSession = Depends(get_db),
+):
+    from app.services.research_meta import research_transparency
+
+    return await research_transparency(db, page_title=page_title, canonical_url=canonical_url)
+
+
 @router.get("/research/kigali-rental-market", response_model=ResearchOverviewResponse)
 async def research_overview(db: AsyncSession = Depends(get_db)):
+    from app.services.research_meta import combined_research_counts, combined_summary_line
+
+    counts = await combined_research_counts(db)
     verified = await db.execute(
         select(MarketStatSnapshot)
         .where(
@@ -351,7 +365,12 @@ async def research_overview(db: AsyncSession = Depends(get_db)):
     n_list = list(neighborhoods.scalars().all())
     activity = await observation_activity_series(db)
     last = v_list[0].period_end if v_list else (o_list[0].period_end if o_list else None)
-    summary = textual_summary(v_list[0] if v_list else None, "Kigali overall")
+    summary = combined_summary_line(
+        verified_count=counts["verified_count"],
+        external_count=counts["external_count"],
+    )
+    if v_list and v_list[0].median_usd:
+        summary += f" Verified listings in our sample typically ask around ${v_list[0].median_usd:,.0f}/month."
     return ResearchOverviewResponse(
         title="Kigali Rental Market Research",
         summary=summary,
@@ -389,30 +408,36 @@ async def research_prices(
 
 @router.get("/research/kigali-rental-market/neighborhoods")
 async def research_neighborhoods(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
-        select(MarketStatSnapshot)
-        .where(
-            MarketStatSnapshot.location_slug != "kigali",
-            MarketStatSnapshot.bedrooms.is_(None),
-            MarketStatSnapshot.sample_size >= 3,
+    async def _items(kind: str, min_sample: int) -> list:
+        result = await db.execute(
+            select(MarketStatSnapshot)
+            .where(
+                MarketStatSnapshot.data_kind == kind,
+                MarketStatSnapshot.location_slug != "kigali",
+                MarketStatSnapshot.bedrooms.is_(None),
+                MarketStatSnapshot.property_type.is_(None),
+                MarketStatSnapshot.sample_size >= min_sample,
+            )
+            .order_by(MarketStatSnapshot.period_end.desc(), MarketStatSnapshot.median_usd.desc())
+            .limit(50)
         )
-        .order_by(MarketStatSnapshot.period_end.desc(), MarketStatSnapshot.median_usd.desc())
-        .limit(50)
-    )
-    # de-dupe by location keeping latest
-    seen = set()
-    items = []
-    for s in result.scalars().all():
-        if s.location_slug in seen:
-            continue
-        seen.add(s.location_slug)
-        items.append(_snap_public(s, s.location_name or s.location_slug))
-    return {"items": items}
+        seen: set[str] = set()
+        out = []
+        for s in result.scalars().all():
+            if s.location_slug in seen:
+                continue
+            seen.add(s.location_slug)
+            out.append(_snap_public(s, s.location_name or s.location_slug))
+        return out
+
+    verified = await _items(MarketDataKind.VERIFIED_KIGALI_RENT.value, 3)
+    external = await _items(MarketDataKind.MARKET_OBSERVATION.value, 3)
+    return {"verified": verified, "external": external, "items": verified}
 
 
 @router.get("/research/kigali-rental-market/trends")
 async def research_trends(db: AsyncSession = Depends(get_db)):
-    result = await db.execute(
+    verified_result = await db.execute(
         select(MarketStatSnapshot)
         .where(
             MarketStatSnapshot.location_slug == "kigali",
@@ -422,7 +447,18 @@ async def research_trends(db: AsyncSession = Depends(get_db)):
         .order_by(MarketStatSnapshot.period_end.asc())
         .limit(36)
     )
-    rows = list(result.scalars().all())
+    external_result = await db.execute(
+        select(MarketStatSnapshot)
+        .where(
+            MarketStatSnapshot.location_slug == "kigali",
+            MarketStatSnapshot.bedrooms.is_(None),
+            MarketStatSnapshot.data_kind == MarketDataKind.MARKET_OBSERVATION.value,
+        )
+        .order_by(MarketStatSnapshot.period_end.asc())
+        .limit(36)
+    )
+    rows = list(verified_result.scalars().all())
+    ext_rows = list(external_result.scalars().all())
     series = [
         {
             "period_end": r.period_end.isoformat(),
@@ -432,12 +468,31 @@ async def research_trends(db: AsyncSession = Depends(get_db)):
         }
         for r in rows
     ]
+    external_series = [
+        {
+            "period_end": r.period_end.isoformat(),
+            "median_usd": r.median_usd,
+            "sample_size": r.sample_size,
+            "data_kind": r.data_kind,
+        }
+        for r in ext_rows
+    ]
     activity = await observation_activity_series(db)
+    from app.services.research_meta import combined_research_counts, combined_summary_line
+
+    counts = await combined_research_counts(db)
     return {
         "median_series": series,
+        "external_median_series": external_series,
+        "has_external_trend_history": len(external_series) >= 2,
         "observation_activity": activity,
-        "disclaimer": "Observed listing activity is not total market supply.",
-        "summary": textual_summary(rows[-1] if rows else None, "Kigali trends"),
+        "disclaimer": "Observed listing activity is not total market supply. External observations are not verified vacancies.",
+        "summary": combined_summary_line(
+            verified_count=counts["verified_count"],
+            external_count=counts["external_count"],
+        ),
+        "verified_label": "KigaliRent Verified",
+        "external_label": "External Market Observations",
     }
 
 
@@ -449,9 +504,14 @@ async def research_charts(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/research/kigali-rental-market/methodology")
-async def research_methodology():
+async def research_methodology(db: AsyncSession = Depends(get_db)):
+    from app.services.import_batches import list_public_import_batches
+    from app.services.research_meta import research_transparency
+
+    transparency = await research_transparency(db)
+    batches = await list_public_import_batches(db, limit=20)
     return {
-        "title": "Methodology",
+        "title": "Methodology & Data Sources",
         "body": METHODOLOGY,
         "rules": [
             "USD is the primary public currency; RWF may be shown for transparency.",
@@ -462,11 +522,14 @@ async def research_methodology():
             "Verified KigaliRent inventory is never mixed with observations without labels.",
             "External Market Observations are public listings observed on external sources; availability is not confirmed.",
             "External data is imported via CSV only — no automated crawling.",
+            "Each CSV import receives a public reference (e.g. DATA-0825) without exposing raw files.",
         ],
         "labels": {
             "verified": "KigaliRent Verified",
             "external": "External Market Observations",
         },
+        "transparency": transparency,
+        "import_batches": batches,
     }
 
 
@@ -503,6 +566,9 @@ async def research_sources(db: AsyncSession = Depends(get_db)):
             }
         )
     sources.sort(key=lambda x: -x["observation_count"])
+    from app.services.research_meta import combined_research_counts, combined_summary_line
+
+    counts = await combined_research_counts(db)
     sources.insert(
         0,
         {
@@ -514,7 +580,13 @@ async def research_sources(db: AsyncSession = Depends(get_db)):
             "source_url": "https://kigalirent.com/properties",
         },
     )
-    return {"sources": sources}
+    return {
+        "combined_summary": combined_summary_line(
+            verified_count=counts["verified_count"],
+            external_count=counts["external_count"],
+        ),
+        "sources": sources,
+    }
 
 
 @router.get("/research/kigali-rental-market/reports")

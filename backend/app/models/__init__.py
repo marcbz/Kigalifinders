@@ -930,3 +930,21 @@ class ExternalCollectionRun(Base):
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ObservationImportBatch(Base):
+    """Public reference for CSV observation imports (e.g. DATA-0825). Raw CSV is never exposed."""
+
+    __tablename__ = "observation_import_batches"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    reference: Mapped[str] = mapped_column(String(32), unique=True, nullable=False, index=True)
+    imported_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    rows_processed: Mapped[int] = mapped_column(Integer, default=0)
+    rows_new: Mapped[int] = mapped_column(Integer, default=0)
+    rows_updated: Mapped[int] = mapped_column(Integer, default=0)
+    sources: Mapped[list | None] = mapped_column(JSONB)
+    period_start: Mapped[object | None] = mapped_column(Date)
+    period_end: Mapped[object | None] = mapped_column(Date)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

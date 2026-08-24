@@ -475,6 +475,7 @@ async def import_csv(
         "duplicates": result.get("duplicates", result.get("skipped", 0)),
         "invalid_rows": result.get("invalid_rows", 0),
         "errors": result.get("errors", []),
+        "import_reference": result.get("import_reference"),
         "research": research,
     }
 
