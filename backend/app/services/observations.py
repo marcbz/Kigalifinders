@@ -57,44 +57,55 @@ def make_dedupe_key(source: str, source_listing_id: str | None, source_url: str 
     return hashlib.sha256(raw.encode("utf-8")).hexdigest()[:40]
 
 
-async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dict:
-    text = content.decode("utf-8-sig") if isinstance(content, bytes) else content
-    reader = csv.DictReader(io.StringIO(text))
-    if not reader.fieldnames:
-        return {"imported": 0, "skipped": 0, "errors": ["Empty CSV"]}
-    fields = {f.strip().lower() for f in reader.fieldnames}
-    missing = REQUIRED_COLUMNS - fields
-    if missing:
-        return {"imported": 0, "skipped": 0, "errors": [f"Missing columns: {', '.join(sorted(missing))}"]}
-
+async def ingest_observation_rows(
+    db: AsyncSession,
+    rows: list[dict[str, Any]],
+    *,
+    default_source: str | None = None,
+) -> dict:
+    """Normalize, dedupe, and append structured observation dicts. Never invents data."""
     fx = await get_default_fx_provider().get_rate("USD", "RWF")
     await store_rate(db, fx)
 
     imported = 0
+    updated = 0
     skipped = 0
     errors: list[str] = []
 
-    for i, raw in enumerate(reader, start=2):
-        row = {k.strip().lower(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items() if k}
+    for i, raw in enumerate(rows, start=1):
         try:
+            row = {str(k).strip().lower(): v for k, v in raw.items()}
+            if row.get("asking_price") in (None, ""):
+                skipped += 1
+                continue
             price = float(row["asking_price"])
-            currency = (row.get("currency") or "USD").upper()
-            source = row["source"]
+            currency = (str(row.get("currency") or "USD")).upper()
+            source = str(row.get("source") or default_source or "").strip()
+            if not source:
+                errors.append(f"Row {i}: missing source")
+                continue
             source_url = row.get("source_url") or None
             source_listing_id = row.get("source_listing_id") or None
+            if source_url is not None:
+                source_url = str(source_url)
+            if source_listing_id is not None:
+                source_listing_id = str(source_listing_id)
             neighborhood = row.get("neighborhood") or None
-            neighborhood_slug = (row.get("neighborhood_slug") or (neighborhood or "").lower().replace(" ", "-") or None)
+            if neighborhood is not None:
+                neighborhood = str(neighborhood)
+            neighborhood_slug = row.get("neighborhood_slug") or (
+                (neighborhood or "").lower().replace(" ", "-") or None
+            )
             bedrooms = int(row["bedrooms"]) if row.get("bedrooms") not in (None, "") else None
             bathrooms = float(row["bathrooms"]) if row.get("bathrooms") not in (None, "") else None
             observed_at = _parse_dt(row.get("observed_at"))
-            status = (row.get("observation_status") or ObservationStatus.ACTIVE_OBSERVED.value).lower()
+            status = str(row.get("observation_status") or ObservationStatus.ACTIVE_OBSERVED.value).lower()
             if status not in {s.value for s in ObservationStatus}:
                 status = ObservationStatus.ACTIVE_OBSERVED.value
 
-            dedupe = row.get("dedupe_key") or make_dedupe_key(
+            dedupe = str(row.get("dedupe_key") or "") or make_dedupe_key(
                 source, source_listing_id, source_url, neighborhood, bedrooms, price
             )
-            # Append-only: skip exact same dedupe+price+day if already present as latest active
             existing = await db.execute(
                 select(RentalObservation)
                 .where(RentalObservation.dedupe_key == dedupe)
@@ -103,13 +114,18 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
             )
             prev = existing.scalar_one_or_none()
             if prev and prev.asking_price == price and prev.observed_at.date() == observed_at.date():
-                # Refresh last_observed only via new row if status changed; else skip
                 if prev.observation_status == status:
                     skipped += 1
                     continue
 
             usd = to_usd(price, currency, fx.rate)
             first_at = prev.first_observed_at if prev else observed_at
+            amenities = row.get("amenities")
+            if isinstance(amenities, str) and amenities.strip():
+                amenities = [a.strip() for a in amenities.split(",") if a.strip()]
+            elif not isinstance(amenities, list):
+                amenities = None
+
             obs = RentalObservation(
                 source=source,
                 source_url=source_url,
@@ -118,13 +134,13 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
                 observed_at=observed_at,
                 first_observed_at=first_at,
                 last_observed_at=observed_at,
-                property_type=row.get("property_type") or None,
+                property_type=str(row["property_type"]) if row.get("property_type") else None,
                 bedrooms=bedrooms,
                 bathrooms=bathrooms,
                 size_sqm=float(row["size_sqm"]) if row.get("size_sqm") not in (None, "") else None,
                 neighborhood=neighborhood,
                 neighborhood_slug=neighborhood_slug,
-                district=row.get("district") or None,
+                district=str(row["district"]) if row.get("district") else None,
                 asking_price=price,
                 currency=currency,
                 usd_price=round(usd, 2),
@@ -132,24 +148,56 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
                 exchange_rate_date=fx.rate_date,
                 exchange_rate_source=fx.source,
                 is_furnished=_parse_bool(row.get("is_furnished")),
-                amenities=None,
-                rental_term=row.get("rental_term") or None,
+                amenities=amenities,
+                rental_term=str(row["rental_term"]) if row.get("rental_term") else None,
                 observation_status=status,
                 confidence=float(row["confidence"]) if row.get("confidence") not in (None, "") else None,
-                notes=row.get("notes") or None,
+                notes=str(row["notes"]) if row.get("notes") else None,
             )
-            # If previous was active and this import marks not_found, record status change clearly
             if prev and status == ObservationStatus.NOT_FOUND.value:
                 obs.notes = (obs.notes or "") + (
                     f" No longer observed on the source as of {observed_at.date().isoformat()}."
                 ).strip()
+            if prev and prev.asking_price != price:
+                obs.observation_status = ObservationStatus.PRICE_CHANGED.value
+                updated += 1
+            else:
+                imported += 1
             db.add(obs)
-            imported += 1
         except Exception as exc:  # noqa: BLE001
             errors.append(f"Row {i}: {exc}")
 
     await db.flush()
-    return {"imported": imported, "skipped": skipped, "errors": errors[:50]}
+    return {
+        "found": imported + updated + skipped,
+        "imported": imported,
+        "updated": updated,
+        "skipped": skipped,
+        "errors": errors[:50],
+    }
+
+
+async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dict:
+    text = content.decode("utf-8-sig") if isinstance(content, bytes) else content
+    reader = csv.DictReader(io.StringIO(text))
+    if not reader.fieldnames:
+        return {"imported": 0, "skipped": 0, "errors": ["Empty CSV"], "updated": 0, "found": 0}
+    fields = {f.strip().lower() for f in reader.fieldnames}
+    missing = REQUIRED_COLUMNS - fields
+    if missing:
+        return {
+            "imported": 0,
+            "skipped": 0,
+            "updated": 0,
+            "found": 0,
+            "errors": [f"Missing columns: {', '.join(sorted(missing))}"],
+        }
+
+    rows = []
+    for raw in reader:
+        row = {k.strip().lower(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items() if k}
+        rows.append(row)
+    return await ingest_observation_rows(db, rows)
 
 
 async def list_observations(

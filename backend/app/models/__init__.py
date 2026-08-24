@@ -57,6 +57,22 @@ class ObservationStatus(str, enum.Enum):
     INVALID = "invalid"
 
 
+class SourcePolicyStatus(str, enum.Enum):
+    NOT_REVIEWED = "not_reviewed"
+    REVIEWED_OK = "reviewed_ok"
+    REVIEWED_RESTRICTED = "reviewed_restricted"
+    BLOCKED = "blocked"
+
+
+class CollectionRunStatus(str, enum.Enum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    PAUSED = "paused"
+    CANCELLED = "cancelled"
+
+
 class SearchIndexStatus(str, enum.Enum):
     DISCOVERED = "discovered"
     DRAFT = "draft"
@@ -845,3 +861,51 @@ class IntentAutomationSetting(Base):
     key: Mapped[str] = mapped_column(String(80), nullable=False)
     value: Mapped[dict] = mapped_column(JSONB, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ExternalMarketSource(Base):
+    """Per-source control plane for external observations (separate from verified inventory)."""
+
+    __tablename__ = "external_market_sources"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_id: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String(160), nullable=False)
+    base_url: Mapped[str | None] = mapped_column(String(500))
+    robots_url: Mapped[str | None] = mapped_column(String(500))
+    preferred_ingest: Mapped[str] = mapped_column(String(20), default="csv")
+    collection_method: Mapped[str] = mapped_column(String(20), default="csv")  # csv | automated
+    policy_status: Mapped[str] = mapped_column(String(40), default=SourcePolicyStatus.NOT_REVIEWED.value)
+    policy_notes: Mapped[str | None] = mapped_column(Text)
+    robots_summary: Mapped[str | None] = mapped_column(Text)
+    robots_checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    automated_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    listing_adapter_ready: Mapped[bool] = mapped_column(Boolean, default=False)
+    last_crawl_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_import_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_error: Mapped[str | None] = mapped_column(Text)
+    consecutive_errors: Mapped[int] = mapped_column(Integer, default=0)
+    observation_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+
+class ExternalCollectionRun(Base):
+    """Background collection job progress for admin visibility."""
+
+    __tablename__ = "external_collection_runs"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    status: Mapped[str] = mapped_column(String(40), default=CollectionRunStatus.QUEUED.value, index=True)
+    mode: Mapped[str] = mapped_column(String(40), default="selected")  # selected | all_enabled | single | csv_import
+    source_ids: Mapped[list | None] = mapped_column(JSONB)
+    current_source_id: Mapped[str | None] = mapped_column(String(80))
+    progress: Mapped[dict | None] = mapped_column(JSONB)
+    observations_found: Mapped[int] = mapped_column(Integer, default=0)
+    observations_new: Mapped[int] = mapped_column(Integer, default=0)
+    observations_updated: Mapped[int] = mapped_column(Integer, default=0)
+    duplicates: Mapped[int] = mapped_column(Integer, default=0)
+    errors: Mapped[list | None] = mapped_column(JSONB)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

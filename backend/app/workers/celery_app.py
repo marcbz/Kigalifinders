@@ -97,6 +97,22 @@ def refresh_intents_for_property_task(
     return asyncio.run(_run())
 
 
+@celery_app.task
+def run_external_collection_task(run_id: str):
+    """Background external collection — never invoke from a web request body."""
+    import asyncio
+    from uuid import UUID
+
+    from app.database.session import AsyncSessionLocal
+    from app.services.external_collection import execute_collection_run
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            return await execute_collection_run(db, UUID(run_id))
+
+    return asyncio.run(_run())
+
+
 celery_app.conf.beat_schedule = {
     "rebuild-market-research-daily": {
         "task": "app.workers.celery_app.rebuild_market_research_task",

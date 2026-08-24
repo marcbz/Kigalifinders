@@ -16,13 +16,23 @@ from app.models import GscQuerySuggestion, SearchIndexStatus, SearchIntent, User
 from app.schemas.market import (
     GscSuggestionCreate,
     GscSuggestionItem,
-    ObservationImportResult,
     SearchIntentCreate,
     SearchIntentListItem,
     SearchIntentUpdate,
 )
 from app.services.crawler import CrawlerConfig, PoliteCrawler
-from app.services.market_sources import list_sources
+from app.services.external_collection import (
+    enqueue_collection,
+    get_run,
+    list_recent_runs,
+    mark_csv_import,
+    serialize_run,
+)
+from app.services.market_sources import (
+    list_source_dashboard,
+    review_source,
+    set_automated_enabled,
+)
 from app.services.observations import (
     bulk_update_observations,
     import_observations_csv,
@@ -39,6 +49,11 @@ class BulkIdsPayload(BaseModel):
 class BulkIntentPayload(BaseModel):
     ids: List[UUID] = Field(default_factory=list)
     action: str
+
+
+class CollectionEnqueuePayload(BaseModel):
+    source_ids: List[str] = Field(default_factory=list)
+    mode: str = "selected"  # selected | all_enabled
 
 
 router = APIRouter(prefix="/admin/market", tags=["Admin Market Intelligence"])
@@ -171,23 +186,24 @@ async def disable_intent(
     return {"ok": True}
 
 
-@router.post("/observations/import-csv", response_model=ObservationImportResult)
+@router.post("/observations/import-csv")
 async def import_csv(
     file: UploadFile = File(...),
+    source_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_staff),
 ):
     raw = await file.read()
     result = await import_observations_csv(db, raw)
-    from app.services.research import rebuild_observation_snapshots
-    from app.services.intent_automation import apply_index_rules, recalculate_all_intent_metrics
-    from app.services.intent_config import load_automation_config
-
-    await rebuild_observation_snapshots(db)
-    await recalculate_all_intent_metrics(db)
-    await apply_index_rules(db, await load_automation_config(db))
+    wrapped = await mark_csv_import(db, source_id=source_id, import_stats=result)
     await db.commit()
-    return ObservationImportResult(**result)
+    return {
+        "imported": result.get("imported", 0),
+        "skipped": result.get("skipped", 0),
+        "updated": result.get("updated", 0),
+        "errors": result.get("errors", []),
+        "research": wrapped.get("research"),
+    }
 
 
 @router.post("/research/rebuild")
@@ -279,20 +295,104 @@ async def crawler_sample(
         "errors": result.errors,
         "listings": result.listings,
         "note": "Crawler starts disabled. Prefer CSV import until one source is approved.",
-        "sources": list_sources(),
     }
 
 
 @router.get("/market-sources")
-async def market_sources(_: User = Depends(require_staff)):
-    return {
-        "sources": list_sources(),
-        "policy": (
-            "Automated crawls remain disabled by default. Use CSV import. "
-            "Never bypass CAPTCHA, login, paywalls, or anti-bot systems. "
-            "Disappeared listings → not_found/unknown — never assumed rented."
-        ),
-    }
+async def market_sources(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    data = await list_source_dashboard(db)
+    await db.commit()
+    return data
+
+
+@router.post("/market-sources/{source_id}/review")
+async def admin_review_source(
+    source_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    try:
+        row = await review_source(db, source_id)
+        await db.commit()
+        return row
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/market-sources/{source_id}/enable")
+async def admin_enable_source(
+    source_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    try:
+        row = await set_automated_enabled(db, source_id, True)
+        await db.commit()
+        return row
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/market-sources/{source_id}/disable")
+async def admin_disable_source(
+    source_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    try:
+        row = await set_automated_enabled(db, source_id, False)
+        await db.commit()
+        return row
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/market-sources/{source_id}/run")
+async def admin_run_source_now(
+    source_id: str,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    try:
+        return await enqueue_collection(db, source_ids=[source_id], mode="selected")
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.post("/external-research/run")
+async def admin_run_external_research(
+    payload: CollectionEnqueuePayload,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Open from admin 'Run External Research' — select sources or all enabled."""
+    try:
+        return await enqueue_collection(db, source_ids=payload.source_ids, mode=payload.mode)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.get("/external-research/runs")
+async def admin_list_collection_runs(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    return {"runs": await list_recent_runs(db)}
+
+
+@router.get("/external-research/runs/{run_id}")
+async def admin_get_collection_run(
+    run_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    run = await get_run(db, run_id)
+    if not run:
+        raise HTTPException(status_code=404, detail="Run not found")
+    return serialize_run(run)
 
 
 @router.get("/observations")
