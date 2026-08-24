@@ -83,6 +83,23 @@ def _snap_public(snap: MarketStatSnapshot | None, label: str) -> MarketSnapshotP
     )
 
 
+@router.get("/rentals/directory")
+async def rental_directory(db: AsyncSession = Depends(get_db)):
+    from app.services.rental_locations import build_rental_directory
+
+    return await build_rental_directory(db)
+
+
+@router.get("/rentals/locations/{location_slug}")
+async def rental_location_page(location_slug: str, db: AsyncSession = Depends(get_db)):
+    from app.services.rental_locations import build_location_page
+
+    page = await build_location_page(db, location_slug)
+    if not page:
+        raise HTTPException(status_code=404, detail="Rental location not found")
+    return page
+
+
 @router.get("/rentals/sitemap")
 async def rentals_sitemap(db: AsyncSession = Depends(get_db)):
     from app.models import SitemapStatus
@@ -97,17 +114,28 @@ async def rentals_sitemap(db: AsyncSession = Depends(get_db)):
         )
     )
     items = result.scalars().all()
-    return {
-        "items": [
+    from app.services.rental_locations import build_rental_directory
+
+    directory = await build_rental_directory(db)
+    hub_items = [
+        {"path": "/rentals", "last_built_at": None, "title": "Kigali Rentals Directory"},
+        {"path": "/rentals/kigali", "last_built_at": None, "title": "Kigali Rental Market Overview"},
+    ]
+    for n in directory.get("neighborhoods", []):
+        if n.get("listing_count", 0) > 0:
+            hub_items.append(
+                {"path": n["path"], "last_built_at": None, "title": f"Rentals in {n['name']}"}
+            )
+    intent_items = [
             {
                 "path": i.path,
                 "last_built_at": i.last_built_at,
                 "title": i.title,
             }
             for i in items
-            if i.path.startswith("/rentals/")
+            if i.path.startswith("/rentals/") and i.path.count("/") >= 3
         ]
-    }
+    return {"items": hub_items + intent_items}
 
 
 @router.get("/rentals/{location_slug}/{intent_slug}", response_model=SearchLandingPageResponse)

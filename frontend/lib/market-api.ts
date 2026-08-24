@@ -17,6 +17,16 @@ async function fetchSafe<T>(path: string, revalidate = 300): Promise<T | null> {
   }
 }
 
+export function fetchRentalDirectorySafe() {
+  return fetchSafe<RentalHubData>("/rentals/directory", 300);
+}
+
+export function fetchRentalLocationSafe(location: string) {
+  return fetchSafe<RentalHubData>(`/rentals/locations/${encodeURIComponent(location)}`, 300);
+}
+
+export type RentalHubData = import("@/components/rentals/rental-hub-page").RentalHubData;
+
 export function fetchRentalLandingSafe(location: string, intent: string) {
   return fetchSafe<SearchLandingPage>(
     `/rentals/${encodeURIComponent(location)}/${encodeURIComponent(intent)}`,

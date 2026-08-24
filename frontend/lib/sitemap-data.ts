@@ -14,6 +14,8 @@ export function getPagesSitemapEntries(now = new Date()): SitemapUrlEntry[] {
   return [
     { loc: base, lastModified: now, changeFrequency: "daily", priority: 1 },
     { loc: `${base}/properties`, lastModified: now, changeFrequency: "daily", priority: 0.9 },
+    { loc: `${base}/rentals`, lastModified: now, changeFrequency: "weekly", priority: 0.88 },
+    { loc: `${base}/rentals/kigali`, lastModified: now, changeFrequency: "weekly", priority: 0.87 },
     { loc: `${base}${getAreaIndexHref()}`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
     { loc: `${base}/research/kigali-rental-market`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { loc: `${base}/research/kigali-rental-market/prices`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },

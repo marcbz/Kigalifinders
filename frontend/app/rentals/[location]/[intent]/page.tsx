@@ -49,6 +49,12 @@ export default async function RentalLandingPage({ params }: Props) {
           <p className="text-gold-400 text-xs tracking-[0.25em] uppercase mb-3">KigaliRent verified search</p>
           <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight mb-4">{page.h1}</h1>
           <p className="text-lg text-gray-100 max-w-3xl leading-relaxed">{page.answer}</p>
+          {page.intro_html && (
+            <div
+              className="prose prose-invert prose-sm max-w-3xl mt-4 text-gray-200"
+              dangerouslySetInnerHTML={{ __html: page.intro_html }}
+            />
+          )}
           {page.last_updated && (
             <p className="text-sm text-gray-300 mt-4">
               Updated {new Date(page.last_updated).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}

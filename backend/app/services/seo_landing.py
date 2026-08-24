@@ -311,6 +311,7 @@ async def list_search_intents_admin(
     sitemap_status: str | None = None,
     automatic_eligibility: str | None = None,
     seo_control: str | None = None,
+    simple_status: str | None = None,
     sort_by: str = "updated_at",
     sort_dir: str = "desc",
     page: int = 1,
@@ -347,6 +348,38 @@ async def list_search_intents_admin(
     if seo_control:
         q = q.where(SearchIntent.seo_control == seo_control)
         count_q = count_q.where(SearchIntent.seo_control == seo_control)
+    if simple_status == "published":
+        q = q.where(SearchIntent.index_status == SearchIndexStatus.INDEXABLE.value)
+        count_q = count_q.where(SearchIntent.index_status == SearchIndexStatus.INDEXABLE.value)
+    elif simple_status == "noindex":
+        q = q.where(SearchIntent.index_status == SearchIndexStatus.NOINDEX.value)
+        count_q = count_q.where(SearchIntent.index_status == SearchIndexStatus.NOINDEX.value)
+    elif simple_status == "ready":
+        q = q.where(
+            SearchIntent.automatic_eligibility == AutomaticEligibility.ELIGIBLE.value,
+            SearchIntent.index_status.notin_(
+                [SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value, SearchIndexStatus.DISABLED.value]
+            ),
+        )
+        count_q = count_q.where(
+            SearchIntent.automatic_eligibility == AutomaticEligibility.ELIGIBLE.value,
+            SearchIntent.index_status.notin_(
+                [SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value, SearchIndexStatus.DISABLED.value]
+            ),
+        )
+    elif simple_status == "not_ready":
+        q = q.where(
+            SearchIntent.automatic_eligibility == AutomaticEligibility.EXCLUDED.value,
+            SearchIntent.index_status.notin_(
+                [SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value, SearchIndexStatus.DISABLED.value]
+            ),
+        )
+        count_q = count_q.where(
+            SearchIntent.automatic_eligibility == AutomaticEligibility.EXCLUDED.value,
+            SearchIntent.index_status.notin_(
+                [SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value, SearchIndexStatus.DISABLED.value]
+            ),
+        )
 
     col = SORT_COLUMNS.get(sort_by, SearchIntent.updated_at)
     q = q.order_by(col.desc() if sort_dir.lower() == "desc" else col.asc())
