@@ -233,7 +233,11 @@ export const adminService = {
   regenerateSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/regenerate`).then((r) => r.data),
   approveSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/approve`).then((r) => r.data),
   noindexSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/noindex`).then((r) => r.data),
+  lockSearchIntent: (id: string, locked = true) =>
+    api.post(`/admin/market/search-intents/${id}/lock`, null, { params: { locked } }).then((r) => r.data),
   rebuildResearch: () => api.post("/admin/market/research/rebuild").then((r) => r.data),
+  runDiscovery: (deep = true) =>
+    api.post("/admin/market/automation/discover", null, { params: { deep } }).then((r) => r.data),
   importObservationsCsv: (file: File) => {
     const form = new FormData();
     form.append("file", file);

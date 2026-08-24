@@ -275,6 +275,24 @@ async def create_property(
     await db.flush()
     await _sync_property_images(db, prop, data.images)
     await sync_location_counts(db)
+    nslug = None
+    tslug = None
+    if prop.neighborhood_id:
+        from app.models import Neighborhood
+        n = await db.get(Neighborhood, prop.neighborhood_id)
+        nslug = n.slug if n else None
+    if prop.property_type_id:
+        from app.models import PropertyType
+        t = await db.get(PropertyType, prop.property_type_id)
+        tslug = t.slug if t else None
+    try:
+        from app.workers.celery_app import refresh_intents_for_property_task
+        refresh_intents_for_property_task.delay(nslug, prop.bedrooms, tslug)
+    except Exception:
+        from app.services.intent_automation import refresh_intents_for_property_facets
+        await refresh_intents_for_property_facets(
+            db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug
+        )
     repo = PropertyRepository(db)
     result = await repo.get_by_id(prop.id)
     return repo._to_list_item(result)
@@ -340,6 +358,16 @@ async def update_property(
     if images is not None:
         await _sync_property_images(db, prop, images)
     await sync_location_counts(db)
+    nslug = prop.neighborhood.slug if prop.neighborhood else None
+    tslug = prop.property_type.slug if prop.property_type else None
+    try:
+        from app.workers.celery_app import refresh_intents_for_property_task
+        refresh_intents_for_property_task.delay(nslug, prop.bedrooms, tslug)
+    except Exception:
+        from app.services.intent_automation import refresh_intents_for_property_facets
+        await refresh_intents_for_property_facets(
+            db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug
+        )
     result = await repo.get_by_id(property_id)
     return repo._to_list_item(result)
 

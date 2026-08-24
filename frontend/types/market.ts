@@ -64,9 +64,18 @@ export type SearchIntentAdmin = {
   h1: string;
   meta_description?: string;
   quality_score: number;
+  opportunity_score?: number;
   index_status: string;
   match_count: number;
+  matching_observation_count?: number;
   last_built_at?: string;
+  last_calculated_at?: string;
+  last_content_change_at?: string;
+  data_freshness?: string;
+  status_reason?: string;
+  source?: string;
+  locked_by_admin?: boolean;
+  automation_disabled?: boolean;
   gsc_impressions?: number;
   gsc_clicks?: number;
   gsc_ctr?: number;

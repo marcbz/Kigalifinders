@@ -43,6 +43,9 @@ class SearchIntentUpdate(BaseModel):
     intro_html: Optional[str] = None
     index_status: Optional[str] = None
     is_enabled: Optional[bool] = None
+    locked_by_admin: Optional[bool] = None
+    automation_disabled: Optional[bool] = None
+    status_reason: Optional[str] = None
 
 
 class SearchIntentListItem(BaseModel):
@@ -57,15 +60,25 @@ class SearchIntentListItem(BaseModel):
     h1: str
     meta_description: Optional[str] = None
     quality_score: float
+    opportunity_score: float = 0
     index_status: str
     match_count: int
+    matching_observation_count: int = 0
     last_built_at: Optional[datetime] = None
+    last_calculated_at: Optional[datetime] = None
+    last_content_change_at: Optional[datetime] = None
+    data_freshness: str = "unknown"
+    status_reason: Optional[str] = None
+    source: str = "manual"
+    locked_by_admin: bool = False
+    automation_disabled: bool = False
     gsc_impressions: Optional[int] = None
     gsc_clicks: Optional[int] = None
     gsc_ctr: Optional[float] = None
     gsc_position: Optional[float] = None
     is_enabled: bool
     updated_at: Optional[datetime] = None
+    created_at: Optional[datetime] = None
 
 
 class ScoredPropertyCard(BaseModel):

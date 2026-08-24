@@ -296,9 +296,16 @@ async def related_intents(db: AsyncSession, intent: SearchIntent, limit: int = 8
 
 
 async def rebuild_intent_metrics(db: AsyncSession, intent: SearchIntent) -> SearchIntent:
-    matches = await match_verified_properties(db, intent.query, limit=50)
+    from app.services.intent_automation import count_observations, compute_freshness, opportunity_score, specificity_score
+    from app.services.intent_config import load_automation_config
+    from app.services.intent_copy import canonical_query_hash, normalize_query
+
+    cfg = await load_automation_config(db)
+    q = normalize_query(intent.query or {})
+    matches = await match_verified_properties(db, q, limit=50)
     intent.match_count = len(matches)
-    snap = await get_market_snapshot_for_query(db, intent.query)
+    intent.matching_observation_count = await count_observations(db, q)
+    snap = await get_market_snapshot_for_query(db, q)
     location_known = bool(intent.location_slug)
     unique_copy = bool(intent.meta_description and intent.h1)
     intent.quality_score = quality_score_for_intent(
@@ -307,12 +314,24 @@ async def rebuild_intent_metrics(db: AsyncSession, intent: SearchIntent) -> Sear
         location_known=location_known,
         unique_copy=unique_copy,
     )
-    # Do not auto-promote to indexable without human approval, but suggest noindex if weak
-    if intent.index_status == SearchIndexStatus.DRAFT.value:
-        pass
-    elif intent.index_status == SearchIndexStatus.INDEXABLE.value and intent.quality_score < MIN_QUALITY_FOR_INDEX:
-        intent.index_status = SearchIndexStatus.NOINDEX.value
+    intent.data_freshness = compute_freshness([m.last_verified_at for m in matches], cfg)
+    intent.opportunity_score = opportunity_score(
+        verified=intent.match_count,
+        observations=intent.matching_observation_count,
+        freshness=intent.data_freshness,
+        specificity=specificity_score(q),
+        uniqueness=8.0 if intent.location_slug != "kigali" else 4.0,
+        gsc_impressions=intent.gsc_impressions,
+    )
+    intent.canonical_query_hash = intent.canonical_query_hash or canonical_query_hash(q)
+    if not intent.locked_by_admin and not intent.automation_disabled:
+        if intent.index_status == SearchIndexStatus.DRAFT.value:
+            pass
+        elif intent.index_status == SearchIndexStatus.INDEXABLE.value and intent.quality_score < MIN_QUALITY_FOR_INDEX:
+            intent.index_status = SearchIndexStatus.NOINDEX.value
+            intent.status_reason = "Demoted: quality below threshold"
     intent.last_built_at = datetime.now(timezone.utc)
+    intent.last_calculated_at = datetime.now(timezone.utc)
     intent.updated_at = datetime.now(timezone.utc)
     return intent
 

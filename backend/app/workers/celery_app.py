@@ -28,7 +28,7 @@ def send_email_task(to: str, subject: str, html: str):
 
 @celery_app.task
 def rebuild_market_research_task():
-    """Nightly-style aggregate rebuild. Trigger via Beat or Render cron hitting admin API."""
+    """Nightly-style aggregate rebuild. Prefer run_daily_automation_task in production."""
     import asyncio
 
     from app.database.session import AsyncSessionLocal
@@ -44,9 +44,70 @@ def rebuild_market_research_task():
     return asyncio.run(_run())
 
 
+@celery_app.task
+def run_daily_automation_task():
+    import asyncio
+
+    from app.database.session import AsyncSessionLocal
+    from app.services.intent_automation import run_daily_automation
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            return await run_daily_automation(db)
+
+    return asyncio.run(_run())
+
+
+@celery_app.task
+def run_weekly_audit_task():
+    import asyncio
+
+    from app.database.session import AsyncSessionLocal
+    from app.services.intent_automation import run_weekly_audit
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            return await run_weekly_audit(db)
+
+    return asyncio.run(_run())
+
+
+@celery_app.task
+def refresh_intents_for_property_task(
+    location_slug: str | None = None,
+    bedrooms: int | None = None,
+    property_type_slug: str | None = None,
+):
+    import asyncio
+
+    from app.database.session import AsyncSessionLocal
+    from app.services.intent_automation import refresh_intents_for_property_facets
+
+    async def _run():
+        async with AsyncSessionLocal() as db:
+            n = await refresh_intents_for_property_facets(
+                db,
+                location_slug=location_slug,
+                bedrooms=bedrooms,
+                property_type_slug=property_type_slug,
+            )
+            await db.commit()
+            return {"touched": n}
+
+    return asyncio.run(_run())
+
+
 celery_app.conf.beat_schedule = {
     "rebuild-market-research-daily": {
         "task": "app.workers.celery_app.rebuild_market_research_task",
         "schedule": 60 * 60 * 24,
+    },
+    "intent-automation-daily": {
+        "task": "app.workers.celery_app.run_daily_automation_task",
+        "schedule": 60 * 60 * 24,
+    },
+    "intent-automation-weekly": {
+        "task": "app.workers.celery_app.run_weekly_audit_task",
+        "schedule": 60 * 60 * 24 * 7,
     },
 }

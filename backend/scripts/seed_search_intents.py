@@ -174,14 +174,17 @@ async def main() -> None:
                 h1=item["h1"],
                 meta_description=item.get("meta_description"),
                 index_status=SearchIndexStatus.NOINDEX.value,
+                source="seed",
+                status_reason="Bootstrap seed intent",
                 is_enabled=True,
             )
             db.add(intent)
             await db.flush()
             await rebuild_intent_metrics(db, intent)
-            # Promote strong pages to indexable after seed metrics
+            # Bootstrap only: promote strong seed pages; ongoing discovery uses stricter auto-index gates
             if intent.match_count >= 1 and intent.quality_score >= 40:
                 intent.index_status = SearchIndexStatus.INDEXABLE.value
+                intent.status_reason = "Seed bootstrap: indexable"
             created += 1
         await db.commit()
         print(f"Seeded {created} search intents")

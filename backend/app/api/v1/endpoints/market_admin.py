@@ -22,8 +22,8 @@ from app.schemas.market import (
 )
 from app.services.crawler import CrawlerConfig, PoliteCrawler
 from app.services.observations import import_observations_csv
-from app.services.research import rebuild_observation_snapshots, rebuild_verified_snapshots
 from app.services.search_intent import build_path, rebuild_intent_metrics
+# research rebuilds are orchestrated via intent_automation.run_daily_automation
 
 router = APIRouter(prefix="/admin/market", tags=["Admin Market Intelligence"])
 
@@ -113,8 +113,11 @@ async def approve_intent(
     await rebuild_intent_metrics(db, intent)
     if intent.match_count < 1 or intent.quality_score < 40:
         intent.index_status = SearchIndexStatus.NOINDEX.value
+        intent.status_reason = "Manual review: not enough quality to index"
     else:
         intent.index_status = SearchIndexStatus.INDEXABLE.value
+        intent.status_reason = "Manually approved"
+        intent.locked_by_admin = True
     await db.commit()
     await db.refresh(intent)
     return intent
@@ -130,6 +133,8 @@ async def noindex_intent(
     if not intent:
         raise HTTPException(status_code=404, detail="Not found")
     intent.index_status = SearchIndexStatus.NOINDEX.value
+    intent.locked_by_admin = True
+    intent.status_reason = "Manually set to noindex"
     await db.commit()
     await db.refresh(intent)
     return intent
@@ -158,6 +163,13 @@ async def import_csv(
 ):
     raw = await file.read()
     result = await import_observations_csv(db, raw)
+    from app.services.research import rebuild_observation_snapshots
+    from app.services.intent_automation import apply_index_rules, recalculate_all_intent_metrics
+    from app.services.intent_config import load_automation_config
+
+    await rebuild_observation_snapshots(db)
+    await recalculate_all_intent_metrics(db)
+    await apply_index_rules(db, await load_automation_config(db))
     await db.commit()
     return ObservationImportResult(**result)
 
@@ -167,18 +179,75 @@ async def rebuild_research(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    v = await rebuild_verified_snapshots(db)
-    o = await rebuild_observation_snapshots(db)
-    # refresh all intents
-    intents = list(
-        (
-            await db.execute(select(SearchIntent).where(SearchIntent.is_enabled == True))  # noqa: E712
-        ).scalars().all()
-    )
-    for intent in intents:
-        await rebuild_intent_metrics(db, intent)
+    """Full research refresh + intent discovery/metrics (safe to run on a schedule)."""
+    from app.services.intent_automation import run_daily_automation
+
+    return await run_daily_automation(db)
+
+
+@router.post("/automation/daily")
+async def automation_daily(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.intent_automation import run_daily_automation
+
+    return await run_daily_automation(db)
+
+
+@router.post("/automation/weekly")
+async def automation_weekly(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.intent_automation import run_weekly_audit
+
+    return await run_weekly_audit(db)
+
+
+@router.post("/automation/discover")
+async def automation_discover(
+    deep: bool = False,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.intent_automation import discover_intents
+
+    result = await discover_intents(db, deep=deep)
     await db.commit()
-    return {"verified_snapshots": v, "observation_snapshots": o, "intents_refreshed": len(intents)}
+    return result
+
+
+@router.post("/search-intents/{intent_id}/lock")
+async def lock_intent(
+    intent_id: UUID,
+    locked: bool = True,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    intent = await db.get(SearchIntent, intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail="Not found")
+    intent.locked_by_admin = locked
+    intent.status_reason = "Locked by admin" if locked else "Unlocked by admin"
+    await db.commit()
+    return {"ok": True, "locked_by_admin": intent.locked_by_admin}
+
+
+@router.post("/search-intents/{intent_id}/disable-automation")
+async def disable_automation(
+    intent_id: UUID,
+    disabled: bool = True,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    intent = await db.get(SearchIntent, intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail="Not found")
+    intent.automation_disabled = disabled
+    intent.status_reason = "Automation disabled" if disabled else "Automation re-enabled"
+    await db.commit()
+    return {"ok": True, "automation_disabled": intent.automation_disabled}
 
 
 @router.post("/crawler/sample")
