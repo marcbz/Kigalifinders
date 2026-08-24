@@ -22,6 +22,7 @@ from app.models import (
     SearchIndexStatus,
     SearchIntent,
     SearchLandingRelation,
+    SitemapStatus,
 )
 from app.services.fx import effective_usd_price
 
@@ -325,12 +326,16 @@ async def rebuild_intent_metrics(db: AsyncSession, intent: SearchIntent) -> Sear
         gsc_impressions=intent.gsc_impressions,
     )
     intent.canonical_query_hash = intent.canonical_query_hash or canonical_query_hash(q)
-    if not intent.locked_by_admin and not intent.automation_disabled:
+    from app.services.seo_landing import is_manual_override, sync_sitemap_with_index
+
+    if not is_manual_override(intent) and not intent.automation_disabled:
         if intent.index_status == SearchIndexStatus.DRAFT.value:
             pass
         elif intent.index_status == SearchIndexStatus.INDEXABLE.value and intent.quality_score < MIN_QUALITY_FOR_INDEX:
             intent.index_status = SearchIndexStatus.NOINDEX.value
             intent.status_reason = "Demoted: quality below threshold"
+            intent.sitemap_status = SitemapStatus.EXCLUDED.value
+    sync_sitemap_with_index(intent)
     intent.last_built_at = datetime.now(timezone.utc)
     intent.last_calculated_at = datetime.now(timezone.utc)
     intent.updated_at = datetime.now(timezone.utc)

@@ -4,39 +4,159 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { adminService } from "@/services/api";
-import type { SearchIntentAdmin } from "@/types/market";
+import type { EligibilityDetails, SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
-const TABS = [
-  { id: "all", label: "All" },
-  { id: "discovered", label: "Discovered" },
-  { id: "draft", label: "Draft" },
-  { id: "indexable", label: "Indexable / Published" },
-  { id: "noindex", label: "Noindex" },
-  { id: "disabled", label: "Disabled" },
-] as const;
+const STATUS_OPTIONS = [
+  { value: "", label: "All statuses" },
+  { value: "indexable", label: "Indexable" },
+  { value: "noindex", label: "Noindex" },
+  { value: "draft", label: "Draft" },
+  { value: "discovered", label: "Discovered" },
+  { value: "disabled", label: "Disabled" },
+];
+
+const SORT_COLUMNS = [
+  { value: "match_count", label: "Matches" },
+  { value: "matching_observation_count", label: "Observations" },
+  { value: "opportunity_score", label: "Opportunity" },
+  { value: "quality_score", label: "Quality" },
+  { value: "updated_at", label: "Updated" },
+  { value: "last_evaluated_at", label: "Last evaluated" },
+];
+
+type Filters = {
+  search: string;
+  location: string;
+  property_type: string;
+  index_status: string;
+  sort_by: string;
+  sort_dir: "asc" | "desc";
+  page: number;
+};
+
+const DEFAULT_FILTERS: Filters = {
+  search: "",
+  location: "",
+  property_type: "",
+  index_status: "",
+  sort_by: "updated_at",
+  sort_dir: "desc",
+  page: 1,
+};
+
+function formatIntent(row: SearchIntentAdmin) {
+  const q = row.query || {};
+  const parts = [row.location_slug !== "kigali" ? row.location_slug : "Kigali"];
+  if (q.property_type) parts.push(String(q.property_type));
+  if (q.bedrooms != null) parts.push(`${q.bedrooms}+ bed`);
+  if (q.furnished === true) parts.push("furnished");
+  return parts.join(" · ");
+}
 
 export default function AdminSearchLandingsPage() {
   const qc = useQueryClient();
-  const [tab, setTab] = useState<(typeof TABS)[number]["id"]>("all");
+  const [filters, setFilters] = useState<Filters>(DEFAULT_FILTERS);
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const { data = [], isLoading, error } = useQuery({
-    queryKey: ["admin-search-intents"],
-    queryFn: () => adminService.searchIntents() as Promise<SearchIntentAdmin[]>,
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [eligibilityId, setEligibilityId] = useState<string | null>(null);
+
+  const queryParams = useMemo(
+    () => ({
+      search: filters.search || undefined,
+      location: filters.location || undefined,
+      property_type: filters.property_type || undefined,
+      index_status: filters.index_status || undefined,
+      sort_by: filters.sort_by,
+      sort_dir: filters.sort_dir,
+      page: filters.page,
+      page_size: 50,
+    }),
+    [filters]
+  );
+
+  const { data, isLoading, error } = useQuery({
+    queryKey: ["admin-search-intents", queryParams],
+    queryFn: () => adminService.searchIntents(queryParams) as Promise<SearchIntentListResponse>,
   });
 
-  const filtered = useMemo(() => {
-    if (tab === "all") return data;
-    if (tab === "indexable") return data.filter((r) => r.index_status === "indexable");
-    return data.filter((r) => r.index_status === tab);
-  }, [data, tab]);
+  const locations = useQuery({
+    queryKey: ["admin-search-intent-locations"],
+    queryFn: () => adminService.searchIntentLocations() as Promise<string[]>,
+  });
 
-  const counts = useMemo(() => {
-    const c: Record<string, number> = { all: data.length };
-    for (const row of data) c[row.index_status] = (c[row.index_status] || 0) + 1;
-    return c;
-  }, [data]);
+  const items = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const pageSize = data?.page_size ?? 50;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
-  const visibleIds = filtered.map((r) => r.id);
+  const eligibility = useQuery({
+    queryKey: ["admin-intent-eligibility", eligibilityId],
+    queryFn: () => adminService.getSearchIntentEligibility(eligibilityId!) as Promise<EligibilityDetails>,
+    enabled: Boolean(eligibilityId),
+  });
+
+  const seoSummary = useQuery({
+    queryKey: ["admin-seo-summary"],
+    queryFn: () => adminService.getSeoSummary(),
+  });
+
+  const invalidate = () => {
+    qc.invalidateQueries({ queryKey: ["admin-search-intents"] });
+    qc.invalidateQueries({ queryKey: ["admin-seo-summary"] });
+  };
+
+  const showFeedback = (type: "success" | "error", message: string) => {
+    setFeedback({ type, message });
+    setTimeout(() => setFeedback(null), 5000);
+  };
+
+  const actionMutation = useMutation({
+    mutationFn: async (args: { fn: () => Promise<unknown>; success: string }) => {
+      await args.fn();
+      return args.success;
+    },
+    onSuccess: (msg) => {
+      showFeedback("success", msg);
+      invalidate();
+    },
+    onError: (err: Error) => showFeedback("error", err.message || "Action failed"),
+  });
+
+  const bulk = useMutation({
+    mutationFn: (action: string) => adminService.bulkSearchIntents(Array.from(selected), action),
+    onSuccess: (res: { updated?: number; errors?: string[]; ok?: boolean }) => {
+      if (res.errors?.length) {
+        showFeedback("error", res.errors.join("; "));
+      } else {
+        showFeedback("success", `Updated ${res.updated ?? 0} landing page(s).`);
+      }
+      setSelected(new Set());
+      invalidate();
+    },
+    onError: (err: Error) => showFeedback("error", err.message || "Bulk action failed"),
+  });
+
+  const rebuild = useMutation({
+    mutationFn: () => adminService.rebuildResearch(),
+    onSuccess: () => {
+      showFeedback("success", "Research rebuild started.");
+      invalidate();
+    },
+  });
+
+  const discover = useMutation({
+    mutationFn: () => adminService.runDiscovery(true),
+    onSuccess: () => {
+      showFeedback("success", "Discovery complete.");
+      invalidate();
+    },
+  });
+
+  const importCsv = useMutation({
+    mutationFn: (file: File) => adminService.importObservationsCsv(file),
+  });
+
+  const visibleIds = items.map((r) => r.id);
   const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selected.has(id));
 
   const toggle = (id: string) => {
@@ -47,64 +167,34 @@ export default function AdminSearchLandingsPage() {
       return next;
     });
   };
-  const selectVisible = () => setSelected(new Set(visibleIds));
-  const selectAll = () => setSelected(new Set(data.map((r) => r.id)));
-  const unselectAll = () => setSelected(new Set());
-
-  const invalidate = () => qc.invalidateQueries({ queryKey: ["admin-search-intents"] });
-  const regenerate = useMutation({
-    mutationFn: (id: string) => adminService.regenerateSearchIntent(id),
-    onSuccess: invalidate,
-  });
-  const approve = useMutation({
-    mutationFn: (id: string) => adminService.approveSearchIntent(id),
-    onSuccess: invalidate,
-  });
-  const noindex = useMutation({
-    mutationFn: (id: string) => adminService.noindexSearchIntent(id),
-    onSuccess: invalidate,
-  });
-  const rebuild = useMutation({
-    mutationFn: () => adminService.rebuildResearch(),
-    onSuccess: invalidate,
-  });
-  const discover = useMutation({
-    mutationFn: () => adminService.runDiscovery(true),
-    onSuccess: invalidate,
-  });
-  const bulk = useMutation({
-    mutationFn: (action: string) => adminService.bulkSearchIntents(Array.from(selected), action),
-    onSuccess: () => {
-      unselectAll();
-      invalidate();
-    },
-  });
-  const importCsv = useMutation({
-    mutationFn: (file: File) => adminService.importObservationsCsv(file),
-  });
-  const lock = useMutation({
-    mutationFn: ({ id, locked }: { id: string; locked: boolean }) => adminService.lockSearchIntent(id, locked),
-    onSuccess: invalidate,
-  });
 
   const runBulk = (action: string, destructive = false) => {
     if (!selected.size && action !== "rebuild_research") return;
-    if (destructive && !window.confirm(`Apply “${action}” to ${selected.size} selected intent(s)?`)) return;
+    if (destructive && !window.confirm(`Apply “${action}” to ${selected.size} selected page(s)?`)) return;
     bulk.mutate(action);
   };
 
-  const seoSummary = useQuery({
-    queryKey: ["admin-seo-summary"],
-    queryFn: () => adminService.getSeoSummary(),
-  });
+  const toggleSort = (col: string) => {
+    setFilters((f) => ({
+      ...f,
+      page: 1,
+      sort_by: col,
+      sort_dir: f.sort_by === col && f.sort_dir === "desc" ? "asc" : "desc",
+    }));
+  };
+
+  const sortIndicator = (col: string) => {
+    if (filters.sort_by !== col) return "";
+    return filters.sort_dir === "desc" ? " ↓" : " ↑";
+  };
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-navy-800 dark:text-white">Search Landing Pages</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Auto-discovered from inventory + external observations. Manual overrides lock automation.{" "}
+            Index status and sitemap inclusion are stored in the database and drive public robots metadata.{" "}
             <Link href="/admin/seo-settings" className="underline">
               SEO settings
             </Link>
@@ -119,7 +209,7 @@ export default function AdminSearchLandingsPage() {
             onClick={() => rebuild.mutate()}
             className="px-4 py-2 text-sm rounded-lg bg-navy-800 text-white"
           >
-            {rebuild.isPending ? "Running…" : "Rebuild research + automation"}
+            {rebuild.isPending ? "Running…" : "Rebuild research"}
           </button>
           <label className="px-4 py-2 text-sm rounded-lg border cursor-pointer">
             Import observations CSV
@@ -136,85 +226,160 @@ export default function AdminSearchLandingsPage() {
         </div>
       </div>
 
+      {feedback && (
+        <div
+          className={`text-sm rounded-lg px-4 py-3 ${
+            feedback.type === "success" ? "bg-green-50 text-green-800 border border-green-200" : "bg-red-50 text-red-800 border border-red-200"
+          }`}
+        >
+          {feedback.message}
+        </div>
+      )}
+
       {seoSummary.data && (
         <div className="text-sm border rounded-xl p-4 bg-white dark:bg-navy-800 flex flex-wrap gap-6">
           <div>
-            <span className="text-gray-500">Eligible SEO landings</span>
-            <div className="text-xl font-serif">{seoSummary.data.eligible_landing_pages}</div>
+            <span className="text-gray-500">Indexable</span>
+            <div className="text-xl font-serif">{seoSummary.data.indexable ?? seoSummary.data.eligible_landing_pages}</div>
           </div>
           <div>
-            <span className="text-gray-500">Excluded</span>
-            <div className="text-xl font-serif">{seoSummary.data.excluded_pages}</div>
+            <span className="text-gray-500">Noindex</span>
+            <div className="text-xl font-serif">{seoSummary.data.noindex ?? 0}</div>
           </div>
-          <div className="text-xs text-gray-500 max-w-md">
-            Thresholds: ≥{seoSummary.data.thresholds?.min_dimensions_for_index} dimensions, ≥
-            {seoSummary.data.thresholds?.min_verified_for_index} matching properties.{" "}
-            <Link href="/admin/seo-settings" className="underline">
-              Adjust SEO settings
-            </Link>
+          <div>
+            <span className="text-gray-500">Sitemap included</span>
+            <div className="text-xl font-serif">{seoSummary.data.sitemap_included ?? 0}</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Manual overrides</span>
+            <div className="text-xl font-serif">{seoSummary.data.manual_overrides ?? 0}</div>
           </div>
         </div>
       )}
 
+      <div className="flex flex-wrap gap-3 items-end border rounded-xl p-4 bg-white dark:bg-navy-800">
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Search</label>
+          <input
+            className="border rounded px-2 py-1 text-sm w-48"
+            placeholder="URL, title, slug…"
+            value={filters.search}
+            onChange={(e) => setFilters((f) => ({ ...f, search: e.target.value, page: 1 }))}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Area</label>
+          <select
+            className="border rounded px-2 py-1 text-sm"
+            value={filters.location}
+            onChange={(e) => setFilters((f) => ({ ...f, location: e.target.value, page: 1 }))}
+          >
+            <option value="">All areas</option>
+            {(locations.data || []).map((loc) => (
+              <option key={loc} value={loc}>
+                {loc}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Property type</label>
+          <select
+            className="border rounded px-2 py-1 text-sm"
+            value={filters.property_type}
+            onChange={(e) => setFilters((f) => ({ ...f, property_type: e.target.value, page: 1 }))}
+          >
+            <option value="">All types</option>
+            <option value="apartment">Apartment</option>
+            <option value="house">House</option>
+            <option value="villa">Villa</option>
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Status</label>
+          <select
+            className="border rounded px-2 py-1 text-sm"
+            value={filters.index_status}
+            onChange={(e) => setFilters((f) => ({ ...f, index_status: e.target.value, page: 1 }))}
+          >
+            {STATUS_OPTIONS.map((o) => (
+              <option key={o.value || "all"} value={o.value}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Sort</label>
+          <select
+            className="border rounded px-2 py-1 text-sm"
+            value={filters.sort_by}
+            onChange={(e) => setFilters((f) => ({ ...f, sort_by: e.target.value, page: 1 }))}
+          >
+            {SORT_COLUMNS.map((c) => (
+              <option key={c.value} value={c.value}>
+                {c.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label className="text-xs text-gray-500 block mb-1">Direction</label>
+          <select
+            className="border rounded px-2 py-1 text-sm"
+            value={filters.sort_dir}
+            onChange={(e) => setFilters((f) => ({ ...f, sort_dir: e.target.value as "asc" | "desc", page: 1 }))}
+          >
+            <option value="desc">Highest → Lowest</option>
+            <option value="asc">Lowest → Highest</option>
+          </select>
+        </div>
+        <button
+          type="button"
+          className="text-sm underline"
+          onClick={() => {
+            setFilters(DEFAULT_FILTERS);
+            setSelected(new Set());
+          }}
+        >
+          Reset filters
+        </button>
+      </div>
+
       <div className="flex flex-wrap gap-2 items-center text-sm">
-        <span className="text-gray-500">{selected.size} selected</span>
-        <button type="button" className="underline" onClick={selectVisible}>
+        <span className="text-gray-500">{selected.size} selected · {total} total</span>
+        <button type="button" className="underline" onClick={() => setSelected(new Set(visibleIds))}>
           Select visible
         </button>
-        <button type="button" className="underline" onClick={selectAll}>
-          Select all
+        <button type="button" className="underline" onClick={() => setSelected(new Set(items.map((r) => r.id)))}>
+          Select all on page
         </button>
-        <button type="button" className="underline" onClick={unselectAll}>
+        <button type="button" className="underline" onClick={() => setSelected(new Set())}>
           Unselect all
         </button>
         <span className="mx-2 text-gray-300">|</span>
-        <button type="button" className="underline" onClick={() => runBulk("approve", true)}>
-          Approve
+        <button type="button" className="underline" onClick={() => runBulk("set_indexable", true)}>
+          Set indexable
         </button>
-        <button type="button" className="underline" onClick={() => runBulk("indexable", true)}>
-          Indexable
+        <button type="button" className="underline" onClick={() => runBulk("set_noindex", true)}>
+          Set noindex
         </button>
-        <button type="button" className="underline" onClick={() => runBulk("noindex", true)}>
-          Noindex
+        <button type="button" className="underline" onClick={() => runBulk("sitemap_include", true)}>
+          Include in sitemap
         </button>
-        <button type="button" className="underline" onClick={() => runBulk("refresh")}>
-          Refresh
+        <button type="button" className="underline" onClick={() => runBulk("sitemap_exclude", true)}>
+          Exclude from sitemap
         </button>
-        <button type="button" className="underline" onClick={() => runBulk("enable")}>
-          Enable
-        </button>
-        <button type="button" className="underline" onClick={() => runBulk("disable", true)}>
-          Disable
+        <button type="button" className="underline" onClick={() => runBulk("reset_automatic", true)}>
+          Reset to automatic
         </button>
         <button type="button" className="underline" onClick={() => runBulk("rebuild_research", true)}>
           Rebuild research
         </button>
       </div>
 
-      {(rebuild.data || importCsv.data || discover.data || bulk.data) && (
-        <pre className="text-xs bg-gray-100 p-3 rounded overflow-auto max-h-40">
-          {JSON.stringify(rebuild.data || importCsv.data || discover.data || bulk.data, null, 2)}
-        </pre>
-      )}
-
-      <div className="flex flex-wrap gap-2">
-        {TABS.map((t) => (
-          <button
-            key={t.id}
-            type="button"
-            onClick={() => setTab(t.id)}
-            className={`px-3 py-1.5 text-xs rounded-full border ${
-              tab === t.id ? "bg-navy-800 text-white border-navy-800" : "bg-white"
-            }`}
-          >
-            {t.label} (
-            {t.id === "all" ? counts.all || 0 : t.id === "indexable" ? counts.indexable || 0 : counts[t.id] || 0})
-          </button>
-        ))}
-      </div>
-
       {isLoading && <p className="text-sm text-gray-500">Loading…</p>}
-      {error && <p className="text-sm text-red-600">Failed to load intents.</p>}
+      {error && <p className="text-sm text-red-600">Failed to load landing pages.</p>}
 
       <div className="overflow-x-auto border rounded-xl bg-white dark:bg-navy-800">
         <table className="w-full text-sm">
@@ -224,21 +389,33 @@ export default function AdminSearchLandingsPage() {
                 <input
                   type="checkbox"
                   checked={allVisibleSelected}
-                  onChange={() => (allVisibleSelected ? unselectAll() : selectVisible())}
+                  onChange={() => (allVisibleSelected ? setSelected(new Set()) : setSelected(new Set(visibleIds)))}
                   aria-label="Select visible"
                 />
               </th>
-              <th className="p-3">Page</th>
-              <th className="p-3">Matches</th>
-              <th className="p-3">Obs</th>
-              <th className="p-3">Opp</th>
-              <th className="p-3">Quality</th>
-              <th className="p-3">Status</th>
+              <th className="p-3">Page / intent</th>
+              <th className="p-3 cursor-pointer" onClick={() => toggleSort("match_count")}>
+                Matches{sortIndicator("match_count")}
+              </th>
+              <th className="p-3 cursor-pointer" onClick={() => toggleSort("matching_observation_count")}>
+                Obs{sortIndicator("matching_observation_count")}
+              </th>
+              <th className="p-3 cursor-pointer" onClick={() => toggleSort("opportunity_score")}>
+                Opp{sortIndicator("opportunity_score")}
+              </th>
+              <th className="p-3 cursor-pointer" onClick={() => toggleSort("quality_score")}>
+                Quality{sortIndicator("quality_score")}
+              </th>
+              <th className="p-3">Index</th>
+              <th className="p-3">Sitemap</th>
+              <th className="p-3">Auto</th>
+              <th className="p-3">Override</th>
+              <th className="p-3">Evaluated</th>
               <th className="p-3">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {filtered.map((row) => (
+            {items.map((row) => (
               <tr key={row.id} className="border-t align-top">
                 <td className="p-3">
                   <input
@@ -248,11 +425,12 @@ export default function AdminSearchLandingsPage() {
                     aria-label={`Select ${row.path}`}
                   />
                 </td>
-                <td className="p-3">
+                <td className="p-3 min-w-[200px]">
                   <Link href={row.path} className="text-gold-600 underline" target="_blank">
                     {row.path}
                   </Link>
-                  <div className="text-xs text-gray-500 mt-1">{row.h1}</div>
+                  <div className="text-xs text-gray-500 mt-1">{formatIntent(row)}</div>
+                  <div className="text-xs text-gray-400">{row.h1}</div>
                   {row.status_reason && <div className="text-[11px] text-gray-400 mt-1">{row.status_reason}</div>}
                 </td>
                 <td className="p-3">{row.match_count}</td>
@@ -260,36 +438,189 @@ export default function AdminSearchLandingsPage() {
                 <td className="p-3">{row.opportunity_score ?? 0}</td>
                 <td className="p-3">{row.quality_score}</td>
                 <td className="p-3 text-xs uppercase">{row.index_status}</td>
-                <td className="p-3 space-x-2 whitespace-nowrap">
-                  <button type="button" className="text-xs underline" onClick={() => regenerate.mutate(row.id)}>
-                    Refresh
-                  </button>
-                  <button type="button" className="text-xs underline" onClick={() => approve.mutate(row.id)}>
-                    Approve
-                  </button>
-                  <button type="button" className="text-xs underline" onClick={() => noindex.mutate(row.id)}>
-                    Noindex
-                  </button>
-                  <button
-                    type="button"
-                    className="text-xs underline"
-                    onClick={() => lock.mutate({ id: row.id, locked: !row.locked_by_admin })}
-                  >
-                    {row.locked_by_admin ? "Unlock" : "Lock"}
-                  </button>
+                <td className="p-3 text-xs uppercase">{row.sitemap_status ?? "excluded"}</td>
+                <td className="p-3 text-xs uppercase">{row.automatic_eligibility ?? "—"}</td>
+                <td className="p-3 text-xs uppercase">{row.seo_control ?? "automatic"}</td>
+                <td className="p-3 text-xs whitespace-nowrap">
+                  {row.last_evaluated_at ? new Date(row.last_evaluated_at).toLocaleDateString() : "—"}
+                </td>
+                <td className="p-3 space-y-1 whitespace-nowrap text-xs">
+                  <div className="space-x-2">
+                    <button
+                      type="button"
+                      className="underline"
+                      disabled={actionMutation.isPending}
+                      onClick={() =>
+                        actionMutation.mutate({
+                          fn: () => adminService.setSearchIntentIndex(row.id, "indexable"),
+                          success: `${row.path} set to indexable.`,
+                        })
+                      }
+                    >
+                      Indexable
+                    </button>
+                    <button
+                      type="button"
+                      className="underline"
+                      disabled={actionMutation.isPending}
+                      onClick={() =>
+                        actionMutation.mutate({
+                          fn: () => adminService.setSearchIntentIndex(row.id, "noindex"),
+                          success: `${row.path} set to noindex.`,
+                        })
+                      }
+                    >
+                      Noindex
+                    </button>
+                  </div>
+                  <div className="space-x-2">
+                    <button
+                      type="button"
+                      className="underline"
+                      disabled={actionMutation.isPending}
+                      onClick={() =>
+                        actionMutation.mutate({
+                          fn: () => adminService.setSearchIntentSitemap(row.id, "included"),
+                          success: `${row.path} included in sitemap.`,
+                        })
+                      }
+                    >
+                      + Sitemap
+                    </button>
+                    <button
+                      type="button"
+                      className="underline"
+                      disabled={actionMutation.isPending}
+                      onClick={() =>
+                        actionMutation.mutate({
+                          fn: () => adminService.setSearchIntentSitemap(row.id, "excluded"),
+                          success: `${row.path} excluded from sitemap.`,
+                        })
+                      }
+                    >
+                      − Sitemap
+                    </button>
+                  </div>
+                  <div className="space-x-2">
+                    <button
+                      type="button"
+                      className="underline"
+                      disabled={actionMutation.isPending}
+                      onClick={() =>
+                        actionMutation.mutate({
+                          fn: () => adminService.regenerateSearchIntent(row.id),
+                          success: `${row.path} metrics refreshed.`,
+                        })
+                      }
+                    >
+                      Refresh
+                    </button>
+                    <button type="button" className="underline" onClick={() => setEligibilityId(row.id)}>
+                      Why?
+                    </button>
+                    <button
+                      type="button"
+                      className="underline"
+                      disabled={actionMutation.isPending}
+                      onClick={() =>
+                        actionMutation.mutate({
+                          fn: () => adminService.resetSearchIntentAutomatic(row.id),
+                          success: `${row.path} reset to automatic.`,
+                        })
+                      }
+                    >
+                      Reset auto
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}
-            {!filtered.length && !isLoading && (
+            {!items.length && !isLoading && (
               <tr>
-                <td colSpan={8} className="p-6 text-gray-500">
-                  No intents in this tab. Run discovery or rebuild research + automation.
+                <td colSpan={12} className="p-6 text-gray-500">
+                  No landing pages match these filters.
                 </td>
               </tr>
             )}
           </tbody>
         </table>
       </div>
+
+      {totalPages > 1 && (
+        <div className="flex gap-2 items-center text-sm">
+          <button
+            type="button"
+            className="px-3 py-1 border rounded disabled:opacity-40"
+            disabled={filters.page <= 1}
+            onClick={() => setFilters((f) => ({ ...f, page: f.page - 1 }))}
+          >
+            Previous
+          </button>
+          <span>
+            Page {filters.page} of {totalPages}
+          </span>
+          <button
+            type="button"
+            className="px-3 py-1 border rounded disabled:opacity-40"
+            disabled={filters.page >= totalPages}
+            onClick={() => setFilters((f) => ({ ...f, page: f.page + 1 }))}
+          >
+            Next
+          </button>
+        </div>
+      )}
+
+      {eligibilityId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEligibilityId(null)}>
+          <div
+            className="bg-white dark:bg-navy-800 rounded-xl max-w-lg w-full p-6 space-y-4 max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-between items-start gap-4">
+              <h3 className="text-lg font-semibold">Eligibility details</h3>
+              <button type="button" className="text-sm underline" onClick={() => setEligibilityId(null)}>
+                Close
+              </button>
+            </div>
+            {eligibility.isLoading && <p className="text-sm text-gray-500">Loading…</p>}
+            {eligibility.data && (
+              <>
+                <p className={`text-sm font-medium ${eligibility.data.eligible ? "text-green-700" : "text-amber-700"}`}>
+                  {eligibility.data.summary}
+                </p>
+                <ul className="text-sm space-y-2">
+                  {eligibility.data.checks.map((c) => (
+                    <li key={c.label} className="flex gap-2">
+                      <span>{c.passed ? "✓" : "✗"}</span>
+                      <span>
+                        {c.label}: {c.detail}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+                <dl className="text-xs grid grid-cols-2 gap-2 pt-2 border-t">
+                  <div>
+                    <dt className="text-gray-500">Index</dt>
+                    <dd className="uppercase">{eligibility.data.index_status}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Sitemap</dt>
+                    <dd className="uppercase">{eligibility.data.sitemap_status}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">SEO control</dt>
+                    <dd className="uppercase">{eligibility.data.seo_control}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-gray-500">Automatic</dt>
+                    <dd className="uppercase">{eligibility.data.automatic_eligibility}</dd>
+                  </div>
+                </dl>
+              </>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

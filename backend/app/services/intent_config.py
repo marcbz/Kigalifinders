@@ -45,6 +45,9 @@ DEFAULT_CONFIG = IntentAutomationConfig()
 SEO_SETTING_FIELDS = (
     "min_dimensions_for_index",
     "min_verified_for_index",
+    "min_quality_for_index",
+    "min_opportunity_for_index",
+    "min_observations_for_research_value",
     "allow_auto_index",
     "allow_sitemap_inclusion",
     "require_unique_content",
@@ -59,6 +62,16 @@ SEO_SETTING_HELP = {
     "min_verified_for_index": (
         "Minimum number of real published KigaliRent properties that must match the page. "
         "Pages below this stay usable as filters but are not SEO landings."
+    ),
+    "min_quality_for_index": (
+        "Minimum quality score (0–100) required for automatic index eligibility."
+    ),
+    "min_opportunity_for_index": (
+        "Minimum opportunity score (0–100) required for automatic index eligibility."
+    ),
+    "min_observations_for_research_value": (
+        "Minimum external observation count for research-backed eligibility "
+        "(or enough matching properties per the match threshold)."
     ),
     "allow_auto_index": (
         "When on, the system may automatically mark eligible pages as indexable. "
@@ -113,6 +126,9 @@ async def save_automation_config(
     cfg.min_dimensions_for_index = max(1, min(10, int(cfg.min_dimensions_for_index)))
     cfg.min_verified_for_index = max(1, min(100, int(cfg.min_verified_for_index)))
     cfg.min_unique_content_chars = max(0, min(2000, int(cfg.min_unique_content_chars)))
+    cfg.min_quality_for_index = max(0.0, min(100.0, float(cfg.min_quality_for_index)))
+    cfg.min_opportunity_for_index = max(0.0, min(100.0, float(cfg.min_opportunity_for_index)))
+    cfg.min_observations_for_research_value = max(0, min(500, int(cfg.min_observations_for_research_value)))
 
     result = await db.execute(
         select(IntentAutomationSetting).where(IntentAutomationSetting.key == SETTINGS_KEY)

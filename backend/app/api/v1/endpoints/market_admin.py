@@ -12,12 +12,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import require_admin, require_staff
 from app.database.session import get_db
-from app.models import GscQuerySuggestion, SearchIndexStatus, SearchIntent, User
+from app.models import GscQuerySuggestion, SearchIndexStatus, SearchIntent, SitemapStatus, User
 from app.schemas.market import (
     GscSuggestionCreate,
     GscSuggestionItem,
     SearchIntentCreate,
+    SearchIntentEligibilityDetails,
     SearchIntentListItem,
+    SearchIntentListResponse,
     SearchIntentUpdate,
 )
 from app.services.market_sources import list_source_dashboard, touch_source_import
@@ -50,22 +52,77 @@ class BulkIntentPayload(BaseModel):
 class SeoSettingsUpdate(BaseModel):
     min_dimensions_for_index: Optional[int] = None
     min_verified_for_index: Optional[int] = None
+    min_quality_for_index: Optional[float] = None
+    min_opportunity_for_index: Optional[float] = None
+    min_observations_for_research_value: Optional[int] = None
     allow_auto_index: Optional[bool] = None
     allow_sitemap_inclusion: Optional[bool] = None
     require_unique_content: Optional[bool] = None
     min_unique_content_chars: Optional[int] = None
 
 
+class IndexStatusPayload(BaseModel):
+    status: str = Field(..., description="indexable or noindex")
+
+
+class SitemapStatusPayload(BaseModel):
+    status: str = Field(..., description="included or excluded")
+
+
 router = APIRouter(prefix="/admin/market", tags=["Admin Market Intelligence"])
 
 
-@router.get("/search-intents", response_model=list[SearchIntentListItem])
+@router.get("/search-intents", response_model=SearchIntentListResponse)
 async def list_search_intents(
+    search: Optional[str] = Query(None),
+    location: Optional[str] = Query(None),
+    property_type: Optional[str] = Query(None),
+    index_status: Optional[str] = Query(None),
+    sitemap_status: Optional[str] = Query(None),
+    automatic_eligibility: Optional[str] = Query(None),
+    seo_control: Optional[str] = Query(None),
+    sort_by: str = Query("updated_at"),
+    sort_dir: str = Query("desc"),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_staff),
 ):
-    result = await db.execute(select(SearchIntent).order_by(SearchIntent.updated_at.desc()))
-    return list(result.scalars().all())
+    from app.services.seo_landing import list_search_intents_admin
+
+    data = await list_search_intents_admin(
+        db,
+        search=search,
+        location=location,
+        property_type=property_type,
+        index_status=index_status,
+        sitemap_status=sitemap_status,
+        automatic_eligibility=automatic_eligibility,
+        seo_control=seo_control,
+        sort_by=sort_by,
+        sort_dir=sort_dir,
+        page=page,
+        page_size=page_size,
+    )
+    return {
+        "total": data["total"],
+        "page": data["page"],
+        "page_size": data["page_size"],
+        "items": data["items"],
+    }
+
+
+@router.get("/search-intents/locations")
+async def list_search_intent_locations(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    from sqlalchemy import distinct
+
+    result = await db.execute(
+        select(distinct(SearchIntent.location_slug)).order_by(SearchIntent.location_slug)
+    )
+    return [row[0] for row in result.all()]
 
 
 @router.post("/search-intents", response_model=SearchIntentListItem)
@@ -138,36 +195,114 @@ async def approve_intent(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
-    from app.services.intent_copy import normalize_query
+    from app.services.seo_landing import SeoValidationError, set_index_status_manual
 
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
         raise HTTPException(status_code=404, detail="Not found")
     await rebuild_intent_metrics(db, intent)
-    cfg = await load_automation_config(db)
-    q = normalize_query(intent.query or {})
-    dims = count_seo_dimensions(q)
-    blocked = query_has_blocked_seo_attributes(intent.query or {})
-    if blocked:
-        intent.index_status = SearchIndexStatus.NOINDEX.value
-        intent.status_reason = f"Manual review: disallowed attributes ({', '.join(blocked)})"
-        intent.locked_by_admin = True
-    elif dims < cfg.min_dimensions_for_index or intent.match_count < cfg.min_verified_for_index:
-        intent.index_status = SearchIndexStatus.NOINDEX.value
-        intent.status_reason = (
-            f"Manual review: needs ≥{cfg.min_dimensions_for_index} dimensions and "
-            f"≥{cfg.min_verified_for_index} matching properties "
-            f"(has {dims} dims, {intent.match_count} matches)"
-        )
-        intent.locked_by_admin = True
-    else:
-        intent.index_status = SearchIndexStatus.INDEXABLE.value
-        intent.status_reason = "Manually approved"
-        intent.locked_by_admin = True
+    try:
+        set_index_status_manual(intent, SearchIndexStatus.INDEXABLE.value)
+    except SeoValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(intent)
     return intent
+
+
+@router.post("/search-intents/{intent_id}/set-index", response_model=SearchIntentListItem)
+async def set_intent_index_status(
+    intent_id: UUID,
+    payload: IndexStatusPayload,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.seo_landing import SeoValidationError, set_index_status_manual
+
+    intent = await db.get(SearchIntent, intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail="Not found")
+    status = payload.status.lower()
+    if status not in {SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value}:
+        raise HTTPException(status_code=400, detail="Status must be indexable or noindex")
+    try:
+        set_index_status_manual(intent, status)
+    except SeoValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await db.commit()
+    await db.refresh(intent)
+    return intent
+
+
+@router.post("/search-intents/{intent_id}/set-sitemap", response_model=SearchIntentListItem)
+async def set_intent_sitemap_status(
+    intent_id: UUID,
+    payload: SitemapStatusPayload,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.seo_landing import SeoValidationError, set_sitemap_status_manual
+
+    intent = await db.get(SearchIntent, intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail="Not found")
+    status = payload.status.lower()
+    if status not in {SitemapStatus.INCLUDED.value, SitemapStatus.EXCLUDED.value}:
+        raise HTTPException(status_code=400, detail="Status must be included or excluded")
+    try:
+        set_sitemap_status_manual(intent, status)
+    except SeoValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    await db.commit()
+    await db.refresh(intent)
+    return intent
+
+
+@router.post("/search-intents/{intent_id}/reset-automatic", response_model=SearchIntentListItem)
+async def reset_intent_automatic(
+    intent_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.intent_config import load_automation_config
+    from app.services.seo_landing import apply_automatic_statuses, evaluate_automatic_eligibility, reset_to_automatic
+
+    intent = await db.get(SearchIntent, intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail="Not found")
+    await rebuild_intent_metrics(db, intent)
+    reset_to_automatic(intent)
+    cfg = await load_automation_config(db)
+    intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
+    apply_automatic_statuses(intent, cfg)
+    await db.commit()
+    await db.refresh(intent)
+    return intent
+
+
+@router.get("/search-intents/{intent_id}/eligibility", response_model=SearchIntentEligibilityDetails)
+async def get_intent_eligibility(
+    intent_id: UUID,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    from app.services.intent_config import load_automation_config
+    from app.services.seo_landing import build_eligibility_checks
+
+    intent = await db.get(SearchIntent, intent_id)
+    if not intent:
+        raise HTTPException(status_code=404, detail="Not found")
+    cfg = await load_automation_config(db)
+    details = build_eligibility_checks(intent, cfg)
+    return {
+        **details,
+        "index_status": intent.index_status,
+        "sitemap_status": intent.sitemap_status,
+        "seo_control": intent.seo_control,
+        "automatic_eligibility": intent.automatic_eligibility,
+        "status_reason": intent.status_reason,
+        "last_evaluated_at": intent.last_evaluated_at,
+    }
 
 
 @router.get("/seo-settings")
@@ -188,19 +323,20 @@ async def update_seo_settings(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.services.intent_automation import apply_index_rules, seo_eligibility_summary
+    from app.services.intent_automation import seo_eligibility_summary
+    from app.services.seo_landing import recalculate_all_landings
 
     cfg = await load_automation_config(db)
     data = payload.model_dump(exclude_unset=True)
     for k, v in data.items():
         setattr(cfg, k, v)
     cfg = await save_automation_config(db, cfg)
-    index_stats = await apply_index_rules(db, cfg)
+    recalc = await recalculate_all_landings(db, cfg)
     summary = await seo_eligibility_summary(db)
     await db.commit()
     return {
         **seo_settings_public(cfg),
-        "re_evaluated": index_stats,
+        "recalculation": recalc,
         "summary": summary,
     }
 
@@ -210,15 +346,16 @@ async def reset_seo_settings(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.services.intent_automation import apply_index_rules, seo_eligibility_summary
+    from app.services.intent_automation import seo_eligibility_summary
+    from app.services.seo_landing import recalculate_all_landings
 
     cfg = await save_automation_config(db, DEFAULT_CONFIG)
-    index_stats = await apply_index_rules(db, cfg)
+    recalc = await recalculate_all_landings(db, cfg)
     summary = await seo_eligibility_summary(db)
     await db.commit()
     return {
         **seo_settings_public(cfg),
-        "re_evaluated": index_stats,
+        "recalculation": recalc,
         "summary": summary,
     }
 
@@ -238,18 +375,30 @@ async def reevaluate_seo(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.services.intent_automation import (
-        apply_index_rules,
-        recalculate_all_intent_metrics,
-        seo_eligibility_summary,
-    )
+    from app.services.intent_automation import seo_eligibility_summary
+    from app.services.seo_landing import recalculate_all_landings
 
     cfg = await load_automation_config(db)
-    recalculated = await recalculate_all_intent_metrics(db)
-    index_stats = await apply_index_rules(db, cfg)
+    recalc = await recalculate_all_landings(db, cfg)
     summary = await seo_eligibility_summary(db)
     await db.commit()
-    return {"recalculated": recalculated, "index_rules": index_stats, "summary": summary}
+    return {"recalculation": recalc, "summary": summary}
+
+
+@router.post("/seo-settings/recalculate")
+async def recalculate_seo_landings(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    """Apply / recalculate landing pages with before/after stats."""
+    from app.services.intent_automation import seo_eligibility_summary
+    from app.services.seo_landing import recalculate_all_landings
+
+    cfg = await load_automation_config(db)
+    recalc = await recalculate_all_landings(db, cfg)
+    summary = await seo_eligibility_summary(db)
+    await db.commit()
+    return {"recalculation": recalc, "summary": summary}
 
 
 @router.post("/search-intents/{intent_id}/noindex", response_model=SearchIntentListItem)
@@ -258,12 +407,15 @@ async def noindex_intent(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_staff),
 ):
+    from app.services.seo_landing import SeoValidationError, set_index_status_manual
+
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
         raise HTTPException(status_code=404, detail="Not found")
-    intent.index_status = SearchIndexStatus.NOINDEX.value
-    intent.locked_by_admin = True
-    intent.status_reason = "Manually set to noindex"
+    try:
+        set_index_status_manual(intent, SearchIndexStatus.NOINDEX.value)
+    except SeoValidationError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(intent)
     return intent
@@ -280,6 +432,7 @@ async def disable_intent(
         raise HTTPException(status_code=404, detail="Not found")
     intent.is_enabled = False
     intent.index_status = SearchIndexStatus.DISABLED.value
+    intent.sitemap_status = SitemapStatus.EXCLUDED.value
     await db.commit()
     return {"ok": True}
 
@@ -451,63 +604,74 @@ async def admin_bulk_intents(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
+    from app.services.intent_config import load_automation_config
+    from app.services.seo_landing import (
+        SeoValidationError,
+        apply_automatic_statuses,
+        evaluate_automatic_eligibility,
+        reset_to_automatic,
+        set_index_status_manual,
+        set_sitemap_status_manual,
+    )
+
     if payload.action == "rebuild_research":
         from app.services.intent_automation import run_daily_automation
 
         auto = await run_daily_automation(db)
-        return {"updated": 0, "automation": auto}
+        return {"updated": 0, "automation": auto, "ok": True}
     if not payload.ids:
-        return {"updated": 0}
+        return {"updated": 0, "ok": True}
+
     result = await db.execute(select(SearchIntent).where(SearchIntent.id.in_(payload.ids)))
     intents = list(result.scalars().all())
+    cfg = await load_automation_config(db)
     updated = 0
-    for intent in intents:
-        if payload.action in {"approve", "indexable"}:
-            from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
-            from app.services.intent_copy import normalize_query
-            from app.services.intent_config import load_automation_config
+    errors: list[str] = []
 
-            cfg = await load_automation_config(db)
-            await rebuild_intent_metrics(db, intent)
-            q = normalize_query(intent.query or {})
-            dims = count_seo_dimensions(q)
-            blocked = query_has_blocked_seo_attributes(intent.query or {})
-            if (
-                not blocked
-                and dims >= cfg.min_dimensions_for_index
-                and intent.match_count >= cfg.min_verified_for_index
-            ):
-                intent.index_status = SearchIndexStatus.INDEXABLE.value
-                intent.status_reason = "Bulk: approved/indexable"
-                intent.locked_by_admin = True
+    for intent in intents:
+        try:
+            if payload.action in {"approve", "indexable", "set_indexable"}:
+                await rebuild_intent_metrics(db, intent)
+                set_index_status_manual(intent, SearchIndexStatus.INDEXABLE.value)
+                updated += 1
+            elif payload.action in {"noindex", "set_noindex"}:
+                set_index_status_manual(intent, SearchIndexStatus.NOINDEX.value)
+                updated += 1
+            elif payload.action in {"sitemap_include", "include_sitemap"}:
+                set_sitemap_status_manual(intent, SitemapStatus.INCLUDED.value)
+                updated += 1
+            elif payload.action in {"sitemap_exclude", "exclude_sitemap"}:
+                set_sitemap_status_manual(intent, SitemapStatus.EXCLUDED.value)
+                updated += 1
+            elif payload.action == "reset_automatic":
+                await rebuild_intent_metrics(db, intent)
+                reset_to_automatic(intent)
+                intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
+                apply_automatic_statuses(intent, cfg)
+                updated += 1
+            elif payload.action == "enable":
+                intent.is_enabled = True
+                if intent.index_status == SearchIndexStatus.DISABLED.value:
+                    intent.index_status = SearchIndexStatus.DRAFT.value
+                updated += 1
+            elif payload.action == "disable":
+                intent.is_enabled = False
+                intent.index_status = SearchIndexStatus.DISABLED.value
+                intent.sitemap_status = SitemapStatus.EXCLUDED.value
+                intent.status_reason = "Bulk: disabled"
+                updated += 1
+            elif payload.action in {"refresh", "rebuild"}:
+                await rebuild_intent_metrics(db, intent)
+                updated += 1
             else:
-                intent.index_status = SearchIndexStatus.NOINDEX.value
-                intent.status_reason = "Bulk: not enough dimensions/matches or disallowed attributes"
-                intent.locked_by_admin = True
-            updated += 1
-        elif payload.action == "noindex":
-            intent.index_status = SearchIndexStatus.NOINDEX.value
-            intent.locked_by_admin = True
-            intent.status_reason = "Bulk: noindex"
-            updated += 1
-        elif payload.action == "enable":
-            intent.is_enabled = True
-            if intent.index_status == SearchIndexStatus.DISABLED.value:
-                intent.index_status = SearchIndexStatus.DRAFT.value
-            updated += 1
-        elif payload.action == "disable":
-            intent.is_enabled = False
-            intent.index_status = SearchIndexStatus.DISABLED.value
-            intent.locked_by_admin = True
-            intent.status_reason = "Bulk: disabled"
-            updated += 1
-        elif payload.action == "refresh":
-            await rebuild_intent_metrics(db, intent)
-            updated += 1
-        else:
-            raise HTTPException(status_code=400, detail="Unsupported bulk action")
+                raise HTTPException(status_code=400, detail="Unsupported bulk action")
+        except SeoValidationError as exc:
+            errors.append(f"{intent.path}: {exc}")
+        except HTTPException:
+            raise
+
     await db.commit()
-    return {"updated": updated, "action": payload.action}
+    return {"updated": updated, "action": payload.action, "ok": not errors, "errors": errors}
 
 
 @router.get("/gsc-suggestions", response_model=list[GscSuggestionItem])

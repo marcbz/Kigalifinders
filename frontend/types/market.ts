@@ -54,6 +54,38 @@ export type SearchLandingPage = {
   methodology_note: string;
 };
 
+export type SearchIntentListResponse = {
+  total: number;
+  page: number;
+  page_size: number;
+  items: SearchIntentAdmin[];
+};
+
+export type EligibilityDetails = {
+  eligible: boolean;
+  summary: string;
+  checks: { label: string; passed: boolean; detail: string }[];
+  dimensions: number;
+  index_status: string;
+  sitemap_status: string;
+  seo_control: string;
+  automatic_eligibility: string;
+  status_reason?: string;
+  last_evaluated_at?: string;
+};
+
+export type LandingPageStats = {
+  total: number;
+  eligible: number;
+  excluded: number;
+  indexable: number;
+  noindex: number;
+  sitemap_included: number;
+  sitemap_excluded: number;
+  manual: number;
+  automatic: number;
+};
+
 export type SearchIntentAdmin = {
   id: string;
   location_slug: string;
@@ -66,10 +98,14 @@ export type SearchIntentAdmin = {
   quality_score: number;
   opportunity_score?: number;
   index_status: string;
+  sitemap_status?: string;
+  seo_control?: string;
+  automatic_eligibility?: string;
   match_count: number;
   matching_observation_count?: number;
   last_built_at?: string;
   last_calculated_at?: string;
+  last_evaluated_at?: string;
   last_content_change_at?: string;
   data_freshness?: string;
   status_reason?: string;

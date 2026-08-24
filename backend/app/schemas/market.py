@@ -62,10 +62,14 @@ class SearchIntentListItem(BaseModel):
     quality_score: float
     opportunity_score: float = 0
     index_status: str
+    sitemap_status: str = "excluded"
+    seo_control: str = "automatic"
+    automatic_eligibility: str = "excluded"
     match_count: int
     matching_observation_count: int = 0
     last_built_at: Optional[datetime] = None
     last_calculated_at: Optional[datetime] = None
+    last_evaluated_at: Optional[datetime] = None
     last_content_change_at: Optional[datetime] = None
     data_freshness: str = "unknown"
     status_reason: Optional[str] = None
@@ -79,6 +83,32 @@ class SearchIntentListItem(BaseModel):
     is_enabled: bool
     updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+
+
+class SearchIntentListResponse(BaseModel):
+    total: int
+    page: int
+    page_size: int
+    items: List[SearchIntentListItem]
+
+
+class EligibilityCheckItem(BaseModel):
+    label: str
+    passed: bool
+    detail: str
+
+
+class SearchIntentEligibilityDetails(BaseModel):
+    eligible: bool
+    summary: str
+    checks: List[EligibilityCheckItem]
+    dimensions: int
+    index_status: str
+    sitemap_status: str
+    seo_control: str
+    automatic_eligibility: str
+    status_reason: Optional[str] = None
+    last_evaluated_at: Optional[datetime] = None
 
 
 class ScoredPropertyCard(BaseModel):

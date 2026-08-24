@@ -375,6 +375,8 @@ async def upsert_discovered_intent(
     source: str,
     cfg: IntentAutomationConfig,
 ) -> SearchIntent | None:
+    from app.services.seo_landing import is_manual_override
+
     q = normalize_query(query)
     location = location_slug_from_query(q)
     intent_slug = intent_slug_from_query(q)
@@ -443,7 +445,7 @@ async def upsert_discovered_intent(
         db.add(intent)
         intent.last_content_change_at = _now()
     else:
-        if not intent.locked_by_admin:
+        if not is_manual_override(intent):
             # Refresh generated copy unless admin locked
             if intent.source in {"discovered", "seed"} or source == "discovered":
                 if intent.title != copy["title"] or intent.h1 != copy["h1"]:
@@ -460,7 +462,7 @@ async def upsert_discovered_intent(
 
         # Soft promote discovered → draft when ready (never override DISABLED / locked)
         if (
-            not intent.locked_by_admin
+            not is_manual_override(intent)
             and intent.index_status == SearchIndexStatus.DISCOVERED.value
             and len(matches) >= cfg.min_verified_for_draft
             and opp >= cfg.min_opportunity_for_draft
@@ -479,23 +481,21 @@ async def upsert_discovered_intent(
 
 
 async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> dict[str, int]:
-    """Promote/demote based on SEO dimension + match gates. Respects admin locks."""
-    from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
+    """Promote/demote based on SEO gates. Respects manual SEO control."""
+    from app.services.seo_attributes import query_has_blocked_seo_attributes
+    from app.services.seo_landing import (
+        apply_automatic_statuses,
+        evaluate_automatic_eligibility,
+        is_manual_override,
+        sync_sitemap_with_index,
+    )
 
-    promoted = demoted = 0
+    promoted = demoted = skipped_manual = 0
     result = await db.execute(
         select(SearchIntent).where(
             SearchIntent.is_enabled == True,  # noqa: E712
             SearchIntent.automation_disabled == False,  # noqa: E712
-            SearchIntent.locked_by_admin == False,  # noqa: E712
-            SearchIntent.index_status.in_(
-                [
-                    SearchIndexStatus.DRAFT.value,
-                    SearchIndexStatus.INDEXABLE.value,
-                    SearchIndexStatus.NOINDEX.value,
-                    SearchIndexStatus.DISCOVERED.value,
-                ]
-            ),
+            SearchIntent.index_status != SearchIndexStatus.DISABLED.value,
         )
     )
     intents = list(result.scalars().all())
@@ -528,23 +528,22 @@ async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> di
                     near_dupe_losers.add(b.id)
 
     for intent in intents:
-        q = normalize_query(intent.query or {})
-        dims = count_seo_dimensions(q)
-        blocked = query_has_blocked_seo_attributes(intent.query or {})
-        unique_ok = True
-        if cfg.require_unique_content:
-            intro = (intent.intro_html or "").strip()
-            meta = (intent.meta_description or "").strip()
-            has_text = len(intro) >= cfg.min_unique_content_chars or len(meta) >= cfg.min_unique_content_chars
-            has_market = bool(intent.matching_observation_count and intent.matching_observation_count >= 3)
-            unique_ok = has_text or has_market or bool(intent.title and intent.h1 and meta)
+        if is_manual_override(intent):
+            intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
+            intent.last_evaluated_at = _now()
+            sync_sitemap_with_index(intent)
+            skipped_manual += 1
+            continue
 
+        prev_status = intent.index_status
         if intent.id in near_dupe_losers and intent.index_status == SearchIndexStatus.INDEXABLE.value:
             intent.index_status = SearchIndexStatus.NOINDEX.value
             intent.status_reason = "Near-duplicate price band; kept higher-opportunity sibling"
+            sync_sitemap_with_index(intent)
             demoted += 1
             continue
 
+        blocked = query_has_blocked_seo_attributes(intent.query or {})
         if blocked:
             if intent.index_status == SearchIndexStatus.INDEXABLE.value:
                 intent.index_status = SearchIndexStatus.NOINDEX.value
@@ -553,66 +552,33 @@ async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> di
             elif intent.index_status != SearchIndexStatus.NOINDEX.value:
                 intent.index_status = SearchIndexStatus.NOINDEX.value
                 intent.status_reason = f"Excluded from SEO: disallowed attributes ({', '.join(blocked)})"
+            sync_sitemap_with_index(intent)
+            intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
+            intent.last_evaluated_at = _now()
             continue
 
-        passes = (
-            cfg.allow_auto_index
-            and dims >= cfg.min_dimensions_for_index
-            and intent.match_count >= cfg.min_verified_for_index
-            and unique_ok
-            and intent.opportunity_score >= cfg.min_opportunity_for_index
-            and intent.quality_score >= cfg.min_quality_for_index
-            and intent.data_freshness in {"fresh", "aging", "unknown"}
-            and bool(intent.title and intent.h1 and intent.meta_description)
-            and intent.id not in near_dupe_losers
-        )
+        if (
+            intent.index_status in {SearchIndexStatus.DRAFT.value, SearchIndexStatus.NOINDEX.value, SearchIndexStatus.DISCOVERED.value}
+            and indexable_count >= cfg.max_auto_indexable
+        ):
+            intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
+            intent.last_evaluated_at = _now()
+            apply_automatic_statuses(intent, cfg)
+            continue
 
-        if intent.index_status in {
-            SearchIndexStatus.DRAFT.value,
-            SearchIndexStatus.NOINDEX.value,
-            SearchIndexStatus.DISCOVERED.value,
-        }:
-            if passes and indexable_count < cfg.max_auto_indexable:
-                intent.index_status = SearchIndexStatus.INDEXABLE.value
-                intent.status_reason = (
-                    f"Auto-indexable: {dims} dimensions, {intent.match_count} matching properties"
-                )
-                promoted += 1
-                indexable_count += 1
-            elif intent.index_status != SearchIndexStatus.NOINDEX.value and not passes:
-                # Keep as draft/discovered for filters; mark noindex if thin for SEO
-                reasons = []
-                if dims < cfg.min_dimensions_for_index:
-                    reasons.append(f"only {dims} dimension(s) (need {cfg.min_dimensions_for_index})")
-                if intent.match_count < cfg.min_verified_for_index:
-                    reasons.append(
-                        f"only {intent.match_count} matching properties (need {cfg.min_verified_for_index})"
-                    )
-                if not unique_ok:
-                    reasons.append("insufficient unique content / market data")
-                if reasons and intent.index_status == SearchIndexStatus.DRAFT.value:
-                    intent.status_reason = "Not SEO-eligible yet: " + "; ".join(reasons)
-        elif intent.index_status == SearchIndexStatus.INDEXABLE.value:
-            if not passes:
-                reasons = []
-                if not cfg.allow_auto_index:
-                    reasons.append("automatic SEO landing generation disabled")
-                if dims < cfg.min_dimensions_for_index:
-                    reasons.append(f"below dimension threshold ({dims}<{cfg.min_dimensions_for_index})")
-                if intent.match_count < cfg.min_verified_for_index:
-                    reasons.append(
-                        f"below match threshold ({intent.match_count}<{cfg.min_verified_for_index})"
-                    )
-                if not unique_ok:
-                    reasons.append("missing unique content")
-                if intent.id in near_dupe_losers:
-                    reasons.append("near-duplicate")
-                intent.index_status = SearchIndexStatus.NOINDEX.value
-                intent.status_reason = "Demoted: " + ("; ".join(reasons) or "no longer meets SEO gates")
-                demoted += 1
+        intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
+        intent.last_evaluated_at = _now()
+        apply_automatic_statuses(intent, cfg)
+        sync_sitemap_with_index(intent)
+
+        if prev_status != SearchIndexStatus.INDEXABLE.value and intent.index_status == SearchIndexStatus.INDEXABLE.value:
+            promoted += 1
+            indexable_count += 1
+        elif prev_status == SearchIndexStatus.INDEXABLE.value and intent.index_status != SearchIndexStatus.INDEXABLE.value:
+            demoted += 1
 
     await db.flush()
-    return {"promoted": promoted, "demoted": demoted}
+    return {"promoted": promoted, "demoted": demoted, "skipped_manual": skipped_manual}
 
 
 def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConfig) -> str | None:
@@ -652,29 +618,35 @@ def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConf
 
 
 async def seo_eligibility_summary(db: AsyncSession) -> dict[str, Any]:
+    from app.services.seo_landing import landing_page_stats
+
     cfg = await load_automation_config(db)
+    stats = await landing_page_stats(db)
     result = await db.execute(select(SearchIntent))
     intents = list(result.scalars().all())
-    eligible = 0
-    excluded = 0
     reasons: dict[str, int] = defaultdict(int)
     for intent in intents:
         reason = _exclusion_reason_for_intent(intent, cfg)
-        if reason is None:
-            eligible += 1
-        else:
-            excluded += 1
+        if reason:
             reasons[reason] += 1
-    # Collapse near-identical reason prefixes for readability
     top_reasons = sorted(reasons.items(), key=lambda x: (-x[1], x[0]))[:25]
     return {
-        "eligible_landing_pages": eligible,
-        "excluded_pages": excluded,
-        "total_pages": len(intents),
+        "eligible_landing_pages": stats["indexable"],
+        "excluded_pages": stats["excluded"],
+        "total_pages": stats["total"],
+        "indexable": stats["indexable"],
+        "noindex": stats["noindex"],
+        "sitemap_included": stats["sitemap_included"],
+        "sitemap_excluded": stats["sitemap_excluded"],
+        "manual_overrides": stats["manual"],
+        "automatic": stats["automatic"],
         "exclusion_reasons": [{"reason": r, "count": c} for r, c in top_reasons],
         "thresholds": {
             "min_dimensions_for_index": cfg.min_dimensions_for_index,
             "min_verified_for_index": cfg.min_verified_for_index,
+            "min_quality_for_index": cfg.min_quality_for_index,
+            "min_opportunity_for_index": cfg.min_opportunity_for_index,
+            "min_observations_for_research_value": cfg.min_observations_for_research_value,
             "allow_auto_index": cfg.allow_auto_index,
             "allow_sitemap_inclusion": cfg.allow_sitemap_inclusion,
             "require_unique_content": cfg.require_unique_content,
@@ -867,7 +839,7 @@ async def run_weekly_audit(db: AsyncSession) -> dict[str, Any]:
     stale = 0
     result = await db.execute(select(SearchIntent).where(SearchIntent.is_enabled == True))  # noqa: E712
     for intent in result.scalars().all():
-        if intent.locked_by_admin or intent.automation_disabled:
+        if is_manual_override(intent) or intent.automation_disabled:
             continue
         if intent.data_freshness == "stale" and intent.index_status == SearchIndexStatus.INDEXABLE.value:
             if intent.match_count < cfg.min_verified_for_index:

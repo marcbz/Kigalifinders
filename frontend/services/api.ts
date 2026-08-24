@@ -229,10 +229,21 @@ export const adminService = {
     api.patch("/admin/settings", updates).then((r) => r.data),
   updateLegalSettings: (data: { privacy_policy: string; terms_of_service: string; sitemap_intro: string }) =>
     api.patch("/admin/settings/legal", data).then((r) => r.data),
-  searchIntents: () => api.get("/admin/market/search-intents").then((r) => r.data),
+  searchIntents: (params?: Record<string, string | number | undefined>) =>
+    api.get("/admin/market/search-intents", { params }).then((r) => r.data),
+  searchIntentLocations: () =>
+    api.get<string[]>("/admin/market/search-intents/locations").then((r) => r.data),
   regenerateSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/regenerate`).then((r) => r.data),
   approveSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/approve`).then((r) => r.data),
   noindexSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/noindex`).then((r) => r.data),
+  setSearchIntentIndex: (id: string, status: "indexable" | "noindex") =>
+    api.post(`/admin/market/search-intents/${id}/set-index`, { status }).then((r) => r.data),
+  setSearchIntentSitemap: (id: string, status: "included" | "excluded") =>
+    api.post(`/admin/market/search-intents/${id}/set-sitemap`, { status }).then((r) => r.data),
+  resetSearchIntentAutomatic: (id: string) =>
+    api.post(`/admin/market/search-intents/${id}/reset-automatic`).then((r) => r.data),
+  getSearchIntentEligibility: (id: string) =>
+    api.get(`/admin/market/search-intents/${id}/eligibility`).then((r) => r.data),
   lockSearchIntent: (id: string, locked = true) =>
     api.post(`/admin/market/search-intents/${id}/lock`, null, { params: { locked } }).then((r) => r.data),
   bulkSearchIntents: (ids: string[], action: string) =>
@@ -242,6 +253,7 @@ export const adminService = {
     api.put("/admin/market/seo-settings", data).then((r) => r.data),
   resetSeoSettings: () => api.post("/admin/market/seo-settings/reset").then((r) => r.data),
   reevaluateSeo: () => api.post("/admin/market/seo-settings/reevaluate").then((r) => r.data),
+  recalculateSeoLandings: () => api.post("/admin/market/seo-settings/recalculate").then((r) => r.data),
   getSeoSummary: () => api.get("/admin/market/seo-summary").then((r) => r.data),
   rebuildResearch: () => api.post("/admin/market/research/rebuild").then((r) => r.data),
   runDiscovery: (deep = true) =>

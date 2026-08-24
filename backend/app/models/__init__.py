@@ -81,6 +81,21 @@ class SearchIndexStatus(str, enum.Enum):
     DISABLED = "disabled"
 
 
+class SitemapStatus(str, enum.Enum):
+    INCLUDED = "included"
+    EXCLUDED = "excluded"
+
+
+class SeoControl(str, enum.Enum):
+    AUTOMATIC = "automatic"
+    MANUAL = "manual"
+
+
+class AutomaticEligibility(str, enum.Enum):
+    ELIGIBLE = "eligible"
+    EXCLUDED = "excluded"
+
+
 class MarketDataKind(str, enum.Enum):
     VERIFIED_KIGALI_RENT = "verified_kigali_rent"
     MARKET_OBSERVATION = "market_observation"
@@ -798,10 +813,16 @@ class SearchIntent(Base):
     quality_score: Mapped[float] = mapped_column(Float, default=0)
     opportunity_score: Mapped[float] = mapped_column(Float, default=0, index=True)
     index_status: Mapped[str] = mapped_column(String(40), default=SearchIndexStatus.DRAFT.value, index=True)
+    sitemap_status: Mapped[str] = mapped_column(String(20), default=SitemapStatus.EXCLUDED.value, index=True)
+    seo_control: Mapped[str] = mapped_column(String(20), default=SeoControl.AUTOMATIC.value, index=True)
+    automatic_eligibility: Mapped[str] = mapped_column(
+        String(20), default=AutomaticEligibility.EXCLUDED.value, index=True
+    )
     match_count: Mapped[int] = mapped_column(Integer, default=0)
     matching_observation_count: Mapped[int] = mapped_column(Integer, default=0)
     last_built_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_calculated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_content_change_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     data_freshness: Mapped[str] = mapped_column(String(20), default="unknown")
     status_reason: Mapped[str | None] = mapped_column(String(500))

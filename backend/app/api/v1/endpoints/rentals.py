@@ -85,15 +85,15 @@ def _snap_public(snap: MarketStatSnapshot | None, label: str) -> MarketSnapshotP
 
 @router.get("/rentals/sitemap")
 async def rentals_sitemap(db: AsyncSession = Depends(get_db)):
-    from app.services.intent_config import load_automation_config
+    from app.models import SitemapStatus
 
-    cfg = await load_automation_config(db)
-    if not cfg.allow_sitemap_inclusion:
-        return {"items": [], "note": "Sitemap inclusion disabled in SEO settings"}
     result = await db.execute(
         select(SearchIntent).where(
             SearchIntent.is_enabled == True,  # noqa: E712
             SearchIntent.index_status == SearchIndexStatus.INDEXABLE.value,
+            SearchIntent.sitemap_status == SitemapStatus.INCLUDED.value,
+            SearchIntent.path.is_not(None),
+            SearchIntent.path != "",
         )
     )
     items = result.scalars().all()
@@ -105,6 +105,7 @@ async def rentals_sitemap(db: AsyncSession = Depends(get_db)):
                 "title": i.title,
             }
             for i in items
+            if i.path.startswith("/rentals/")
         ]
     }
 
