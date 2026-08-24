@@ -93,13 +93,21 @@ export default function AdminSearchLandingsPage() {
     bulk.mutate(action);
   };
 
+  const seoSummary = useQuery({
+    queryKey: ["admin-seo-summary"],
+    queryFn: () => adminService.getSeoSummary(),
+  });
+
   return (
     <div className="space-y-8">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h2 className="text-xl font-semibold text-navy-800 dark:text-white">Search Landing Pages</h2>
           <p className="text-sm text-gray-500 mt-1">
-            Auto-discovered from inventory + external observations. Manual overrides lock automation.
+            Auto-discovered from inventory + external observations. Manual overrides lock automation.{" "}
+            <Link href="/admin/seo-settings" className="underline">
+              SEO settings
+            </Link>
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -127,6 +135,26 @@ export default function AdminSearchLandingsPage() {
           </label>
         </div>
       </div>
+
+      {seoSummary.data && (
+        <div className="text-sm border rounded-xl p-4 bg-white dark:bg-navy-800 flex flex-wrap gap-6">
+          <div>
+            <span className="text-gray-500">Eligible SEO landings</span>
+            <div className="text-xl font-serif">{seoSummary.data.eligible_landing_pages}</div>
+          </div>
+          <div>
+            <span className="text-gray-500">Excluded</span>
+            <div className="text-xl font-serif">{seoSummary.data.excluded_pages}</div>
+          </div>
+          <div className="text-xs text-gray-500 max-w-md">
+            Thresholds: ≥{seoSummary.data.thresholds?.min_dimensions_for_index} dimensions, ≥
+            {seoSummary.data.thresholds?.min_verified_for_index} matching properties.{" "}
+            <Link href="/admin/seo-settings" className="underline">
+              Adjust SEO settings
+            </Link>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-wrap gap-2 items-center text-sm">
         <span className="text-gray-500">{selected.size} selected</span>

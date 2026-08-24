@@ -15,23 +15,23 @@ def _slugify(text: str) -> str:
 
 
 def normalize_query(query: dict[str, Any]) -> dict[str, Any]:
+    from app.services.seo_attributes import sanitize_seo_amenities
+
     location = (query.get("location") or query.get("location_slug") or "kigali").lower().strip()
-    amenities = sorted(
-        {
-            str(a).lower().replace(" ", "_")
-            for a in (query.get("amenities") or [])
-            if a
-        }
-    )
-    # Normalize pool aliases
-    amenities = ["swimming_pool" if a in {"pool", "swimming_pool"} else a for a in amenities]
-    amenities = sorted(set(amenities))
+    raw_amenities = [
+        str(a).lower().replace(" ", "_")
+        for a in (query.get("amenities") or [])
+        if a
+    ]
+    amenities, _blocked = sanitize_seo_amenities(raw_amenities)
     out: dict[str, Any] = {"location": location, "currency": "USD"}
     ptype = query.get("property_type") or query.get("property_type_slug")
     if ptype:
         out["property_type"] = str(ptype).lower().strip()
     if query.get("bedrooms") is not None:
         out["bedrooms"] = int(query["bedrooms"])
+    if query.get("bathrooms") is not None:
+        out["bathrooms"] = float(query["bathrooms"])
     if query.get("furnished") is not None:
         out["furnished"] = bool(query["furnished"])
     elif query.get("is_furnished") is not None:
@@ -56,6 +56,10 @@ def intent_slug_from_query(query: dict[str, Any]) -> str:
     parts: list[str] = []
     if q.get("bedrooms") is not None:
         parts.append(f"{q['bedrooms']}-bedroom")
+    if q.get("bathrooms") is not None:
+        baths = q["bathrooms"]
+        baths_label = str(int(baths)) if float(baths).is_integer() else str(baths)
+        parts.append(f"{baths_label}-bathroom")
     if q.get("furnished") is True:
         parts.append("furnished")
     elif q.get("furnished") is False:
@@ -73,6 +77,14 @@ def intent_slug_from_query(query: dict[str, Any]) -> str:
     amenities = q.get("amenities") or []
     if "swimming_pool" in amenities:
         parts.append("with-pool")
+    if "parking" in amenities:
+        parts.append("with-parking")
+    if "garden" in amenities:
+        parts.append("with-garden")
+    if "kitchen" in amenities:
+        parts.append("with-kitchen")
+    if "compound" in amenities:
+        parts.append("with-compound")
     if q.get("max_price_usd") is not None:
         parts.append(f"under-{int(q['max_price_usd'])}")
     if q.get("min_price_usd") is not None and q.get("max_price_usd") is None:

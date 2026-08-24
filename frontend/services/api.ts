@@ -237,6 +237,12 @@ export const adminService = {
     api.post(`/admin/market/search-intents/${id}/lock`, null, { params: { locked } }).then((r) => r.data),
   bulkSearchIntents: (ids: string[], action: string) =>
     api.post("/admin/market/search-intents/bulk", { ids, action }).then((r) => r.data),
+  getSeoSettings: () => api.get("/admin/market/seo-settings").then((r) => r.data),
+  updateSeoSettings: (data: Record<string, unknown>) =>
+    api.put("/admin/market/seo-settings", data).then((r) => r.data),
+  resetSeoSettings: () => api.post("/admin/market/seo-settings/reset").then((r) => r.data),
+  reevaluateSeo: () => api.post("/admin/market/seo-settings/reevaluate").then((r) => r.data),
+  getSeoSummary: () => api.get("/admin/market/seo-summary").then((r) => r.data),
   rebuildResearch: () => api.post("/admin/market/research/rebuild").then((r) => r.data),
   runDiscovery: (deep = true) =>
     api.post("/admin/market/automation/discover", null, { params: { deep } }).then((r) => r.data),

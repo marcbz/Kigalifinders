@@ -384,3 +384,11 @@ async def delete_property(
         raise HTTPException(status_code=404, detail="Property not found")
     await db.delete(prop)
     await sync_location_counts(db)
+    await db.commit()
+    try:
+        from app.workers.celery_app import refresh_intents_for_property_task
+
+        refresh_intents_for_property_task.delay(None, None, None)
+    except Exception:
+        pass
+    return None

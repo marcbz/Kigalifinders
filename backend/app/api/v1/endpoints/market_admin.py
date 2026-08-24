@@ -28,6 +28,12 @@ from app.services.observations import (
     list_observations,
     refresh_research_after_import,
 )
+from app.services.intent_config import (
+    DEFAULT_CONFIG,
+    load_automation_config,
+    save_automation_config,
+    seo_settings_public,
+)
 from app.services.search_intent import build_path, rebuild_intent_metrics
 
 
@@ -39,6 +45,15 @@ class BulkIdsPayload(BaseModel):
 class BulkIntentPayload(BaseModel):
     ids: List[UUID] = Field(default_factory=list)
     action: str
+
+
+class SeoSettingsUpdate(BaseModel):
+    min_dimensions_for_index: Optional[int] = None
+    min_verified_for_index: Optional[int] = None
+    allow_auto_index: Optional[bool] = None
+    allow_sitemap_inclusion: Optional[bool] = None
+    require_unique_content: Optional[bool] = None
+    min_unique_content_chars: Optional[int] = None
 
 
 router = APIRouter(prefix="/admin/market", tags=["Admin Market Intelligence"])
@@ -123,13 +138,29 @@ async def approve_intent(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
+    from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
+    from app.services.intent_copy import normalize_query
+
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
         raise HTTPException(status_code=404, detail="Not found")
     await rebuild_intent_metrics(db, intent)
-    if intent.match_count < 1 or intent.quality_score < 40:
+    cfg = await load_automation_config(db)
+    q = normalize_query(intent.query or {})
+    dims = count_seo_dimensions(q)
+    blocked = query_has_blocked_seo_attributes(intent.query or {})
+    if blocked:
         intent.index_status = SearchIndexStatus.NOINDEX.value
-        intent.status_reason = "Manual review: not enough quality to index"
+        intent.status_reason = f"Manual review: disallowed attributes ({', '.join(blocked)})"
+        intent.locked_by_admin = True
+    elif dims < cfg.min_dimensions_for_index or intent.match_count < cfg.min_verified_for_index:
+        intent.index_status = SearchIndexStatus.NOINDEX.value
+        intent.status_reason = (
+            f"Manual review: needs ≥{cfg.min_dimensions_for_index} dimensions and "
+            f"≥{cfg.min_verified_for_index} matching properties "
+            f"(has {dims} dims, {intent.match_count} matches)"
+        )
+        intent.locked_by_admin = True
     else:
         intent.index_status = SearchIndexStatus.INDEXABLE.value
         intent.status_reason = "Manually approved"
@@ -137,6 +168,88 @@ async def approve_intent(
     await db.commit()
     await db.refresh(intent)
     return intent
+
+
+@router.get("/seo-settings")
+async def get_seo_settings(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    cfg = await load_automation_config(db)
+    from app.services.intent_automation import seo_eligibility_summary
+
+    summary = await seo_eligibility_summary(db)
+    return {**seo_settings_public(cfg), "summary": summary}
+
+
+@router.put("/seo-settings")
+async def update_seo_settings(
+    payload: SeoSettingsUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.intent_automation import apply_index_rules, seo_eligibility_summary
+
+    cfg = await load_automation_config(db)
+    data = payload.model_dump(exclude_unset=True)
+    for k, v in data.items():
+        setattr(cfg, k, v)
+    cfg = await save_automation_config(db, cfg)
+    index_stats = await apply_index_rules(db, cfg)
+    summary = await seo_eligibility_summary(db)
+    await db.commit()
+    return {
+        **seo_settings_public(cfg),
+        "re_evaluated": index_stats,
+        "summary": summary,
+    }
+
+
+@router.post("/seo-settings/reset")
+async def reset_seo_settings(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.intent_automation import apply_index_rules, seo_eligibility_summary
+
+    cfg = await save_automation_config(db, DEFAULT_CONFIG)
+    index_stats = await apply_index_rules(db, cfg)
+    summary = await seo_eligibility_summary(db)
+    await db.commit()
+    return {
+        **seo_settings_public(cfg),
+        "re_evaluated": index_stats,
+        "summary": summary,
+    }
+
+
+@router.get("/seo-summary")
+async def get_seo_summary(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    from app.services.intent_automation import seo_eligibility_summary
+
+    return await seo_eligibility_summary(db)
+
+
+@router.post("/seo-settings/reevaluate")
+async def reevaluate_seo(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.intent_automation import (
+        apply_index_rules,
+        recalculate_all_intent_metrics,
+        seo_eligibility_summary,
+    )
+
+    cfg = await load_automation_config(db)
+    recalculated = await recalculate_all_intent_metrics(db)
+    index_stats = await apply_index_rules(db, cfg)
+    summary = await seo_eligibility_summary(db)
+    await db.commit()
+    return {"recalculated": recalculated, "index_rules": index_stats, "summary": summary}
 
 
 @router.post("/search-intents/{intent_id}/noindex", response_model=SearchIntentListItem)
@@ -350,14 +463,26 @@ async def admin_bulk_intents(
     updated = 0
     for intent in intents:
         if payload.action in {"approve", "indexable"}:
+            from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
+            from app.services.intent_copy import normalize_query
+            from app.services.intent_config import load_automation_config
+
+            cfg = await load_automation_config(db)
             await rebuild_intent_metrics(db, intent)
-            if intent.match_count >= 1 and intent.quality_score >= 40:
+            q = normalize_query(intent.query or {})
+            dims = count_seo_dimensions(q)
+            blocked = query_has_blocked_seo_attributes(intent.query or {})
+            if (
+                not blocked
+                and dims >= cfg.min_dimensions_for_index
+                and intent.match_count >= cfg.min_verified_for_index
+            ):
                 intent.index_status = SearchIndexStatus.INDEXABLE.value
                 intent.status_reason = "Bulk: approved/indexable"
                 intent.locked_by_admin = True
             else:
                 intent.index_status = SearchIndexStatus.NOINDEX.value
-                intent.status_reason = "Bulk: not enough quality"
+                intent.status_reason = "Bulk: not enough dimensions/matches or disallowed attributes"
                 intent.locked_by_admin = True
             updated += 1
         elif payload.action == "noindex":

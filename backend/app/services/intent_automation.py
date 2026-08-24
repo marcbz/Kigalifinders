@@ -233,14 +233,18 @@ def _candidate_queries_from_inventory(
                 furnished_items = [p for p in bed_items if p.is_furnished or p.listing_type == ListingType.FURNISHED]
                 if len(furnished_items) >= cfg.min_verified_for_discover:
                     add({"location": loc, "property_type": ptype, "bedrooms": beds, "furnished": True})
-                    pool_items = [p for p in furnished_items if p.has_pool]
-                    if len(pool_items) >= cfg.min_verified_for_discover and cfg.max_amenities_per_location >= 1:
+                unfurn_items = [p for p in bed_items if not p.is_furnished and p.listing_type != ListingType.FURNISHED]
+                if len(unfurn_items) >= cfg.min_verified_for_discover:
+                    add({"location": loc, "property_type": ptype, "bedrooms": beds, "furnished": False})
+
+                for baths in cfg.bathroom_levels:
+                    bath_items = [p for p in bed_items if p.bathrooms is not None and float(p.bathrooms) >= float(baths)]
+                    if len(bath_items) >= cfg.min_verified_for_discover:
                         add({
                             "location": loc,
                             "property_type": ptype,
                             "bedrooms": beds,
-                            "furnished": True,
-                            "amenities": ["swimming_pool"],
+                            "bathrooms": baths,
                         })
 
             # Furnished type at location
@@ -252,10 +256,36 @@ def _candidate_queries_from_inventory(
             if len(furn_type) >= cfg.min_verified_for_discover:
                 add({"location": loc, "property_type": ptype, "furnished": True})
 
-            # Pool at location + type
-            pool_type = [p for p in items if p.property_type and p.property_type.slug == ptype and p.has_pool]
-            if len(pool_type) >= cfg.min_verified_for_discover:
-                add({"location": loc, "property_type": ptype, "amenities": ["swimming_pool"]})
+            # Allowed amenity facets only (never internet/staff/security/balcony)
+            amenity_checks = [
+                ("swimming_pool", lambda p: bool(p.has_pool)),
+                ("parking", lambda p: bool(p.has_parking)),
+                ("garden", lambda p: bool(p.has_garden)),
+                ("kitchen", lambda p: bool(p.has_kitchen)),
+                (
+                    "compound",
+                    lambda p: any(
+                        (a.slug or "").lower() in {"compound", "enclosed_compound", "gated_compound"}
+                        for a in (p.amenities or [])
+                    ),
+                ),
+            ]
+            added_am = 0
+            for amenity_slug, pred in amenity_checks:
+                if added_am >= cfg.max_amenities_per_location:
+                    break
+                am_items = [p for p in items if p.property_type and p.property_type.slug == ptype and pred(p)]
+                if len(am_items) >= cfg.min_verified_for_discover:
+                    add({"location": loc, "property_type": ptype, "amenities": [amenity_slug]})
+                    added_am += 1
+                    furn_am = [p for p in am_items if p.is_furnished or p.listing_type == ListingType.FURNISHED]
+                    if len(furn_am) >= cfg.min_verified_for_discover:
+                        add({
+                            "location": loc,
+                            "property_type": ptype,
+                            "furnished": True,
+                            "amenities": [amenity_slug],
+                        })
 
             # Price bands from this slice
             type_prices = [
@@ -449,7 +479,9 @@ async def upsert_discovered_intent(
 
 
 async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> dict[str, int]:
-    """Promote/demote based on strict gates. Respects admin locks."""
+    """Promote/demote based on SEO dimension + match gates. Respects admin locks."""
+    from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
+
     promoted = demoted = 0
     result = await db.execute(
         select(SearchIntent).where(
@@ -473,7 +505,14 @@ async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> di
     by_core: dict[tuple, list[SearchIntent]] = defaultdict(list)
     for intent in intents:
         q = normalize_query(intent.query or {})
-        key = (q.get("location"), q.get("property_type"), q.get("bedrooms"), q.get("furnished"), tuple(q.get("amenities") or []))
+        key = (
+            q.get("location"),
+            q.get("property_type"),
+            q.get("bedrooms"),
+            q.get("bathrooms"),
+            q.get("furnished"),
+            tuple(q.get("amenities") or []),
+        )
         if q.get("max_price_usd") is not None:
             by_core[key].append(intent)
 
@@ -489,51 +528,170 @@ async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> di
                     near_dupe_losers.add(b.id)
 
     for intent in intents:
+        q = normalize_query(intent.query or {})
+        dims = count_seo_dimensions(q)
+        blocked = query_has_blocked_seo_attributes(intent.query or {})
+        unique_ok = True
+        if cfg.require_unique_content:
+            intro = (intent.intro_html or "").strip()
+            meta = (intent.meta_description or "").strip()
+            has_text = len(intro) >= cfg.min_unique_content_chars or len(meta) >= cfg.min_unique_content_chars
+            has_market = bool(intent.matching_observation_count and intent.matching_observation_count >= 3)
+            unique_ok = has_text or has_market or bool(intent.title and intent.h1 and meta)
+
         if intent.id in near_dupe_losers and intent.index_status == SearchIndexStatus.INDEXABLE.value:
             intent.index_status = SearchIndexStatus.NOINDEX.value
             intent.status_reason = "Near-duplicate price band; kept higher-opportunity sibling"
             demoted += 1
             continue
 
+        if blocked:
+            if intent.index_status == SearchIndexStatus.INDEXABLE.value:
+                intent.index_status = SearchIndexStatus.NOINDEX.value
+                intent.status_reason = f"Demoted: disallowed SEO attributes ({', '.join(blocked)})"
+                demoted += 1
+            elif intent.index_status != SearchIndexStatus.NOINDEX.value:
+                intent.index_status = SearchIndexStatus.NOINDEX.value
+                intent.status_reason = f"Excluded from SEO: disallowed attributes ({', '.join(blocked)})"
+            continue
+
         passes = (
             cfg.allow_auto_index
+            and dims >= cfg.min_dimensions_for_index
             and intent.match_count >= cfg.min_verified_for_index
+            and unique_ok
             and intent.opportunity_score >= cfg.min_opportunity_for_index
             and intent.quality_score >= cfg.min_quality_for_index
             and intent.data_freshness in {"fresh", "aging", "unknown"}
             and bool(intent.title and intent.h1 and intent.meta_description)
             and intent.id not in near_dupe_losers
         )
-        # Research-only path: fewer verified but strong observations
-        research_passes = (
-            cfg.allow_auto_index
-            and intent.match_count >= 1
-            and intent.matching_observation_count >= cfg.min_observations_for_research_value
-            and intent.opportunity_score >= cfg.min_opportunity_for_index
-            and intent.quality_score >= cfg.min_quality_for_index
-            and intent.id not in near_dupe_losers
-        )
 
-        if intent.index_status in {SearchIndexStatus.DRAFT.value, SearchIndexStatus.NOINDEX.value, SearchIndexStatus.DISCOVERED.value}:
-            if (passes or research_passes) and indexable_count < cfg.max_auto_indexable:
+        if intent.index_status in {
+            SearchIndexStatus.DRAFT.value,
+            SearchIndexStatus.NOINDEX.value,
+            SearchIndexStatus.DISCOVERED.value,
+        }:
+            if passes and indexable_count < cfg.max_auto_indexable:
                 intent.index_status = SearchIndexStatus.INDEXABLE.value
-                intent.status_reason = "Auto-indexable: passed quality and opportunity gates"
+                intent.status_reason = (
+                    f"Auto-indexable: {dims} dimensions, {intent.match_count} matching properties"
+                )
                 promoted += 1
                 indexable_count += 1
+            elif intent.index_status != SearchIndexStatus.NOINDEX.value and not passes:
+                # Keep as draft/discovered for filters; mark noindex if thin for SEO
+                reasons = []
+                if dims < cfg.min_dimensions_for_index:
+                    reasons.append(f"only {dims} dimension(s) (need {cfg.min_dimensions_for_index})")
+                if intent.match_count < cfg.min_verified_for_index:
+                    reasons.append(
+                        f"only {intent.match_count} matching properties (need {cfg.min_verified_for_index})"
+                    )
+                if not unique_ok:
+                    reasons.append("insufficient unique content / market data")
+                if reasons and intent.index_status == SearchIndexStatus.DRAFT.value:
+                    intent.status_reason = "Not SEO-eligible yet: " + "; ".join(reasons)
         elif intent.index_status == SearchIndexStatus.INDEXABLE.value:
-            if not passes and not research_passes:
-                # Keep URL if temporarily zero matches but still useful research; prefer noindex if thin
-                if intent.match_count == 0 and intent.matching_observation_count < cfg.min_observations_for_research_value:
-                    intent.index_status = SearchIndexStatus.NOINDEX.value
-                    intent.status_reason = "Demoted: insufficient verified inventory and research data"
-                    demoted += 1
-                elif intent.data_freshness == "stale" and intent.match_count < cfg.min_verified_for_index:
-                    intent.index_status = SearchIndexStatus.NOINDEX.value
-                    intent.status_reason = "Demoted: stale data"
-                    demoted += 1
+            if not passes:
+                reasons = []
+                if not cfg.allow_auto_index:
+                    reasons.append("automatic SEO landing generation disabled")
+                if dims < cfg.min_dimensions_for_index:
+                    reasons.append(f"below dimension threshold ({dims}<{cfg.min_dimensions_for_index})")
+                if intent.match_count < cfg.min_verified_for_index:
+                    reasons.append(
+                        f"below match threshold ({intent.match_count}<{cfg.min_verified_for_index})"
+                    )
+                if not unique_ok:
+                    reasons.append("missing unique content")
+                if intent.id in near_dupe_losers:
+                    reasons.append("near-duplicate")
+                intent.index_status = SearchIndexStatus.NOINDEX.value
+                intent.status_reason = "Demoted: " + ("; ".join(reasons) or "no longer meets SEO gates")
+                demoted += 1
 
     await db.flush()
     return {"promoted": promoted, "demoted": demoted}
+
+
+def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConfig) -> str | None:
+    """Return exclusion reason if not eligible for SEO index, else None."""
+    from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
+
+    if intent.index_status == SearchIndexStatus.DISABLED.value or not intent.is_enabled:
+        return "Disabled"
+    if intent.index_status == SearchIndexStatus.INDEXABLE.value:
+        return None
+
+    q = normalize_query(intent.query or {})
+    dims = count_seo_dimensions(q)
+    blocked = query_has_blocked_seo_attributes(intent.query or {})
+    if blocked:
+        return f"Disallowed attributes: {', '.join(blocked)}"
+    if dims < cfg.min_dimensions_for_index:
+        return f"Below dimension threshold ({dims} < {cfg.min_dimensions_for_index})"
+    if intent.match_count < cfg.min_verified_for_index:
+        return f"Below match threshold ({intent.match_count} < {cfg.min_verified_for_index})"
+    if cfg.require_unique_content:
+        intro = (intent.intro_html or "").strip()
+        meta = (intent.meta_description or "").strip()
+        has_text = len(intro) >= cfg.min_unique_content_chars or len(meta) >= cfg.min_unique_content_chars
+        has_market = bool(intent.matching_observation_count and intent.matching_observation_count >= 3)
+        if not (has_text or has_market or bool(intent.title and intent.h1 and meta)):
+            return "Insufficient unique content or market data"
+    if intent.status_reason and "duplicate" in (intent.status_reason or "").lower():
+        return intent.status_reason
+    if intent.index_status == SearchIndexStatus.NOINDEX.value:
+        return intent.status_reason or "Marked noindex"
+    if intent.index_status == SearchIndexStatus.DISCOVERED.value:
+        return intent.status_reason or "Discovered but not yet eligible"
+    if intent.index_status == SearchIndexStatus.DRAFT.value:
+        return intent.status_reason or "Draft — not yet eligible for indexing"
+    return intent.status_reason or f"Status: {intent.index_status}"
+
+
+async def seo_eligibility_summary(db: AsyncSession) -> dict[str, Any]:
+    cfg = await load_automation_config(db)
+    result = await db.execute(select(SearchIntent))
+    intents = list(result.scalars().all())
+    eligible = 0
+    excluded = 0
+    reasons: dict[str, int] = defaultdict(int)
+    for intent in intents:
+        reason = _exclusion_reason_for_intent(intent, cfg)
+        if reason is None:
+            eligible += 1
+        else:
+            excluded += 1
+            reasons[reason] += 1
+    # Collapse near-identical reason prefixes for readability
+    top_reasons = sorted(reasons.items(), key=lambda x: (-x[1], x[0]))[:25]
+    return {
+        "eligible_landing_pages": eligible,
+        "excluded_pages": excluded,
+        "total_pages": len(intents),
+        "exclusion_reasons": [{"reason": r, "count": c} for r, c in top_reasons],
+        "thresholds": {
+            "min_dimensions_for_index": cfg.min_dimensions_for_index,
+            "min_verified_for_index": cfg.min_verified_for_index,
+            "allow_auto_index": cfg.allow_auto_index,
+            "allow_sitemap_inclusion": cfg.allow_sitemap_inclusion,
+            "require_unique_content": cfg.require_unique_content,
+            "min_unique_content_chars": cfg.min_unique_content_chars,
+        },
+        "allowed_attributes": [
+            "furnished / unfurnished",
+            "bedrooms",
+            "bathrooms",
+            "kitchen",
+            "parking",
+            "garden",
+            "swimming pool",
+            "compound",
+        ],
+        "removed_attributes": ["internet", "staff quarters", "security", "balcony"],
+    }
 
 
 async def rebuild_related_for_intent(db: AsyncSession, intent: SearchIntent, limit: int = 6) -> int:
@@ -661,6 +819,7 @@ async def refresh_intents_for_property_facets(
             continue
         await upsert_discovered_intent(db, intent.query or {}, source=intent.source or "discovered", cfg=cfg)
         touched += 1
+    await apply_index_rules(db, cfg)
     return touched
 
 

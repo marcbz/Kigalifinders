@@ -85,6 +85,11 @@ def _snap_public(snap: MarketStatSnapshot | None, label: str) -> MarketSnapshotP
 
 @router.get("/rentals/sitemap")
 async def rentals_sitemap(db: AsyncSession = Depends(get_db)):
+    from app.services.intent_config import load_automation_config
+
+    cfg = await load_automation_config(db)
+    if not cfg.allow_sitemap_inclusion:
+        return {"items": [], "note": "Sitemap inclusion disabled in SEO settings"}
     result = await db.execute(
         select(SearchIntent).where(
             SearchIntent.is_enabled == True,  # noqa: E712

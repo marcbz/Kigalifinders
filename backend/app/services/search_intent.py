@@ -46,17 +46,10 @@ async def _neighborhood_ids(db: AsyncSession, location_slug: str | None) -> list
 
 
 def _amenity_flags_from_query(query: dict[str, Any]) -> dict[str, bool]:
-    amenities = [str(a).lower().replace(" ", "_") for a in (query.get("amenities") or [])]
-    flags = {}
-    if "swimming_pool" in amenities or "pool" in amenities:
-        flags["has_pool"] = True
-    if "parking" in amenities:
-        flags["has_parking"] = True
-    if "garden" in amenities:
-        flags["has_garden"] = True
-    if "jacuzzi" in amenities:
-        flags["has_jacuzzi"] = True
-    return flags
+    from app.services.seo_attributes import amenity_property_flags, sanitize_seo_amenities
+
+    amenities, _ = sanitize_seo_amenities(query.get("amenities") or [])
+    return amenity_property_flags(amenities)
 
 
 async def match_verified_properties(
@@ -131,9 +124,17 @@ async def match_verified_properties(
     for col, val in flags.items():
         q = q.where(getattr(Property, col) == val)
 
+    # compound (and any remaining allowed amenities without a boolean column) via amenity join
+    from app.services.seo_attributes import sanitize_seo_amenities
+
     amenity_slugs = [str(a).lower() for a in (query.get("amenity_slugs") or [])]
-    if amenity_slugs:
-        for slug in amenity_slugs:
+    allowed_from_query, _ = sanitize_seo_amenities(query.get("amenities") or [])
+    join_slugs = set(amenity_slugs)
+    for slug in allowed_from_query:
+        if slug == "compound":
+            join_slugs.add("compound")
+    if join_slugs:
+        for slug in join_slugs:
             q = q.where(
                 Property.amenities.any(Amenity.slug == slug)  # type: ignore[attr-defined]
             )
