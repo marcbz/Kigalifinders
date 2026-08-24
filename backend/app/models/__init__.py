@@ -54,6 +54,7 @@ class ObservationStatus(str, enum.Enum):
     NOT_FOUND = "not_found"
     PRICE_CHANGED = "price_changed"
     UNKNOWN = "unknown"
+    INVALID = "invalid"
 
 
 class SearchIndexStatus(str, enum.Enum):

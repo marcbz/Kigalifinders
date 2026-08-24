@@ -150,3 +150,91 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
 
     await db.flush()
     return {"imported": imported, "skipped": skipped, "errors": errors[:50]}
+
+
+async def list_observations(
+    db: AsyncSession,
+    *,
+    page: int = 1,
+    page_size: int = 50,
+    source: str | None = None,
+    status: str | None = None,
+) -> dict:
+    from sqlalchemy import func
+
+    q = select(RentalObservation).order_by(RentalObservation.observed_at.desc())
+    count_q = select(func.count()).select_from(RentalObservation)
+    if source:
+        q = q.where(RentalObservation.source.ilike(f"%{source}%"))
+        count_q = count_q.where(RentalObservation.source.ilike(f"%{source}%"))
+    if status:
+        q = q.where(RentalObservation.observation_status == status)
+        count_q = count_q.where(RentalObservation.observation_status == status)
+    total = int((await db.execute(count_q)).scalar() or 0)
+    result = await db.execute(q.offset((page - 1) * page_size).limit(page_size))
+    rows = list(result.scalars().all())
+    return {
+        "total": total,
+        "page": page,
+        "page_size": page_size,
+        "items": [
+            {
+                "id": str(r.id),
+                "source": r.source,
+                "source_url": r.source_url,
+                "source_listing_id": r.source_listing_id,
+                "observed_at": r.observed_at.isoformat() if r.observed_at else None,
+                "last_observed_at": r.last_observed_at.isoformat() if r.last_observed_at else None,
+                "neighborhood": r.neighborhood,
+                "neighborhood_slug": r.neighborhood_slug,
+                "bedrooms": r.bedrooms,
+                "bathrooms": r.bathrooms,
+                "property_type": r.property_type,
+                "asking_price": r.asking_price,
+                "currency": r.currency,
+                "usd_price": r.usd_price,
+                "is_furnished": r.is_furnished,
+                "observation_status": r.observation_status,
+                "confidence": r.confidence,
+                "notes": r.notes,
+                "data_label": "External Market Observations",
+            }
+            for r in rows
+        ],
+    }
+
+
+async def bulk_update_observations(
+    db: AsyncSession,
+    ids: list[str],
+    *,
+    action: str,
+) -> dict:
+    from uuid import UUID
+
+    if not ids:
+        return {"updated": 0, "action": action}
+    uuids = [UUID(i) for i in ids]
+    result = await db.execute(select(RentalObservation).where(RentalObservation.id.in_(uuids)))
+    rows = list(result.scalars().all())
+    updated = 0
+    for row in rows:
+        if action == "mark_invalid":
+            row.observation_status = ObservationStatus.INVALID.value
+            row.notes = ((row.notes or "") + " Marked invalid by admin.").strip()
+            updated += 1
+        elif action == "mark_not_found":
+            row.observation_status = ObservationStatus.NOT_FOUND.value
+            row.notes = (
+                (row.notes or "")
+                + f" No longer observed on the source as of {datetime.now(timezone.utc).date().isoformat()}."
+            ).strip()
+            updated += 1
+        elif action == "mark_active":
+            row.observation_status = ObservationStatus.ACTIVE_OBSERVED.value
+            updated += 1
+        elif action == "mark_unknown":
+            row.observation_status = ObservationStatus.UNKNOWN.value
+            updated += 1
+    await db.flush()
+    return {"updated": updated, "action": action}

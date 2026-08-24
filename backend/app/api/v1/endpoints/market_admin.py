@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -21,9 +22,24 @@ from app.schemas.market import (
     SearchIntentUpdate,
 )
 from app.services.crawler import CrawlerConfig, PoliteCrawler
-from app.services.observations import import_observations_csv
+from app.services.market_sources import list_sources
+from app.services.observations import (
+    bulk_update_observations,
+    import_observations_csv,
+    list_observations,
+)
 from app.services.search_intent import build_path, rebuild_intent_metrics
-# research rebuilds are orchestrated via intent_automation.run_daily_automation
+
+
+class BulkIdsPayload(BaseModel):
+    ids: List[str] = Field(default_factory=list)
+    action: str
+
+
+class BulkIntentPayload(BaseModel):
+    ids: List[UUID] = Field(default_factory=list)
+    action: str
+
 
 router = APIRouter(prefix="/admin/market", tags=["Admin Market Intelligence"])
 
@@ -263,7 +279,105 @@ async def crawler_sample(
         "errors": result.errors,
         "listings": result.listings,
         "note": "Crawler starts disabled. Prefer CSV import until one source is approved.",
+        "sources": list_sources(),
     }
+
+
+@router.get("/market-sources")
+async def market_sources(_: User = Depends(require_staff)):
+    return {
+        "sources": list_sources(),
+        "policy": (
+            "Automated crawls remain disabled by default. Use CSV import. "
+            "Never bypass CAPTCHA, login, paywalls, or anti-bot systems. "
+            "Disappeared listings → not_found/unknown — never assumed rented."
+        ),
+    }
+
+
+@router.get("/observations")
+async def admin_list_observations(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=200),
+    source: Optional[str] = None,
+    status: Optional[str] = None,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    return await list_observations(db, page=page, page_size=page_size, source=source, status=status)
+
+
+@router.post("/observations/bulk")
+async def admin_bulk_observations(
+    payload: BulkIdsPayload,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    allowed = {"mark_invalid", "mark_not_found", "mark_active", "mark_unknown", "reprocess"}
+    if payload.action not in allowed:
+        raise HTTPException(status_code=400, detail=f"Unsupported action. Allowed: {sorted(allowed)}")
+    if payload.action == "reprocess":
+        from app.services.intent_automation import run_daily_automation
+
+        # Reprocess = rebuild research + discovery without changing observation statuses
+        auto = await run_daily_automation(db)
+        return {"updated": 0, "action": "reprocess", "automation": auto}
+    result = await bulk_update_observations(db, payload.ids, action=payload.action)
+    await db.commit()
+    return result
+
+
+@router.post("/search-intents/bulk")
+async def admin_bulk_intents(
+    payload: BulkIntentPayload,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    if payload.action == "rebuild_research":
+        from app.services.intent_automation import run_daily_automation
+
+        auto = await run_daily_automation(db)
+        return {"updated": 0, "automation": auto}
+    if not payload.ids:
+        return {"updated": 0}
+    result = await db.execute(select(SearchIntent).where(SearchIntent.id.in_(payload.ids)))
+    intents = list(result.scalars().all())
+    updated = 0
+    for intent in intents:
+        if payload.action in {"approve", "indexable"}:
+            await rebuild_intent_metrics(db, intent)
+            if intent.match_count >= 1 and intent.quality_score >= 40:
+                intent.index_status = SearchIndexStatus.INDEXABLE.value
+                intent.status_reason = "Bulk: approved/indexable"
+                intent.locked_by_admin = True
+            else:
+                intent.index_status = SearchIndexStatus.NOINDEX.value
+                intent.status_reason = "Bulk: not enough quality"
+                intent.locked_by_admin = True
+            updated += 1
+        elif payload.action == "noindex":
+            intent.index_status = SearchIndexStatus.NOINDEX.value
+            intent.locked_by_admin = True
+            intent.status_reason = "Bulk: noindex"
+            updated += 1
+        elif payload.action == "enable":
+            intent.is_enabled = True
+            if intent.index_status == SearchIndexStatus.DISABLED.value:
+                intent.index_status = SearchIndexStatus.DRAFT.value
+            updated += 1
+        elif payload.action == "disable":
+            intent.is_enabled = False
+            intent.index_status = SearchIndexStatus.DISABLED.value
+            intent.locked_by_admin = True
+            intent.status_reason = "Bulk: disabled"
+            updated += 1
+        elif payload.action == "refresh":
+            await rebuild_intent_metrics(db, intent)
+            updated += 1
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported bulk action")
+    await db.commit()
+    return {"updated": updated, "action": payload.action}
 
 
 @router.get("/gsc-suggestions", response_model=list[GscSuggestionItem])

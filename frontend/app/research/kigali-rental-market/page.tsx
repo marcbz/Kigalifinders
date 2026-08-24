@@ -1,20 +1,26 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { fetchResearchOverviewSafe, fetchResearchReportsSafe } from "@/lib/market-api";
+import {
+  fetchResearchChartsSafe,
+  fetchResearchOverviewSafe,
+  fetchResearchReportsSafe,
+} from "@/lib/market-api";
+import { ResearchChart, ResearchRangeCard } from "@/components/research/research-charts";
 
 export const revalidate = 600;
 
 export const metadata: Metadata = {
   title: "Kigali Rental Market Research | KigaliRent",
   description:
-    "USD-first research on Kigali rental prices, neighborhoods, and trends — clearly separating verified KigaliRent inventory from market observations.",
+    "USD-first research on Kigali rental prices — KigaliRent verified inventory clearly labeled apart from external market observations.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market" },
 };
 
 export default async function ResearchHubPage() {
-  const [overview, reports] = await Promise.all([
+  const [overview, reports, charts] = await Promise.all([
     fetchResearchOverviewSafe(),
     fetchResearchReportsSafe(),
+    fetchResearchChartsSafe(),
   ]);
 
   return (
@@ -29,59 +35,118 @@ export default async function ResearchHubPage() {
             {overview?.summary ||
               "Transparent rental-market statistics for Kigali, with verified inventory clearly labeled apart from external observations."}
           </p>
+          {charts?.last_updated && (
+            <p className="text-sm text-gray-300 mt-4">Last updated {charts.last_updated}</p>
+          )}
         </div>
       </header>
 
       <div className="max-w-5xl mx-auto px-6 py-12 space-y-12">
         <nav className="flex flex-wrap gap-3 text-sm">
           {(reports?.reports || []).map((r) => (
-            <Link key={r.slug} href={r.path} className="px-4 py-2 rounded-full border bg-white dark:bg-navy-800 hover:border-gold-500">
+            <Link
+              key={r.slug}
+              href={r.path}
+              className="px-4 py-2 rounded-full border bg-white dark:bg-navy-800 hover:border-gold-500"
+            >
               {r.title}
             </Link>
           ))}
-          <Link href="/research/kigali-rental-market/methodology" className="px-4 py-2 rounded-full border bg-white dark:bg-navy-800">
+          <Link
+            href="/research/kigali-rental-market/methodology"
+            className="px-4 py-2 rounded-full border bg-white dark:bg-navy-800"
+          >
             Methodology
           </Link>
-          <Link href="/research/kigali-rental-market/sources" className="px-4 py-2 rounded-full border bg-white dark:bg-navy-800">
+          <Link
+            href="/research/kigali-rental-market/sources"
+            className="px-4 py-2 rounded-full border bg-white dark:bg-navy-800"
+          >
             Sources
           </Link>
         </nav>
 
-        <section>
-          <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Neighborhood comparison</h2>
-          <p className="text-sm text-gray-600 mb-6">Median asking rent from verified KigaliRent listings (USD/month). Sample size shown.</p>
-          <ul className="space-y-3">
-            {(overview?.neighborhoods || []).map((n) => (
-              <li key={n.label} className="flex justify-between gap-4 border-b pb-3 text-sm">
-                <span className="text-navy-800 dark:text-white font-medium">{n.label}</span>
-                <span className="text-gray-600">
-                  {n.median_usd != null ? `$${n.median_usd.toLocaleString()}` : "—"} · n={n.sample_size}
-                </span>
-              </li>
-            ))}
-            {!overview?.neighborhoods?.length && (
-              <li className="text-gray-500 text-sm">Rebuild research aggregates in admin to populate neighborhood medians.</li>
-            )}
-          </ul>
+        <section className="grid md:grid-cols-2 gap-6">
+          <ResearchRangeCard
+            label={charts?.verified_label || "KigaliRent Verified"}
+            typicalText={charts?.price_range?.verified?.typical_text}
+            rangeText={charts?.price_range?.verified?.range_text || "Not enough historical data yet."}
+            sampleSize={charts?.price_range?.verified?.sample_size || 0}
+            periodEnd={charts?.price_range?.verified?.period_end}
+          />
+          <ResearchRangeCard
+            label={charts?.external_label || "External Market Observations"}
+            typicalText={charts?.price_range?.external?.typical_text}
+            rangeText={charts?.price_range?.external?.range_text || "Not enough historical data yet."}
+            sampleSize={charts?.price_range?.external?.sample_size || 0}
+            periodEnd={charts?.price_range?.external?.period_end}
+            disclaimer={charts?.external_disclaimer}
+          />
         </section>
 
-        <section>
-          <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Observed listing activity</h2>
-          <p className="text-sm text-gray-600 mb-4">
-            Count of external observations over time. This is not total market supply.
-          </p>
-          <ul className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-            {(overview?.activity_series || []).map((a) => (
-              <li key={a.month} className="bg-white dark:bg-navy-800 border rounded-lg p-3">
-                <div className="text-gray-500">{a.month}</div>
-                <div className="text-xl font-serif text-navy-800 dark:text-white">{a.observations}</div>
-              </li>
-            ))}
-            {!overview?.activity_series?.length && (
-              <li className="text-gray-500 col-span-2">No external observations imported yet.</li>
-            )}
-          </ul>
-        </section>
+        <ResearchChart
+          title="Asking rent by bedroom"
+          subtitle="KigaliRent verified inventory · USD/month"
+          points={(charts?.by_bedroom || [])
+            .filter((b) => b.median_usd != null)
+            .map((b) => ({
+              label: `${b.bedrooms}+`,
+              value: b.median_usd || 0,
+              sample_size: b.sample_size,
+              p25: b.p25_usd,
+              p75: b.p75_usd,
+            }))}
+        />
+
+        <ResearchChart
+          title="Asking rent by neighborhood"
+          subtitle="KigaliRent verified inventory · typical asking rent (USD/month)"
+          points={(charts?.by_neighborhood || [])
+            .filter((n) => n.median_usd != null)
+            .slice(0, 12)
+            .map((n) => ({
+              label: n.label,
+              value: n.median_usd || 0,
+              sample_size: n.sample_size,
+              p25: n.p25_usd,
+              p75: n.p75_usd,
+            }))}
+        />
+
+        <ResearchChart
+          title="Median asking rent over time"
+          subtitle="KigaliRent verified · enough history required"
+          kind="line"
+          points={
+            charts?.has_trend_history
+              ? (charts.trend || [])
+                  .filter((t) => t.median_usd != null)
+                  .map((t) => ({
+                    label: t.period_end.slice(0, 7),
+                    value: t.median_usd || 0,
+                    sample_size: t.sample_size,
+                  }))
+              : []
+          }
+          emptyText="Not enough historical data yet."
+        />
+
+        <ResearchChart
+          title="External observed listing activity"
+          subtitle="Count of external observations over time — not total market supply"
+          kind="line"
+          unitPrefix=""
+          points={(charts?.observation_activity || []).map((a) => ({
+            label: a.month,
+            value: a.observations,
+          }))}
+          emptyText="No external observations imported yet."
+        />
+
+        <p className="text-xs text-gray-500 border-t pt-6">
+          Charts use aggregated database snapshots only. External Market Observations are never shown as
+          KigaliRent inventory. {charts?.external_disclaimer}
+        </p>
       </div>
     </div>
   );

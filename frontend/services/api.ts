@@ -235,9 +235,16 @@ export const adminService = {
   noindexSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/noindex`).then((r) => r.data),
   lockSearchIntent: (id: string, locked = true) =>
     api.post(`/admin/market/search-intents/${id}/lock`, null, { params: { locked } }).then((r) => r.data),
+  bulkSearchIntents: (ids: string[], action: string) =>
+    api.post("/admin/market/search-intents/bulk", { ids, action }).then((r) => r.data),
   rebuildResearch: () => api.post("/admin/market/research/rebuild").then((r) => r.data),
   runDiscovery: (deep = true) =>
     api.post("/admin/market/automation/discover", null, { params: { deep } }).then((r) => r.data),
+  listObservations: (params?: { page?: number; page_size?: number; source?: string; status?: string }) =>
+    api.get("/admin/market/observations", { params }).then((r) => r.data),
+  bulkObservations: (ids: string[], action: string) =>
+    api.post("/admin/market/observations/bulk", { ids, action }).then((r) => r.data),
+  marketSources: () => api.get("/admin/market/market-sources").then((r) => r.data),
   importObservationsCsv: (file: File) => {
     const form = new FormData();
     form.append("file", file);

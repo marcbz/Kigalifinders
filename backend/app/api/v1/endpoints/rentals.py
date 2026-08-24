@@ -286,6 +286,13 @@ async def research_trends(db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/research/kigali-rental-market/charts")
+async def research_charts(db: AsyncSession = Depends(get_db)):
+    from app.services.research import research_chart_payload
+
+    return await research_chart_payload(db)
+
+
 @router.get("/research/kigali-rental-market/methodology")
 async def research_methodology():
     return {
@@ -297,7 +304,12 @@ async def research_methodology():
             "External listings that disappear are marked not_found — never assumed rented.",
             "Statistics are withheld when sample size is insufficient (minimum 3).",
             "Verified KigaliRent inventory is never mixed with observations without labels.",
+            "External Market Observations are public listings observed on external sources; availability is not confirmed.",
         ],
+        "labels": {
+            "verified": "KigaliRent Verified",
+            "external": "External Market Observations",
+        },
     }
 
 

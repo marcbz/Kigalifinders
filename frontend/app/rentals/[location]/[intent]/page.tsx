@@ -119,16 +119,16 @@ export default async function RentalLandingPage({ params }: Props) {
             <p className="text-sm text-gray-600 dark:text-gray-300 mb-6">{snap.summary}</p>
             <dl className="grid sm:grid-cols-3 gap-6 text-sm">
               <div>
-                <dt className="text-gray-500">Median asking rent</dt>
+                <dt className="text-gray-500">Typical asking rent</dt>
                 <dd className="text-2xl font-serif text-navy-800 dark:text-white">
-                  {snap.median_usd != null ? `$${snap.median_usd.toLocaleString()}` : "—"}
+                  {snap.median_usd != null ? `$${snap.median_usd.toLocaleString()}/month` : "—"}
                 </dd>
               </div>
               <div>
-                <dt className="text-gray-500">Observed range (P25–P75)</dt>
-                <dd className="text-2xl font-serif text-navy-800 dark:text-white">
+                <dt className="text-gray-500">Most properties in this sample</dt>
+                <dd className="text-lg font-serif text-navy-800 dark:text-white leading-snug">
                   {snap.p25_usd != null && snap.p75_usd != null
-                    ? `$${snap.p25_usd.toLocaleString()}–$${snap.p75_usd.toLocaleString()}`
+                    ? `$${snap.p25_usd.toLocaleString()}–$${snap.p75_usd.toLocaleString()}/month`
                     : "—"}
                 </dd>
               </div>
@@ -138,7 +138,9 @@ export default async function RentalLandingPage({ params }: Props) {
               </div>
             </dl>
             <p className="text-xs text-gray-500 mt-4">
-              Source label: {snap.data_kind === "verified_kigali_rent" ? "KigaliRent verified inventory" : "External market observations"}
+              {snap.data_kind === "verified_kigali_rent"
+                ? "KigaliRent Verified"
+                : "External Market Observations — public listings observed on external sources; availability is not confirmed."}
               {snap.period_end ? ` · Period ending ${snap.period_end}` : ""}
             </p>
           </section>

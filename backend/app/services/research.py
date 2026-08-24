@@ -199,7 +199,11 @@ async def rebuild_observation_snapshots(db: AsyncSession, period_end: date | Non
 
 async def observation_activity_series(db: AsyncSession, months: int = 12) -> list[dict]:
     """Count of observations over time — not total market supply."""
-    result = await db.execute(select(RentalObservation.observed_at, RentalObservation.id))
+    result = await db.execute(
+        select(RentalObservation.observed_at, RentalObservation.id).where(
+            RentalObservation.observation_status != "invalid"
+        )
+    )
     counts: Counter[str] = Counter()
     for observed_at, _ in result.all():
         if not observed_at:
@@ -210,13 +214,178 @@ async def observation_activity_series(db: AsyncSession, months: int = 12) -> lis
     return [{"month": k, "observations": counts[k]} for k in keys]
 
 
+async def research_chart_payload(db: AsyncSession) -> dict:
+    """Aggregated chart series from snapshots + observations — for public research UI."""
+    verified_overall = await db.execute(
+        select(MarketStatSnapshot)
+        .where(
+            MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
+            MarketStatSnapshot.location_slug == "kigali",
+            MarketStatSnapshot.bedrooms.is_(None),
+        )
+        .order_by(MarketStatSnapshot.period_end.desc())
+        .limit(1)
+    )
+    observed_overall = await db.execute(
+        select(MarketStatSnapshot)
+        .where(
+            MarketStatSnapshot.data_kind == MarketDataKind.MARKET_OBSERVATION.value,
+            MarketStatSnapshot.location_slug == "kigali",
+            MarketStatSnapshot.bedrooms.is_(None),
+        )
+        .order_by(MarketStatSnapshot.period_end.desc())
+        .limit(1)
+    )
+    v = verified_overall.scalar_one_or_none()
+    o = observed_overall.scalar_one_or_none()
+
+    beds = await db.execute(
+        select(MarketStatSnapshot)
+        .where(
+            MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
+            MarketStatSnapshot.location_slug == "kigali",
+            MarketStatSnapshot.bedrooms.is_not(None),
+        )
+        .order_by(MarketStatSnapshot.period_end.desc(), MarketStatSnapshot.bedrooms.asc())
+        .limit(20)
+    )
+    bed_rows = list(beds.scalars().all())
+    seen_beds: set[int] = set()
+    by_bedroom = []
+    for row in bed_rows:
+        if row.bedrooms in seen_beds:
+            continue
+        seen_beds.add(row.bedrooms)
+        by_bedroom.append(
+            {
+                "bedrooms": row.bedrooms,
+                "median_usd": row.median_usd,
+                "p25_usd": row.p25_usd,
+                "p75_usd": row.p75_usd,
+                "sample_size": row.sample_size,
+                "data_kind": row.data_kind,
+            }
+        )
+
+    neighborhoods = await db.execute(
+        select(MarketStatSnapshot)
+        .where(
+            MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
+            MarketStatSnapshot.location_slug != "kigali",
+            MarketStatSnapshot.bedrooms.is_(None),
+            MarketStatSnapshot.sample_size >= MIN_SAMPLE,
+        )
+        .order_by(MarketStatSnapshot.period_end.desc(), MarketStatSnapshot.median_usd.desc())
+        .limit(40)
+    )
+    seen_n: set[str] = set()
+    by_neighborhood = []
+    for row in neighborhoods.scalars().all():
+        if row.location_slug in seen_n:
+            continue
+        seen_n.add(row.location_slug)
+        by_neighborhood.append(
+            {
+                "location_slug": row.location_slug,
+                "label": row.location_name or row.location_slug,
+                "median_usd": row.median_usd,
+                "p25_usd": row.p25_usd,
+                "p75_usd": row.p75_usd,
+                "sample_size": row.sample_size,
+                "data_kind": row.data_kind,
+            }
+        )
+
+    trend = await db.execute(
+        select(MarketStatSnapshot)
+        .where(
+            MarketStatSnapshot.location_slug == "kigali",
+            MarketStatSnapshot.bedrooms.is_(None),
+            MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
+        )
+        .order_by(MarketStatSnapshot.period_end.asc())
+        .limit(36)
+    )
+    trend_rows = list(trend.scalars().all())
+    activity = await observation_activity_series(db)
+
+    return {
+        "verified_label": "KigaliRent Verified",
+        "external_label": "External Market Observations",
+        "external_disclaimer": (
+            "Public listings observed on external sources; availability is not confirmed. "
+            "A listing that disappears is marked not found — never assumed rented."
+        ),
+        "price_range": {
+            "verified": friendly_range_label(v),
+            "external": friendly_range_label(o),
+        },
+        "by_bedroom": by_bedroom,
+        "by_neighborhood": by_neighborhood,
+        "trend": [
+            {
+                "period_end": r.period_end.isoformat(),
+                "median_usd": r.median_usd,
+                "sample_size": r.sample_size,
+                "data_kind": r.data_kind,
+            }
+            for r in trend_rows
+        ],
+        "observation_activity": activity,
+        "has_trend_history": len(trend_rows) >= 2,
+        "last_updated": (v.period_end.isoformat() if v else (o.period_end.isoformat() if o else None)),
+    }
+
+
 def textual_summary(snap: MarketStatSnapshot | None, label: str) -> str:
     if not snap or not snap.sample_size:
-        return f"Insufficient sample size to publish statistics for {label}."
-    kind = "verified KigaliRent listings" if snap.data_kind == "verified_kigali_rent" else "external market observations"
-    return (
-        f"Based on {snap.sample_size} {kind} "
-        f"(period ending {snap.period_end}), median asking rent is "
-        f"${snap.median_usd:,.0f}/month "
-        f"(P25 ${snap.p25_usd:,.0f} – P75 ${snap.p75_usd:,.0f})."
+        return f"Not enough data yet to summarize asking rents for {label}."
+    if snap.data_kind == "verified_kigali_rent":
+        kind = "KigaliRent verified listings"
+        caveat = ""
+    else:
+        kind = "external market observations"
+        caveat = (
+            " Public listings observed on external sources; availability is not confirmed."
+        )
+    typical = (
+        f"Typical asking rent: ${snap.median_usd:,.0f}/month."
+        if snap.median_usd is not None
+        else "Typical asking rent is not available for this sample."
     )
+    band = ""
+    if snap.p25_usd is not None and snap.p75_usd is not None:
+        band = (
+            f" Most properties in this sample fall between "
+            f"${snap.p25_usd:,.0f} and ${snap.p75_usd:,.0f}/month."
+        )
+    return (
+        f"{typical}{band} "
+        f"Based on {snap.sample_size} {kind} "
+        f"(period ending {snap.period_end}).{caveat}"
+    )
+
+
+def friendly_range_label(snap: MarketStatSnapshot | None) -> dict:
+    if not snap or not snap.sample_size:
+        return {
+            "typical": None,
+            "range_text": "Not enough historical data yet.",
+            "sample_size": 0,
+            "data_kind": None,
+        }
+    return {
+        "typical": snap.median_usd,
+        "typical_text": f"Typical asking rent: ${snap.median_usd:,.0f}/month"
+        if snap.median_usd is not None
+        else None,
+        "range_text": (
+            f"Most properties in this sample fall between ${snap.p25_usd:,.0f} and ${snap.p75_usd:,.0f}/month."
+            if snap.p25_usd is not None and snap.p75_usd is not None
+            else "Not enough historical data yet."
+        ),
+        "sample_size": snap.sample_size,
+        "data_kind": snap.data_kind,
+        "period_end": snap.period_end.isoformat() if snap.period_end else None,
+        "label": "KigaliRent Verified" if snap.data_kind == "verified_kigali_rent" else "External Market Observations",
+    }

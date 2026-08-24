@@ -285,6 +285,59 @@ def _candidate_queries_from_inventory(
     return candidates[: cfg.max_discovered_per_run * 2]
 
 
+async def _candidate_queries_from_observations(
+    db: AsyncSession,
+    cfg: IntentAutomationConfig,
+) -> list[dict[str, Any]]:
+    """Discover intents supported by external observations (never treated as verified inventory)."""
+    result = await db.execute(
+        select(RentalObservation)
+        .where(
+            RentalObservation.observation_status.in_(["active_observed", "price_changed"]),
+            RentalObservation.usd_price.is_not(None),
+            RentalObservation.neighborhood_slug.is_not(None),
+        )
+        .limit(5000)
+    )
+    rows = list(result.scalars().all())
+    by_loc: dict[str, list] = defaultdict(list)
+    for o in rows:
+        by_loc[o.neighborhood_slug or "kigali"].append(o)
+        by_loc["kigali"].append(o)
+
+    candidates: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    def add(query: dict[str, Any]) -> None:
+        q = normalize_query(query)
+        h = canonical_query_hash(q)
+        if h in seen:
+            return
+        seen.add(h)
+        candidates.append(q)
+
+    for loc, items in by_loc.items():
+        if len(items) < cfg.min_observations_for_research_value and loc != "kigali":
+            continue
+        type_counts: Counter[str] = Counter()
+        for o in items:
+            if o.property_type:
+                slug = str(o.property_type).lower().replace(" ", "-")
+                if "apartment" in slug:
+                    type_counts["apartment"] += 1
+                elif "house" in slug:
+                    type_counts["house"] += 1
+        for ptype, cnt in type_counts.items():
+            if cnt < max(3, cfg.min_observations_for_research_value // 2):
+                continue
+            add({"location": loc, "property_type": ptype})
+            for beds in cfg.bedroom_levels:
+                bed_items = [o for o in items if o.bedrooms and int(o.bedrooms) >= beds]
+                if len(bed_items) >= 3:
+                    add({"location": loc, "property_type": ptype, "bedrooms": beds})
+    return candidates[: cfg.max_discovered_per_run]
+
+
 async def upsert_discovered_intent(
     db: AsyncSession,
     query: dict[str, Any],
@@ -541,6 +594,13 @@ async def discover_intents(db: AsyncSession, *, deep: bool = False) -> dict[str,
         cfg = replace(cfg, max_discovered_per_run=cfg.max_discovered_per_run * 2)
     props = await _load_published_rentals(db)
     candidates = _candidate_queries_from_inventory(props, cfg)
+    obs_candidates = await _candidate_queries_from_observations(db, cfg)
+    seen = {canonical_query_hash(c) for c in candidates}
+    for c in obs_candidates:
+        h = canonical_query_hash(c)
+        if h not in seen:
+            candidates.append(c)
+            seen.add(h)
     created = updated = skipped = 0
     for query in candidates[: cfg.max_discovered_per_run]:
         before = await db.execute(
@@ -556,7 +616,13 @@ async def discover_intents(db: AsyncSession, *, deep: bool = False) -> dict[str,
         else:
             created += 1
     await db.flush()
-    return {"candidates": len(candidates), "created": created, "updated": updated, "skipped": skipped}
+    return {
+        "candidates": len(candidates),
+        "from_observations": len(obs_candidates),
+        "created": created,
+        "updated": updated,
+        "skipped": skipped,
+    }
 
 
 async def recalculate_all_intent_metrics(db: AsyncSession) -> int:
