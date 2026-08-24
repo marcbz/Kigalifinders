@@ -50,7 +50,7 @@ export default function AdminSeoSettingsPage() {
         <h2 className="text-xl font-semibold text-navy-800 dark:text-white">Publishing rules</h2>
         <p className="text-sm text-gray-500 mt-1">
           Choose when a rental search page is good enough to publish to Google.{" "}
-          <Link href="/admin/search-landings" className="underline">
+          <Link href="/admin/seo-market" className="underline">
             View search pages
           </Link>
         </p>

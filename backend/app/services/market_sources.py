@@ -47,6 +47,12 @@ SOURCES: list[MarketSource] = [
         notes="CSV/manual import only. Include source + source_url on every row.",
     ),
     MarketSource(
+        id="homeland",
+        name="Homeland",
+        base_url="",
+        notes="CSV/manual import only. Include source + source_url on every row.",
+    ),
+    MarketSource(
         id="manual_other",
         name="Other permitted public sources",
         base_url="",
@@ -124,6 +130,13 @@ def _serialize_source(row: ExternalMarketSource) -> dict[str, Any]:
         "name": row.name,
         "base_url": row.base_url,
         "collection_method": "CSV",
+        "policy_status": row.policy_status,
+        "is_enabled": row.policy_status
+        in {
+            SourcePolicyStatus.REVIEWED_OK.value,
+            SourcePolicyStatus.REVIEWED_RESTRICTED.value,
+        },
+        "is_archived": row.policy_status == SourcePolicyStatus.BLOCKED.value,
         "policy_notes": row.policy_notes,
         "last_import_at": row.last_import_at.isoformat() if row.last_import_at else None,
         "observation_count": row.observation_count,
@@ -134,7 +147,11 @@ def _serialize_source(row: ExternalMarketSource) -> dict[str, Any]:
 async def list_source_dashboard(db: AsyncSession) -> dict[str, Any]:
     await ensure_source_rows(db)
     await refresh_observation_counts(db)
-    result = await db.execute(select(ExternalMarketSource).order_by(ExternalMarketSource.name.asc()))
+    result = await db.execute(
+        select(ExternalMarketSource)
+        .where(ExternalMarketSource.policy_status != SourcePolicyStatus.BLOCKED.value)
+        .order_by(ExternalMarketSource.observation_count.desc(), ExternalMarketSource.name.asc())
+    )
     rows = list(result.scalars().all())
     return {
         "policy": (
@@ -142,9 +159,7 @@ async def list_source_dashboard(db: AsyncSession) -> dict[str, Any]:
             "KigaliRent Verified inventory. Every row needs source + source_url. "
             "Disappeared listings are never assumed rented."
         ),
-        "required_columns": sorted(
-            {"asking_price", "currency", "source", "source_url"}
-        ),
+        "required_columns": sorted({"asking_price", "currency", "source", "source_url"}),
         "recommended_columns": [
             "source",
             "source_url",
@@ -166,12 +181,117 @@ async def list_source_dashboard(db: AsyncSession) -> dict[str, Any]:
     }
 
 
+async def market_data_summary(db: AsyncSession) -> dict[str, Any]:
+    """Lightweight counts for admin — top sources + other bucket."""
+    await ensure_source_rows(db)
+    await refresh_observation_counts(db)
+    total = int((await db.execute(select(func.count()).select_from(RentalObservation))).scalar() or 0)
+    result = await db.execute(
+        select(ExternalMarketSource)
+        .where(ExternalMarketSource.policy_status != SourcePolicyStatus.BLOCKED.value)
+        .order_by(ExternalMarketSource.observation_count.desc(), ExternalMarketSource.name.asc())
+    )
+    rows = list(result.scalars().all())
+    active = [r for r in rows if r.observation_count > 0]
+    top = active[:3]
+    other_count = sum(r.observation_count for r in active[3:])
+    last_import = None
+    for r in rows:
+        if r.last_import_at and (last_import is None or r.last_import_at > last_import):
+            last_import = r.last_import_at
+    return {
+        "total_observations": total,
+        "last_import_at": last_import.isoformat() if last_import else None,
+        "top_sources": [
+            {"source_id": r.source_id, "name": r.name, "observation_count": r.observation_count}
+            for r in top
+        ],
+        "other_sources_count": other_count,
+        "sources": [_serialize_source(r) for r in rows],
+    }
+
+
+def _slugify_source_id(name: str) -> str:
+    import re
+
+    slug = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
+    return slug[:72] or "source"
+
+
+async def create_market_source(
+    db: AsyncSession,
+    *,
+    name: str,
+    source_id: str | None = None,
+    base_url: str | None = None,
+    policy_notes: str | None = None,
+) -> ExternalMarketSource:
+    sid = (source_id or _slugify_source_id(name)).lower().strip()
+    existing = await db.execute(select(ExternalMarketSource).where(ExternalMarketSource.source_id == sid))
+    if existing.scalar_one_or_none():
+        raise ValueError(f"Source id '{sid}' already exists")
+    row = ExternalMarketSource(
+        source_id=sid,
+        name=name.strip(),
+        base_url=base_url or None,
+        preferred_ingest="csv",
+        collection_method="csv",
+        policy_status=SourcePolicyStatus.REVIEWED_RESTRICTED.value,
+        policy_notes=policy_notes,
+        automated_enabled=False,
+        listing_adapter_ready=False,
+    )
+    db.add(row)
+    await db.flush()
+    return row
+
+
+async def update_market_source(
+    db: AsyncSession,
+    source_id: str,
+    *,
+    name: str | None = None,
+    base_url: str | None = None,
+    policy_notes: str | None = None,
+    enabled: bool | None = None,
+    archived: bool | None = None,
+) -> ExternalMarketSource | None:
+    row = await get_source_row(db, source_id)
+    if not row:
+        return None
+    if name is not None:
+        row.name = name.strip()
+    if base_url is not None:
+        row.base_url = base_url or None
+    if policy_notes is not None:
+        row.policy_notes = policy_notes
+    if archived is True:
+        row.policy_status = SourcePolicyStatus.BLOCKED.value
+    elif enabled is True:
+        if row.policy_status == SourcePolicyStatus.BLOCKED.value:
+            row.policy_status = SourcePolicyStatus.REVIEWED_RESTRICTED.value
+        elif row.policy_status == SourcePolicyStatus.NOT_REVIEWED.value:
+            row.policy_status = SourcePolicyStatus.REVIEWED_RESTRICTED.value
+    elif enabled is False:
+        row.policy_status = SourcePolicyStatus.NOT_REVIEWED.value
+    await db.flush()
+    return row
+
+
 async def get_source_row(db: AsyncSession, source_id: str) -> ExternalMarketSource | None:
     await ensure_source_rows(db)
     result = await db.execute(
         select(ExternalMarketSource).where(ExternalMarketSource.source_id == source_id)
     )
     return result.scalar_one_or_none()
+
+
+async def resolve_source_filter(db: AsyncSession, source_key: str) -> tuple[str | None, str | None]:
+    """Return (display_name, source_id) for observation filtering."""
+    row = await get_source_row(db, source_key)
+    if row:
+        return row.name, row.source_id
+    return source_key, source_key
 
 
 async def touch_source_import(db: AsyncSession, source_id: str | None) -> None:

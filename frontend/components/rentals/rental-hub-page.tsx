@@ -98,6 +98,11 @@ function MarketBlock({ snap, title }: { snap: Snap | null | undefined; title: st
           <dd className="text-2xl font-serif">{snap.sample_size}</dd>
         </div>
       </dl>
+      {title.toLowerCase().includes("external") && (
+        <p className="text-xs text-gray-500 mt-4">
+          External market observations are not verified by KigaliRent. Availability is not confirmed.
+        </p>
+      )}
     </section>
   );
 }

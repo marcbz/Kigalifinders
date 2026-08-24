@@ -11,7 +11,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db
-from app.models import MarketDataKind, MarketStatSnapshot, SearchIndexStatus, SearchIntent
+from app.models import ExternalMarketSource, MarketDataKind, MarketStatSnapshot, SearchIndexStatus, SearchIntent
 from app.schemas.market import (
     MarketSnapshotPublic,
     RelatedIntentLink,
@@ -355,20 +355,45 @@ async def research_methodology():
 @router.get("/research/kigali-rental-market/sources")
 async def research_sources(db: AsyncSession = Depends(get_db)):
     from app.models import RentalObservation
+    from app.services.market_sources import ensure_source_rows
     from sqlalchemy import func
 
+    await ensure_source_rows(db)
     result = await db.execute(
         select(RentalObservation.source, func.count())
         .group_by(RentalObservation.source)
         .order_by(func.count().desc())
     )
-    sources = [{"source": s, "observation_count": c, "kind": "market_observation"} for s, c in result.all()]
+    raw = {s: c for s, c in result.all()}
+    src_rows = list((await db.execute(select(ExternalMarketSource))).scalars().all())
+    name_by_key = {r.source_id: r.name for r in src_rows}
+    name_by_key.update({r.name: r.name for r in src_rows})
+    url_by_key = {r.source_id: r.base_url for r in src_rows}
+    url_by_key.update({r.name: r.base_url for r in src_rows})
+
+    sources = []
+    for key, count in raw.items():
+        display = name_by_key.get(key, key)
+        sources.append(
+            {
+                "source": display,
+                "source_key": key,
+                "observation_count": count,
+                "kind": "market_observation",
+                "attribution": f"External market observation — Source: {display}",
+                "source_url": url_by_key.get(key),
+            }
+        )
+    sources.sort(key=lambda x: -x["observation_count"])
     sources.insert(
         0,
         {
             "source": "KigaliRent verified inventory",
+            "source_key": "verified",
             "observation_count": None,
             "kind": "verified_kigali_rent",
+            "attribution": "KigaliRent Verified — reviewed listings only",
+            "source_url": "https://kigalirent.com/properties",
         },
     )
     return {"sources": sources}

@@ -81,10 +81,15 @@ export function fetchResearchMethodologySafe() {
 }
 
 export function fetchResearchSourcesSafe() {
-  return fetchSafe<{ sources: { source: string; observation_count: number | null; kind: string }[] }>(
-    "/research/kigali-rental-market/sources",
-    600,
-  );
+  return fetchSafe<{
+    sources: {
+      source: string;
+      source_key?: string | null;
+      source_url?: string | null;
+      observation_count: number | null;
+      kind: string;
+    }[];
+  }>("/research/kigali-rental-market/sources", 600);
 }
 
 export function fetchResearchReportsSafe() {

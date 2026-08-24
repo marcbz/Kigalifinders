@@ -292,8 +292,21 @@ async def list_observations(
     q = select(RentalObservation).order_by(RentalObservation.observed_at.desc())
     count_q = select(func.count()).select_from(RentalObservation)
     if source:
-        q = q.where(RentalObservation.source.ilike(f"%{source}%"))
-        count_q = count_q.where(RentalObservation.source.ilike(f"%{source}%"))
+        from sqlalchemy import or_
+
+        from app.services.market_sources import resolve_source_filter
+
+        src_name, src_id = await resolve_source_filter(db, source)
+        parts = []
+        if src_id:
+            parts.append(RentalObservation.source == src_id)
+            parts.append(RentalObservation.source.ilike(src_id))
+        if src_name and src_name != src_id:
+            parts.append(RentalObservation.source.ilike(src_name))
+        if parts:
+            filt = or_(*parts)
+            q = q.where(filt)
+            count_q = count_q.where(filt)
     if status:
         q = q.where(RentalObservation.observation_status == status)
         count_q = count_q.where(RentalObservation.observation_status == status)

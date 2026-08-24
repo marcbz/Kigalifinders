@@ -263,6 +263,13 @@ export const adminService = {
   bulkObservations: (ids: string[], action: string) =>
     api.post("/admin/market/observations/bulk", { ids, action }).then((r) => r.data),
   marketSources: () => api.get("/admin/market/market-sources").then((r) => r.data),
+  marketDataSummary: () => api.get("/admin/market/market-data/summary").then((r) => r.data),
+  createMarketSource: (data: { name: string; source_id?: string; base_url?: string; policy_notes?: string }) =>
+    api.post("/admin/market/market-sources", data).then((r) => r.data),
+  updateMarketSource: (
+    sourceId: string,
+    data: { name?: string; base_url?: string; policy_notes?: string; enabled?: boolean; archived?: boolean }
+  ) => api.patch(`/admin/market/market-sources/${encodeURIComponent(sourceId)}`, data).then((r) => r.data),
   downloadObservationsCsvTemplate: () =>
     api
       .get("/admin/market/observations/csv-template", { responseType: "blob" })

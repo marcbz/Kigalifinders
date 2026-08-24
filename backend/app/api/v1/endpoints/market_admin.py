@@ -69,6 +69,21 @@ class SitemapStatusPayload(BaseModel):
     status: str = Field(..., description="included or excluded")
 
 
+class MarketSourceCreate(BaseModel):
+    name: str
+    source_id: Optional[str] = None
+    base_url: Optional[str] = None
+    policy_notes: Optional[str] = None
+
+
+class MarketSourceUpdate(BaseModel):
+    name: Optional[str] = None
+    base_url: Optional[str] = None
+    policy_notes: Optional[str] = None
+    enabled: Optional[bool] = None
+    archived: Optional[bool] = None
+
+
 router = APIRouter(prefix="/admin/market", tags=["Admin Market Intelligence"])
 
 
@@ -559,6 +574,66 @@ async def market_sources(
     data = await list_source_dashboard(db)
     await db.commit()
     return data
+
+
+@router.get("/market-data/summary")
+async def market_data_summary_endpoint(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    from app.services.market_sources import market_data_summary
+
+    data = await market_data_summary(db)
+    await db.commit()
+    return data
+
+
+@router.post("/market-sources")
+async def create_market_source_endpoint(
+    payload: MarketSourceCreate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.market_sources import create_market_source, market_data_summary
+
+    try:
+        row = await create_market_source(
+            db,
+            name=payload.name,
+            source_id=payload.source_id,
+            base_url=payload.base_url,
+            policy_notes=payload.policy_notes,
+        )
+        summary = await market_data_summary(db)
+        await db.commit()
+        return {"ok": True, "source_id": row.source_id, "summary": summary}
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@router.patch("/market-sources/{source_id}")
+async def update_market_source_endpoint(
+    source_id: str,
+    payload: MarketSourceUpdate,
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_admin),
+):
+    from app.services.market_sources import market_data_summary, update_market_source
+
+    row = await update_market_source(
+        db,
+        source_id,
+        name=payload.name,
+        base_url=payload.base_url,
+        policy_notes=payload.policy_notes,
+        enabled=payload.enabled,
+        archived=payload.archived,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Source not found")
+    summary = await market_data_summary(db)
+    await db.commit()
+    return {"ok": True, "source_id": row.source_id, "summary": summary}
 
 
 @router.get("/observations")
