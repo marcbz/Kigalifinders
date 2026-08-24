@@ -277,6 +277,10 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
             f"(based on {kigali_verified.sample_size} listings)."
         )
 
+    from app.services.combined_market import combined_market_answer
+
+    market_answer = await combined_market_answer(db, location_slug="kigali")
+
     return {
         "page_type": "directory",
         "path": "/rentals",
@@ -290,8 +294,9 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         "total_listings": total_listings,
         "neighborhood_count": len(neighborhoods),
         "neighborhoods": neighborhoods,
+        "market_answer": market_answer,
         "verified_market": _snap_dict(kigali_verified, "KigaliRent Verified"),
-        "observation_market": _snap_dict(kigali_observed, "External Market Observations"),
+        "observation_market": None,
         "featured_searches": featured,
     }
 
@@ -328,6 +333,10 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
     if verified and verified.median_usd:
         intro += f" Verified listings in this sample typically ask around ${verified.median_usd:,.0f}/month."
 
+    from app.services.combined_market import combined_market_answer
+
+    market_answer = await combined_market_answer(db, location_slug="kigali")
+
     return {
         "page_type": "city",
         "path": "/rentals/kigali",
@@ -335,15 +344,16 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "location_name": "Kigali",
         "title": "Kigali Rental Market Overview | KigaliRent",
         "h1": "Kigali rental market overview",
-        "meta_description": "Verified Kigali rental listings, neighborhood medians, and external market observations.",
+        "meta_description": "Verified Kigali rental listings and combined market asking-rent estimates.",
         "canonical": f"{SITE}/rentals/kigali",
         "robots": "index,follow",
         "intro": intro,
         "last_updated": _now().isoformat(),
         "listing_count": len(matches),
         "observation_count": obs_count,
+        "market_answer": market_answer,
         "verified_market": verified_dict,
-        "observation_market": observed_dict,
+        "observation_market": None,
         "by_bedroom_verified": by_bedroom_verified,
         "by_bedroom_external": by_bedroom_external,
         "furnished_breakdown": furnished,
@@ -425,6 +435,10 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         db, location_slug=hood.slug, data_kind=MarketDataKind.MARKET_OBSERVATION.value
     )
 
+    from app.services.combined_market import combined_market_answer
+
+    market_answer = await combined_market_answer(db, location_slug=hood.slug)
+
     related = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
     related.sort(key=lambda n: -n["listing_count"])
 
@@ -443,8 +457,9 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "last_updated": _now().isoformat(),
         "listing_count": len(matches),
         "observation_count": obs_count,
+        "market_answer": market_answer,
         "verified_market": verified_dict,
-        "observation_market": observed_dict,
+        "observation_market": None,
         "by_bedroom_verified": by_bedroom_verified,
         "by_bedroom_external": by_bedroom_external,
         "furnished_breakdown": furnished,

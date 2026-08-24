@@ -76,6 +76,16 @@ export type RentalHubData = {
   data_insights?: string[];
   trend_verified?: { label: string; median_usd?: number; sample_size?: number }[];
   trend_external?: { label: string; median_usd?: number; sample_size?: number }[];
+  market_answer?: {
+    question?: string;
+    headline?: string | null;
+    has_enough_data?: boolean;
+    summary?: string;
+    range_text?: string | null;
+    sample_size?: number;
+    last_updated_display?: string | null;
+    asking_rent_note?: string;
+  } | null;
 };
 
 export function RentalHubPage({ data }: { data: RentalHubData }) {
@@ -157,10 +167,33 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           </section>
         )}
 
-        {(data.verified_market || data.observation_market) && (
+        {data.market_answer?.has_enough_data && (
+          <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800 space-y-2">
+            <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white">
+              {data.market_answer.question || "Typical asking rent"}
+            </h2>
+            <p className="text-3xl font-serif">{data.market_answer.headline}</p>
+            {data.market_answer.range_text && (
+              <p className="text-sm text-gray-600">{data.market_answer.range_text}</p>
+            )}
+            <p className="text-sm text-gray-600">{data.market_answer.summary}</p>
+            {data.market_answer.last_updated_display && (
+              <p className="text-xs text-gray-500">Updated {data.market_answer.last_updated_display}</p>
+            )}
+            <p className="text-xs">
+              <Link href="/research/kigali-rental-market" className="underline text-gold-600">
+                Full market research
+              </Link>
+            </p>
+          </section>
+        )}
+
+        {!data.market_answer?.has_enough_data && (data.verified_market || data.observation_market) && (
           <div className="grid lg:grid-cols-2 gap-6">
             <MarketBlock snap={data.verified_market} title="KigaliRent Verified" />
-            <MarketBlock snap={data.observation_market} title="External Market Observations" />
+            {data.observation_market && (
+              <MarketBlock snap={data.observation_market} title="External Market Observations" />
+            )}
           </div>
         )}
 

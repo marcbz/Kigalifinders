@@ -5,8 +5,8 @@ import { fetchResearchNeighborhoodsSafe } from "@/lib/market-api";
 export const revalidate = 600;
 
 export const metadata: Metadata = {
-  title: "Kigali Neighborhood Rents | KigaliRent Research",
-  description: "Compare median asking rents across Kigali neighborhoods using verified inventory samples.",
+  title: "Kigali Neighborhood Rents",
+  description: "Compare typical asking rents across Kigali neighborhoods from combined eligible observations.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market/neighborhoods" },
 };
 
@@ -15,16 +15,23 @@ export default async function ResearchNeighborhoodsPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-14">
       <p className="text-sm mb-4">
-        <Link href="/research/kigali-rental-market" className="text-gold-600 underline">← Research hub</Link>
+        <Link href="/research/kigali-rental-market" className="underline">
+          ← Research hub
+        </Link>
       </p>
-      <h1 className="font-serif text-4xl font-bold text-navy-800 dark:text-white mb-4">Neighborhood comparison</h1>
-      <p className="text-gray-600 mb-8">Median asking rent (USD/month) with sample size. Insufficient samples are omitted.</p>
+      <h1 className="font-serif text-4xl font-bold text-navy-800 dark:text-white mb-4">
+        Neighborhood comparison
+      </h1>
+      <p className="text-gray-600 mb-8">
+        Typical asking rent (USD/month) from combined eligible observations. Neighborhoods without enough
+        data are omitted.
+      </p>
       <table className="w-full text-sm">
         <thead>
           <tr className="text-left border-b">
             <th className="py-2">Neighborhood</th>
-            <th className="py-2">Median</th>
-            <th className="py-2">P25–P75</th>
+            <th className="py-2">Typical</th>
+            <th className="py-2">Common range</th>
             <th className="py-2">n</th>
           </tr>
         </thead>
@@ -32,7 +39,10 @@ export default async function ResearchNeighborhoodsPage() {
           {(data?.items || []).map((n) => (
             <tr key={n.label} className="border-b">
               <td className="py-3">
-                <Link href={`/area/${encodeURIComponent((n.label || "").toLowerCase().replace(/\s+/g, "-"))}`} className="text-gold-600 underline">
+                <Link
+                  href={`/rentals/${encodeURIComponent((n.label || "").toLowerCase().replace(/\s+/g, "-"))}`}
+                  className="underline"
+                >
                   {n.label}
                 </Link>
               </td>
@@ -47,6 +57,9 @@ export default async function ResearchNeighborhoodsPage() {
           ))}
         </tbody>
       </table>
+      {!data?.items?.length && (
+        <p className="text-gray-500 mt-6">Not enough neighborhood data yet.</p>
+      )}
     </div>
   );
 }

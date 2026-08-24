@@ -69,10 +69,10 @@ async def combined_research_counts(db: AsyncSession) -> dict[str, int]:
 def combined_summary_line(*, verified_count: int, external_count: int) -> str:
     total = verified_count + external_count
     if total == 0:
-        return "Research data is updated as verified listings and external observations are added."
+        return "Research data is updated as eligible rental observations are added."
     return (
-        f"Based on {total} rental data point{'s' if total != 1 else ''}: "
-        f"{verified_count} KigaliRent Verified + {external_count} external observation{'s' if external_count != 1 else ''}."
+        f"Based on {total} observed rental listings in Kigali "
+        f"(asking rents from eligible verified listings and approved external observations, combined)."
     )
 
 
@@ -144,10 +144,11 @@ async def research_transparency(
     last = await research_last_updated(db)
     batches = await list_public_import_batches(db, limit=8)
     limitations = [
-        "External observations are not verified vacancies and may no longer be available.",
-        "Disappeared external listings are marked not found — never assumed rented.",
+        "Figures reflect asking rents, not confirmed lease or sale prices.",
+        "External listings that disappear are marked not found — never assumed rented.",
         "Statistics are withheld when sample sizes are too small to be meaningful.",
-        "Verified KigaliRent inventory and external observations are never merged without labels.",
+        "Eligible observations are combined after normalization, deduplication, and outlier screening.",
+        "Source streams remain separated internally for quality control; public research shows one market result.",
     ]
     return {
         "page_title": page_title,
@@ -161,17 +162,17 @@ async def research_transparency(
             verified_count=counts["verified_count"],
             external_count=counts["external_count"],
         ),
-        "verified_label": "KigaliRent Verified",
-        "external_label": "External Market Observations",
+        "verified_label": "Verified listings (internal)",
+        "external_label": "External observations (internal)",
         "sources": sources,
         "import_batches": batches,
         "limitations": limitations,
         "methodology_url": "https://kigalirent.com/research/kigali-rental-market/methodology",
-        "sources_url": "https://kigalirent.com/research/kigali-rental-market/sources",
+        "sources_url": "https://kigalirent.com/research/kigali-rental-market/methodology",
         "citation_text": (
-            f'KigaliRent. "{page_title}." KigaliRent Research, '
+            f'KigaliRent Research. "{page_title}." '
             f'{last.strftime("%Y") if last else "n.d."}, '
-            f'{canonical_url}. Accessed { _now().strftime("%b %d, %Y") }. '
-            f'Data: {counts["verified_count"]} KigaliRent Verified + {counts["external_count"]} external observations.'
+            f"{canonical_url}. "
+            f"Based on {counts['total_count']} observed rental listings (asking rents)."
         ),
     }

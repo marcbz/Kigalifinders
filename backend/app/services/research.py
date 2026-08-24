@@ -241,142 +241,15 @@ async def observation_activity_series(db: AsyncSession, months: int = 12) -> lis
 
 
 async def research_chart_payload(db: AsyncSession) -> dict:
-    """Aggregated chart series from snapshots + observations — for public research UI."""
-    verified_overall = await db.execute(
-        select(MarketStatSnapshot)
-        .where(
-            MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
-            MarketStatSnapshot.location_slug == "kigali",
-            MarketStatSnapshot.bedrooms.is_(None),
-            MarketStatSnapshot.property_type.is_(None),
-        )
-        .order_by(MarketStatSnapshot.period_end.desc())
-        .limit(1)
-    )
-    observed_overall = await db.execute(
-        select(MarketStatSnapshot)
-        .where(
-            MarketStatSnapshot.data_kind == MarketDataKind.MARKET_OBSERVATION.value,
-            MarketStatSnapshot.location_slug == "kigali",
-            MarketStatSnapshot.bedrooms.is_(None),
-            MarketStatSnapshot.property_type.is_(None),
-        )
-        .order_by(MarketStatSnapshot.period_end.desc())
-        .limit(1)
-    )
-    v = verified_overall.scalar_one_or_none()
-    o = observed_overall.scalar_one_or_none()
+    """Public research payload: ONE combined market picture (plus internal provenance)."""
+    from app.services.combined_market import combined_research_payload
 
-    async def _by_bedroom(kind: str) -> list[dict]:
-        beds = await db.execute(
-            select(MarketStatSnapshot)
-            .where(
-                MarketStatSnapshot.data_kind == kind,
-                MarketStatSnapshot.location_slug == "kigali",
-                MarketStatSnapshot.bedrooms.is_not(None),
-                MarketStatSnapshot.property_type.is_(None),
-            )
-            .order_by(MarketStatSnapshot.period_end.desc(), MarketStatSnapshot.bedrooms.asc())
-            .limit(40)
-        )
-        seen: set[int] = set()
-        out = []
-        for row in beds.scalars().all():
-            if row.bedrooms in seen:
-                continue
-            seen.add(row.bedrooms)
-            out.append(
-                {
-                    "bedrooms": row.bedrooms,
-                    "median_usd": row.median_usd,
-                    "p25_usd": row.p25_usd,
-                    "p75_usd": row.p75_usd,
-                    "sample_size": row.sample_size,
-                    "data_kind": row.data_kind,
-                }
-            )
-        return out
-
-    async def _by_neighborhood(kind: str, min_sample: int = 1) -> list[dict]:
-        neighborhoods = await db.execute(
-            select(MarketStatSnapshot)
-            .where(
-                MarketStatSnapshot.data_kind == kind,
-                MarketStatSnapshot.location_slug != "kigali",
-                MarketStatSnapshot.bedrooms.is_(None),
-                MarketStatSnapshot.property_type.is_(None),
-                MarketStatSnapshot.sample_size >= min_sample,
-            )
-            .order_by(MarketStatSnapshot.period_end.desc(), MarketStatSnapshot.median_usd.desc())
-            .limit(60)
-        )
-        seen: set[str] = set()
-        out = []
-        for row in neighborhoods.scalars().all():
-            if row.location_slug in seen:
-                continue
-            seen.add(row.location_slug)
-            out.append(
-                {
-                    "location_slug": row.location_slug,
-                    "label": row.location_name or row.location_slug,
-                    "median_usd": row.median_usd,
-                    "p25_usd": row.p25_usd,
-                    "p75_usd": row.p75_usd,
-                    "sample_size": row.sample_size,
-                    "data_kind": row.data_kind,
-                }
-            )
-        return out
-
-    by_bedroom = await _by_bedroom(MarketDataKind.VERIFIED_KIGALI_RENT.value)
-    by_bedroom_external = await _by_bedroom(MarketDataKind.MARKET_OBSERVATION.value)
-    by_neighborhood = await _by_neighborhood(MarketDataKind.VERIFIED_KIGALI_RENT.value, MIN_SAMPLE)
-    by_neighborhood_external = await _by_neighborhood(MarketDataKind.MARKET_OBSERVATION.value, 1)
-
-    trend = await db.execute(
-        select(MarketStatSnapshot)
-        .where(
-            MarketStatSnapshot.location_slug == "kigali",
-            MarketStatSnapshot.bedrooms.is_(None),
-            MarketStatSnapshot.property_type.is_(None),
-            MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
-        )
-        .order_by(MarketStatSnapshot.period_end.asc())
-        .limit(36)
-    )
-    trend_rows = list(trend.scalars().all())
-
-    trend_ext = await db.execute(
-        select(MarketStatSnapshot)
-        .where(
-            MarketStatSnapshot.location_slug == "kigali",
-            MarketStatSnapshot.bedrooms.is_(None),
-            MarketStatSnapshot.property_type.is_(None),
-            MarketStatSnapshot.data_kind == MarketDataKind.MARKET_OBSERVATION.value,
-        )
-        .order_by(MarketStatSnapshot.period_end.asc())
-        .limit(36)
-    )
-    trend_ext_rows = list(trend_ext.scalars().all())
-    # Prefer distinct calendar months for external trend (skip duplicate rolling points sharing same month if any)
-    seen_months: set[str] = set()
-    trend_external = []
-    for r in trend_ext_rows:
-        key = r.period_end.strftime("%Y-%m")
-        if key in seen_months:
-            continue
-        seen_months.add(key)
-        trend_external.append(
-            {
-                "period_end": r.period_end.isoformat(),
-                "median_usd": r.median_usd,
-                "sample_size": r.sample_size,
-                "data_kind": r.data_kind,
-            }
-        )
-
+    combined = await combined_research_payload(db)
     activity = await observation_activity_series(db)
+    primary = combined.get("primary_answer") or {}
+    stats = primary.get("stats") or {}
+
+    # Keep legacy dual-track fields for admin/audit consumers, but public UI should use `combined`.
     from sqlalchemy import func
 
     obs_count = await db.execute(
@@ -389,41 +262,40 @@ async def research_chart_payload(db: AsyncSession) -> dict:
     )
     external_active_count = int(obs_count.scalar() or 0)
 
-    from app.services.research_meta import research_transparency
-
-    transparency = await research_transparency(db)
-
     return {
+        **combined,
+        "combined": {
+            "typical": stats.get("median_usd"),
+            "typical_text": primary.get("headline"),
+            "range_text": primary.get("range_text") or "Not enough data yet.",
+            "sample_size": primary.get("sample_size") or 0,
+            "period_end": primary.get("period_end"),
+            "label": "Kigali rental market (combined)",
+        },
+        "observation_activity": activity,
+        "external_active_count": external_active_count,
+        "has_trend_history": combined.get("has_trend_history", False),
+        # Legacy fields retained but empty/unused by public research UI
         "verified_label": "KigaliRent Verified",
         "external_label": "External Market Observations",
         "external_disclaimer": (
-            "Public listings observed on external sources; availability is not confirmed. "
-            "A listing that disappears is marked not found — never assumed rented."
+            "Source streams remain separated internally for quality control. "
+            "Public research shows one combined asking-rent estimate."
         ),
-        "external_active_count": external_active_count,
-        "transparency": transparency,
         "price_range": {
-            "verified": friendly_range_label(v),
-            "external": friendly_range_label(o),
-        },
-        "by_bedroom": by_bedroom,
-        "by_bedroom_external": by_bedroom_external,
-        "by_neighborhood": by_neighborhood,
-        "by_neighborhood_external": by_neighborhood_external,
-        "trend": [
-            {
-                "period_end": r.period_end.isoformat(),
-                "median_usd": r.median_usd,
-                "sample_size": r.sample_size,
-                "data_kind": r.data_kind,
+            "combined": {
+                "typical": stats.get("median_usd"),
+                "typical_text": primary.get("headline"),
+                "range_text": primary.get("range_text") or "Not enough data yet.",
+                "sample_size": primary.get("sample_size") or 0,
+                "period_end": primary.get("period_end"),
+                "label": "Kigali rental market",
             }
-            for r in trend_rows
-        ],
-        "trend_external": trend_external,
-        "observation_activity": activity,
-        "has_trend_history": len(trend_rows) >= 2,
-        "has_external_trend_history": len(trend_external) >= 2,
-        "last_updated": (v.period_end.isoformat() if v else (o.period_end.isoformat() if o else None)),
+        },
+        "by_bedroom_external": [],
+        "by_neighborhood_external": [],
+        "trend_external": [],
+        "has_external_trend_history": False,
     }
 
 

@@ -6,8 +6,9 @@ import { fetchResearchMethodologySafe } from "@/lib/market-api";
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Research Methodology & Data Sources | KigaliRent",
-  description: "How KigaliRent collects rental research, distinguishes verified inventory from external observations, and documents CSV import references.",
+  title: "Data Sources & Methodology | Kigali Rental Market Research",
+  description:
+    "How Kigali rental market estimates are calculated from combined eligible observations, with source transparency and import references.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market/methodology" },
 };
 
@@ -18,18 +19,20 @@ export default async function MethodologyPage() {
     <div className="max-w-3xl mx-auto px-6 py-14 space-y-10">
       <div>
         <p className="text-sm mb-4">
-          <Link href="/research/kigali-rental-market" className="text-gold-600 underline">← Research hub</Link>
+          <Link href="/research/kigali-rental-market" className="underline">
+            ← Research hub
+          </Link>
         </p>
         <h1 className="font-serif text-4xl font-bold text-navy-800 dark:text-white mb-6">
-          {data?.title || "Methodology & Data Sources"}
+          {data?.title || "Data sources & methodology"}
         </h1>
         <p className="text-gray-700 dark:text-gray-200 mb-6 leading-relaxed">{data?.body}</p>
       </div>
 
-      {transparency && <ResearchTransparency data={transparency} compact />}
+      {transparency && <ResearchTransparency data={transparency} />}
 
       <section>
-        <h2 className="font-serif text-xl font-bold mb-4">Rules</h2>
+        <h2 className="font-serif text-xl font-bold mb-4">How estimates are calculated</h2>
         <ul className="list-disc pl-5 space-y-2 text-gray-700 dark:text-gray-200">
           {(data?.rules || []).map((r) => (
             <li key={r}>{r}</li>
@@ -48,10 +51,13 @@ export default async function MethodologyPage() {
               <li key={b.reference} className="border rounded-lg p-3 bg-white dark:bg-navy-800">
                 <span className="font-mono font-medium">{b.reference}</span>
                 {" · "}
-                {new Date(b.imported_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                {new Date(b.imported_at).toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "numeric",
+                  year: "numeric",
+                })}
                 {" · "}
                 {b.rows_processed} rows
-                {(b.sources?.length || 0) > 0 && ` · ${b.sources!.join(", ")}`}
               </li>
             ))}
           </ul>

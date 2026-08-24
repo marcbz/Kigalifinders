@@ -6,8 +6,6 @@ export type ResearchTransparencyData = {
   verified_count?: number;
   external_count?: number;
   combined_summary?: string;
-  verified_label?: string;
-  external_label?: string;
   sources?: {
     name: string;
     source_key?: string;
@@ -27,6 +25,63 @@ export type ResearchTransparencyData = {
   }[];
 };
 
+export type AboutThisData = {
+  observation_count?: number;
+  period_start?: string | null;
+  period_end?: string | null;
+  last_updated?: string | null;
+  last_updated_display?: string | null;
+  methodology_summary?: string;
+  limitations?: string[];
+  provenance_note?: string;
+  sources_url?: string;
+  methodology_url?: string;
+};
+
+/** Compact public “About this data” — no competing source rates. */
+export function AboutThisDataBlock({ about }: { about: AboutThisData | null | undefined }) {
+  if (!about) return null;
+  return (
+    <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800 space-y-3">
+      <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white">About this data</h2>
+      <dl className="grid sm:grid-cols-3 gap-3 text-sm">
+        <div>
+          <dt className="text-gray-500">Observations</dt>
+          <dd className="text-xl font-serif">{about.observation_count ?? "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-gray-500">Updated</dt>
+          <dd className="text-lg font-serif">{about.last_updated_display || about.last_updated || "—"}</dd>
+        </div>
+        <div>
+          <dt className="text-gray-500">Period</dt>
+          <dd className="text-sm">
+            {about.period_start && about.period_end
+              ? `${about.period_start} → ${about.period_end}`
+              : about.period_end || "—"}
+          </dd>
+        </div>
+      </dl>
+      {about.methodology_summary && (
+        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{about.methodology_summary}</p>
+      )}
+      {(about.limitations?.length || 0) > 0 && (
+        <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 list-disc pl-4">
+          {about.limitations!.map((line) => (
+            <li key={line}>{line}</li>
+          ))}
+        </ul>
+      )}
+      <p className="text-xs text-gray-500">
+        <Link href={about.methodology_url || "/research/kigali-rental-market/methodology"} className="underline">
+          Data sources &amp; methodology
+        </Link>
+      </p>
+    </section>
+  );
+}
+
+/** Discreet methodology page section — sources listed for transparency only. */
 export function ResearchTransparency({
   data,
   compact = false,
@@ -36,13 +91,13 @@ export function ResearchTransparency({
 }) {
   if (!data) return null;
 
-  const sources = (data.sources || []).filter((s) => s.kind !== "verified_kigali_rent" && (s.observation_count || 0) > 0);
+  const sources = (data.sources || []).filter((s) => (s.observation_count || 0) > 0);
 
   return (
     <section className={`rounded-2xl border bg-white dark:bg-navy-800 ${compact ? "p-4" : "p-6"} space-y-4`}>
       <div>
         <h2 className={`font-serif font-bold text-navy-800 dark:text-white ${compact ? "text-lg" : "text-xl"}`}>
-          Research transparency
+          Data sources &amp; methodology
         </h2>
         {data.last_updated_display && (
           <p className="text-sm text-gray-500 mt-1">Updated {data.last_updated_display}</p>
@@ -53,35 +108,24 @@ export function ResearchTransparency({
         <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed">{data.combined_summary}</p>
       )}
 
-      <dl className={`grid gap-3 text-sm ${compact ? "grid-cols-2" : "sm:grid-cols-3"}`}>
-        <div>
-          <dt className="text-gray-500">Total data points</dt>
-          <dd className="text-xl font-serif">{data.total_count ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">{data.verified_label || "KigaliRent Verified"}</dt>
-          <dd className="text-xl font-serif">{data.verified_count ?? "—"}</dd>
-        </div>
-        <div>
-          <dt className="text-gray-500">{data.external_label || "External observations"}</dt>
-          <dd className="text-xl font-serif">{data.external_count ?? "—"}</dd>
-        </div>
-      </dl>
+      <p className="text-sm text-gray-600">
+        Eligible observations are combined into one market estimate after normalization, deduplication,
+        and outlier screening. Source streams remain separated only for internal quality control.
+      </p>
 
       {sources.length > 0 && (
         <div>
-          <h3 className="text-sm font-medium text-navy-800 dark:text-white mb-2">External sources</h3>
-          <ul className="flex flex-wrap gap-2 text-sm">
+          <h3 className="text-sm font-medium text-navy-800 dark:text-white mb-2">Contributing sources</h3>
+          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600">
             {sources.map((s) => (
               <li key={s.source_key || s.name}>
                 {s.source_url ? (
-                  <a href={s.source_url} target="_blank" rel="noreferrer" className="text-gold-600 underline">
+                  <a href={s.source_url} target="_blank" rel="noreferrer" className="underline">
                     {s.name}
                   </a>
                 ) : (
                   <span>{s.name}</span>
                 )}
-                {s.observation_count != null ? ` (${s.observation_count})` : ""}
               </li>
             ))}
           </ul>
@@ -90,7 +134,7 @@ export function ResearchTransparency({
 
       {!compact && (data.limitations?.length || 0) > 0 && (
         <div>
-          <h3 className="text-sm font-medium mb-2">Data limitations</h3>
+          <h3 className="text-sm font-medium mb-2">Limitations</h3>
           <ul className="text-xs text-gray-600 dark:text-gray-400 space-y-1 list-disc pl-4">
             {data.limitations!.map((line) => (
               <li key={line}>{line}</li>
@@ -98,16 +142,6 @@ export function ResearchTransparency({
           </ul>
         </div>
       )}
-
-      <p className="text-xs text-gray-500">
-        <Link href={data.methodology_url || "/research/kigali-rental-market/methodology"} className="underline">
-          Methodology
-        </Link>
-        {" · "}
-        <Link href={data.sources_url || "/research/kigali-rental-market/sources"} className="underline">
-          All sources
-        </Link>
-      </p>
     </section>
   );
 }
@@ -140,14 +174,14 @@ export function CiteThisResearch({
         <div>
           <dt className="text-gray-500">URL</dt>
           <dd>
-            <a href={canonicalUrl} className="text-gold-600 underline break-all">
+            <a href={canonicalUrl} className="underline break-all">
               {canonicalUrl}
             </a>
           </dd>
         </div>
       </dl>
       {citationText && (
-        <blockquote className="text-xs text-gray-600 dark:text-gray-300 border-l-2 border-gold-500 pl-3 italic">
+        <blockquote className="text-xs text-gray-600 dark:text-gray-300 border-l-2 border-navy-300 pl-3 italic">
           {citationText}
         </blockquote>
       )}

@@ -54,10 +54,19 @@ export function fetchResearchOverviewSafe() {
 }
 
 export function fetchResearchPricesSafe(location = "kigali") {
-  return fetchSafe<{ items: MarketSnapshot[]; note: string }>(
-    `/research/kigali-rental-market/prices?location_slug=${encodeURIComponent(location)}`,
-    600,
-  );
+  return fetchSafe<{
+    items: (MarketSnapshot & { label?: string; bedrooms?: number })[];
+    note: string;
+    answer?: {
+      question?: string;
+      headline?: string | null;
+      has_enough_data?: boolean;
+      summary?: string;
+      range_text?: string | null;
+      sample_size?: number;
+      last_updated_display?: string | null;
+    };
+  }>(`/research/kigali-rental-market/prices?location_slug=${encodeURIComponent(location)}`, 600);
 }
 
 export function fetchResearchNeighborhoodsSafe() {
@@ -72,8 +81,14 @@ export function fetchResearchTrendsSafe() {
     disclaimer: string;
     summary: string;
     has_external_trend_history?: boolean;
-    verified_label?: string;
-    external_label?: string;
+    has_trend_history?: boolean;
+    answer?: {
+      question?: string;
+      headline?: string | null;
+      has_enough_data?: boolean;
+      summary?: string;
+      sample_size?: number;
+    };
   }>("/research/kigali-rental-market/trends", 600);
 }
 
@@ -116,31 +131,36 @@ export function fetchResearchReportsSafe() {
 
 export function fetchResearchChartsSafe() {
   return fetchSafe<{
-    verified_label: string;
-    external_label: string;
-    external_disclaimer: string;
-    external_active_count?: number;
-    price_range: {
-      verified: {
-        typical?: number | null;
-        typical_text?: string | null;
-        range_text: string;
-        sample_size: number;
-        period_end?: string | null;
-        label?: string;
-      };
-      external: {
-        typical?: number | null;
-        typical_text?: string | null;
-        range_text: string;
-        sample_size: number;
-        period_end?: string | null;
-        label?: string;
-      };
+    title?: string;
+    primary_answer?: {
+      question?: string;
+      headline?: string | null;
+      has_enough_data?: boolean;
+      summary?: string;
+      range_text?: string | null;
+      sample_size?: number;
+      last_updated_display?: string | null;
+      asking_rent_note?: string;
+      typical_usd?: number | null;
     };
-    by_bedroom: { bedrooms: number; median_usd?: number; p25_usd?: number; p75_usd?: number; sample_size: number }[];
-    by_bedroom_external?: {
+    bedroom_answers?: {
+      question: string;
+      headline?: string | null;
+      sample_size?: number;
+      last_updated_display?: string | null;
+      has_enough_data?: boolean;
+    }[];
+    insights?: string[];
+    about?: import("@/components/research/research-transparency").AboutThisData;
+    citation?: {
+      title?: string;
+      canonical_url?: string;
+      last_updated?: string | null;
+      text?: string;
+    };
+    by_bedroom: {
       bedrooms: number;
+      label?: string;
       median_usd?: number;
       p25_usd?: number;
       p75_usd?: number;
@@ -154,19 +174,13 @@ export function fetchResearchChartsSafe() {
       p75_usd?: number;
       sample_size: number;
     }[];
-    by_neighborhood_external?: {
-      location_slug: string;
-      label: string;
-      median_usd?: number;
-      p25_usd?: number;
-      p75_usd?: number;
-      sample_size: number;
-    }[];
-    trend: { period_end: string; median_usd?: number; sample_size: number }[];
-    trend_external?: { period_end: string; median_usd?: number; sample_size: number }[];
-    observation_activity: { month: string; observations: number }[];
+    by_property_type?: { property_type: string; label: string; median_usd?: number; sample_size: number }[];
+    furnished_breakdown?: {
+      furnished: { count: number; median_usd?: number | null; sample_size: number };
+      unfurnished: { count: number; median_usd?: number | null; sample_size: number };
+    };
+    trend: { period_end?: string; label?: string; median_usd?: number; sample_size: number }[];
     has_trend_history: boolean;
-    has_external_trend_history?: boolean;
     last_updated?: string | null;
     transparency?: import("@/components/research/research-transparency").ResearchTransparencyData;
   }>("/research/kigali-rental-market/charts", 60);

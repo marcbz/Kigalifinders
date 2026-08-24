@@ -6,7 +6,6 @@ import { ResearchChart } from "@/components/research/research-charts";
 import {
   DataInsights,
   KeyAttributes,
-  MarketBlock,
   RelatedNeighborhoods,
   TrendCharts,
 } from "@/components/rentals/rental-landing-sections";
@@ -131,21 +130,37 @@ export default async function RentalLandingPage({ params }: Props) {
           )}
         </section>
 
-        {(page.verified_market || page.observation_market) && (
-          <div className="grid lg:grid-cols-2 gap-6">
-            <MarketBlock snap={page.verified_market} title="KigaliRent Verified" />
-            <MarketBlock snap={page.observation_market} title="External Market Observations" />
-          </div>
+        {page.market_answer?.has_enough_data && (
+          <section className="rounded-2xl border bg-white dark:bg-navy-800 p-6 space-y-2">
+            <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white">
+              {page.market_answer.question || "Typical asking rent"}
+            </h2>
+            <p className="text-3xl font-serif">{page.market_answer.headline}</p>
+            {page.market_answer.range_text && (
+              <p className="text-sm text-gray-600">{page.market_answer.range_text}</p>
+            )}
+            <p className="text-sm text-gray-600">{page.market_answer.summary}</p>
+            {page.market_answer.last_updated_display && (
+              <p className="text-xs text-gray-500">Updated {page.market_answer.last_updated_display}</p>
+            )}
+            <p className="text-xs">
+              <Link href="/research/kigali-rental-market" className="text-gold-600 underline">
+                Full market research
+              </Link>
+            </p>
+          </section>
         )}
 
         <DataInsights insights={page.data_insights || []} />
 
-        <TrendCharts verified={page.trend_verified} external={page.trend_external} />
+        {(page.trend_verified?.length || 0) >= 2 && (
+          <TrendCharts verified={page.trend_verified} external={[]} />
+        )}
 
         {(page.by_bedroom_verified?.length || 0) > 0 && (
           <ResearchChart
-            title="Verified rent by bedroom"
-            subtitle="KigaliRent Verified"
+            title="Asking rent by bedroom"
+            subtitle="Combined eligible observations in this area"
             points={(page.by_bedroom_verified || []).map((r) => ({
               label: r.bedrooms === 4 ? "4+" : String(r.bedrooms),
               value: r.median_usd || 0,

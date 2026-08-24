@@ -64,6 +64,16 @@ export type SearchLandingPage = {
   related: { path: string; title: string; h1: string; location_slug: string; intent_slug: string }[];
   related_neighborhoods?: { slug: string; name: string; path: string; listing_count: number }[];
   methodology_note: string;
+  market_answer?: {
+    question?: string;
+    headline?: string | null;
+    has_enough_data?: boolean;
+    summary?: string;
+    range_text?: string | null;
+    sample_size?: number;
+    last_updated_display?: string | null;
+    asking_rent_note?: string;
+  } | null;
 };
 
 export type SearchIntentListResponse = {

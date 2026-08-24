@@ -192,6 +192,7 @@ class SearchLandingPageResponse(BaseModel):
     related: List[RelatedIntentLink] = []
     related_neighborhoods: List[dict[str, Any]] = []
     methodology_note: str
+    market_answer: Optional[dict[str, Any]] = None
 
 
 class ResearchOverviewResponse(BaseModel):
