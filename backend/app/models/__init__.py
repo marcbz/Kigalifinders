@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from sqlalchemy import (
     Boolean,
     Column,
+    Date,
     DateTime,
     Enum,
     Float,
@@ -46,6 +47,26 @@ class ListingType(str, enum.Enum):
     RENT = "rent"
     SALE = "sale"
     FURNISHED = "furnished"
+
+
+class ObservationStatus(str, enum.Enum):
+    ACTIVE_OBSERVED = "active_observed"
+    NOT_FOUND = "not_found"
+    PRICE_CHANGED = "price_changed"
+    UNKNOWN = "unknown"
+
+
+class SearchIndexStatus(str, enum.Enum):
+    DRAFT = "draft"
+    NOINDEX = "noindex"
+    INDEXABLE = "indexable"
+    DISABLED = "disabled"
+
+
+class MarketDataKind(str, enum.Enum):
+    VERIFIED_KIGALI_RENT = "verified_kigali_rent"
+    MARKET_OBSERVATION = "market_observation"
+    OFFICIAL = "official"
 
 
 role_permissions = Table(
@@ -259,6 +280,14 @@ class Property(Base):
     previous_price: Mapped[float | None] = mapped_column(Float)
     price_period: Mapped[str | None] = mapped_column(String(20), default="month")
     currency: Mapped[str] = mapped_column(String(3), default="USD")
+    original_price: Mapped[float | None] = mapped_column(Float)
+    original_currency: Mapped[str | None] = mapped_column(String(3))
+    usd_price: Mapped[float | None] = mapped_column(Float, index=True)
+    exchange_rate: Mapped[float | None] = mapped_column(Float)
+    exchange_rate_date: Mapped[object | None] = mapped_column(Date)
+    exchange_rate_source: Mapped[str | None] = mapped_column(String(100))
+    last_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    data_source_kind: Mapped[str] = mapped_column(String(40), default="verified_kigali_rent")
 
     bedrooms: Mapped[int | None] = mapped_column(Integer)
     bathrooms: Mapped[int | None] = mapped_column(Integer)
@@ -656,4 +685,141 @@ class Analytics(Base):
     metadata_json: Mapped[dict | None] = mapped_column("metadata", JSONB)
     ip_address: Mapped[str | None] = mapped_column(String(45))
     user_agent: Mapped[str | None] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class ExchangeRate(Base):
+    __tablename__ = "exchange_rates"
+    __table_args__ = (
+        UniqueConstraint("base_currency", "quote_currency", "rate_date", "source", name="uq_exchange_rate_day_source"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    base_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    quote_currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    rate: Mapped[float] = mapped_column(Float, nullable=False)
+    rate_date: Mapped[object] = mapped_column(Date, nullable=False)
+    source: Mapped[str] = mapped_column(String(100), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RentalObservation(Base):
+    """Append-only market observation. Never overwrite historical rows for price history."""
+
+    __tablename__ = "rental_observations"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source: Mapped[str] = mapped_column(String(120), nullable=False)
+    source_url: Mapped[str | None] = mapped_column(String(500))
+    source_listing_id: Mapped[str | None] = mapped_column(String(120))
+    dedupe_key: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, index=True)
+    first_observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    last_observed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    property_type: Mapped[str | None] = mapped_column(String(80))
+    bedrooms: Mapped[int | None] = mapped_column(Integer)
+    bathrooms: Mapped[float | None] = mapped_column(Float)
+    size_sqm: Mapped[float | None] = mapped_column(Float)
+    neighborhood: Mapped[str | None] = mapped_column(String(120))
+    neighborhood_slug: Mapped[str | None] = mapped_column(String(120))
+    district: Mapped[str | None] = mapped_column(String(120))
+    asking_price: Mapped[float] = mapped_column(Float, nullable=False)
+    currency: Mapped[str] = mapped_column(String(3), nullable=False)
+    usd_price: Mapped[float | None] = mapped_column(Float)
+    exchange_rate: Mapped[float | None] = mapped_column(Float)
+    exchange_rate_date: Mapped[object | None] = mapped_column(Date)
+    exchange_rate_source: Mapped[str | None] = mapped_column(String(100))
+    is_furnished: Mapped[bool | None] = mapped_column(Boolean)
+    amenities: Mapped[list | None] = mapped_column(JSONB)
+    rental_term: Mapped[str | None] = mapped_column(String(80))
+    observation_status: Mapped[str] = mapped_column(String(40), default=ObservationStatus.ACTIVE_OBSERVED.value)
+    confidence: Mapped[float | None] = mapped_column(Float)
+    notes: Mapped[str | None] = mapped_column(Text)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class MarketStatSnapshot(Base):
+    __tablename__ = "market_stat_snapshots"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    period_start: Mapped[object] = mapped_column(Date, nullable=False)
+    period_end: Mapped[object] = mapped_column(Date, nullable=False)
+    granularity: Mapped[str] = mapped_column(String(20), default="month")
+    location_slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    location_name: Mapped[str | None] = mapped_column(String(120))
+    property_type: Mapped[str | None] = mapped_column(String(80))
+    bedrooms: Mapped[int | None] = mapped_column(Integer)
+    is_furnished: Mapped[bool | None] = mapped_column(Boolean)
+    data_kind: Mapped[str] = mapped_column(String(40), nullable=False)
+    sample_size: Mapped[int] = mapped_column(Integer, default=0)
+    median_usd: Mapped[float | None] = mapped_column(Float)
+    p25_usd: Mapped[float | None] = mapped_column(Float)
+    p75_usd: Mapped[float | None] = mapped_column(Float)
+    min_usd: Mapped[float | None] = mapped_column(Float)
+    max_usd: Mapped[float | None] = mapped_column(Float)
+    common_amenities: Mapped[list | None] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class SearchIntent(Base):
+    __tablename__ = "search_intents"
+    __table_args__ = (
+        UniqueConstraint("location_slug", "intent_slug", name="uq_search_intent_path_parts"),
+        UniqueConstraint("path", name="uq_search_intent_path"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    location_slug: Mapped[str] = mapped_column(String(120), nullable=False)
+    intent_slug: Mapped[str] = mapped_column(String(200), nullable=False)
+    path: Mapped[str] = mapped_column(String(320), nullable=False)
+    query: Mapped[dict] = mapped_column(JSONB, nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    h1: Mapped[str] = mapped_column(String(255), nullable=False)
+    meta_description: Mapped[str | None] = mapped_column(String(500))
+    intro_html: Mapped[str | None] = mapped_column(Text)
+    quality_score: Mapped[float] = mapped_column(Float, default=0)
+    index_status: Mapped[str] = mapped_column(String(40), default=SearchIndexStatus.DRAFT.value, index=True)
+    match_count: Mapped[int] = mapped_column(Integer, default=0)
+    last_built_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    gsc_impressions: Mapped[int | None] = mapped_column(Integer)
+    gsc_clicks: Mapped[int | None] = mapped_column(Integer)
+    gsc_ctr: Mapped[float | None] = mapped_column(Float)
+    gsc_position: Mapped[float | None] = mapped_column(Float)
+    is_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    relations_from: Mapped[list["SearchLandingRelation"]] = relationship(
+        foreign_keys="SearchLandingRelation.from_intent_id",
+        back_populates="from_intent",
+        cascade="all, delete-orphan",
+    )
+
+
+class SearchLandingRelation(Base):
+    __tablename__ = "search_landing_relations"
+    __table_args__ = (UniqueConstraint("from_intent_id", "to_intent_id", name="uq_search_landing_relation"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    from_intent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("search_intents.id", ondelete="CASCADE"))
+    to_intent_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("search_intents.id", ondelete="CASCADE"))
+    relation_type: Mapped[str] = mapped_column(String(40), default="related")
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+
+    from_intent: Mapped[SearchIntent] = relationship(foreign_keys=[from_intent_id], back_populates="relations_from")
+    to_intent: Mapped[SearchIntent] = relationship(foreign_keys=[to_intent_id])
+
+
+class GscQuerySuggestion(Base):
+    __tablename__ = "gsc_query_suggestions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    query: Mapped[str] = mapped_column(String(500), nullable=False)
+    impressions: Mapped[int | None] = mapped_column(Integer)
+    clicks: Mapped[int | None] = mapped_column(Integer)
+    ctr: Mapped[float | None] = mapped_column(Float)
+    position: Mapped[float | None] = mapped_column(Float)
+    status: Mapped[str] = mapped_column(String(40), default="pending_review")
+    suggested_path: Mapped[str | None] = mapped_column(String(320))
+    notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

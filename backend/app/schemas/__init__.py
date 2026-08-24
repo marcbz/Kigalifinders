@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 from typing import Generic, List, Optional, TypeVar
 from uuid import UUID
 
@@ -117,6 +117,12 @@ class PropertyListItem(BaseModel):
     views_count: int = 0
     published_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    usd_price: Optional[float] = None
+    original_price: Optional[float] = None
+    original_currency: Optional[str] = None
+    last_verified_at: Optional[datetime] = None
+    data_source_kind: str = "verified_kigali_rent"
+    availability_note: Optional[str] = None
 
 
 class PropertyDetail(PropertyListItem):
@@ -134,6 +140,10 @@ class PropertyDetail(PropertyListItem):
     amenities: List[str] = []
     agent_name: Optional[str] = None
     agent_phone: Optional[str] = None
+    exchange_rate: Optional[float] = None
+    exchange_rate_date: Optional[date] = None
+    exchange_rate_source: Optional[str] = None
+    is_available: bool = True
 
 
 class PropertyImageInput(BaseModel):
@@ -242,6 +252,8 @@ class PropertySearchParams(BaseModel):
     is_featured: Optional[bool] = None
     is_furnished: Optional[bool] = None
     amenity_ids: Optional[List[UUID]] = None
+    amenity_slugs: Optional[List[str]] = None
+    has_pool: Optional[bool] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     radius_km: Optional[float] = None

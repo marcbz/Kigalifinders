@@ -89,6 +89,11 @@ export default async function PropertyDetailPage({ params }: Props) {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap gap-2 mb-4">
             <span className="badge-gold px-3 py-1 rounded text-xs inline-block">{listingBadge}</span>
+            {property.is_available === false && (
+              <span className="bg-white/15 text-white text-xs font-bold tracking-widest uppercase px-3 py-1 rounded border border-white/30">
+                No longer available
+              </span>
+            )}
             {property.previous_price != null && property.previous_price > property.price && (
               <span className="bg-red-600 text-white text-xs font-bold tracking-widest uppercase px-3 py-1 rounded">
                 Price reduced
@@ -96,6 +101,16 @@ export default async function PropertyDetailPage({ params }: Props) {
             )}
           </div>
           <h1 className="font-serif text-3xl md:text-5xl font-bold mb-3">{property.title}</h1>
+          {property.is_available === false && (
+            <p className="text-amber-200 mb-3 max-w-3xl">
+              {property.availability_note || "This property is no longer verified as available."} Similar available listings are recommended below.
+            </p>
+          )}
+          {property.last_verified_at && property.is_available !== false && (
+            <p className="text-sm text-gray-300 mb-2">
+              Last verified {new Date(property.last_verified_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+            </p>
+          )}
           <div className="flex items-center gap-2 text-gray-200">
             <MapPin className="w-4 h-4 text-gold-500" />
             {property.address || `${property.neighborhood_name || ""}${property.district_name ? `, ${property.district_name}` : ""}`}
@@ -152,23 +167,31 @@ export default async function PropertyDetailPage({ params }: Props) {
                 <p className="text-sm text-gray-500 mb-6">Agent: <strong>{property.agent_name}</strong></p>
               )}
               <div className="space-y-3">
-                <Button asChild className="w-full rounded-full">
-                  <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
-                    <CalendarCheck className="w-4 h-4" /> Schedule Viewing
-                  </a>
-                </Button>
-                <Button asChild variant="outline" className="w-full rounded-full gap-2">
-                  <a
-                    href={`https://wa.me/${whatsapp}?text=Interested in ${encodeURIComponent(property.title)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                  >
-                    <WhatsAppIcon className="w-5 h-5 text-[#25D366]" />
-                    WhatsApp Inquiry
-                  </a>
-                </Button>
+                {property.is_available !== false ? (
+                  <>
+                    <Button asChild className="w-full rounded-full">
+                      <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+                        <CalendarCheck className="w-4 h-4" /> Schedule Viewing
+                      </a>
+                    </Button>
+                    <Button asChild variant="outline" className="w-full rounded-full gap-2">
+                      <a
+                        href={`https://wa.me/${whatsapp}?text=Interested in ${encodeURIComponent(property.title)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        <WhatsAppIcon className="w-5 h-5 text-[#25D366]" />
+                        WhatsApp Inquiry
+                      </a>
+                    </Button>
+                    <PropertyInquiryForm propertyId={property.id} propertyTitle={property.title} />
+                  </>
+                ) : (
+                  <p className="text-sm text-gray-600">
+                    This listing is no longer verified as available. See similar properties below.
+                  </p>
+                )}
               </div>
-              <PropertyInquiryForm propertyId={property.id} propertyTitle={property.title} />
             </div>
           </div>
         </div>

@@ -87,6 +87,8 @@ def _search_params(
     bathrooms: Optional[int] = None,
     is_featured: Optional[bool] = None,
     is_furnished: Optional[bool] = None,
+    has_pool: Optional[bool] = None,
+    amenity_slugs: Optional[list[str]] = Query(None),
     sort_by: str = "created_at",
     sort_order: str = "desc",
     page: int = Query(1, ge=1),
@@ -96,6 +98,7 @@ def _search_params(
         q=q, listing_type=listing_type, district_id=district_id, neighborhood_id=neighborhood_id,
         neighborhood_slug=neighborhood_slug, property_type_id=property_type_id, property_type_slug=property_type_slug, min_price=min_price, max_price=max_price,
         bedrooms=bedrooms, bathrooms=bathrooms, is_featured=is_featured, is_furnished=is_furnished,
+        has_pool=has_pool, amenity_slugs=amenity_slugs,
         sort_by=sort_by, sort_order=sort_order, page=page, page_size=page_size,
     )
 
@@ -132,8 +135,8 @@ async def featured_properties(
 @router.get("/{slug}", response_model=PropertyDetail)
 async def get_property(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     repo = PropertyRepository(db)
-    # Do not count SSR/metadata/bot fetches as views — clients report qualified views separately.
-    prop = await repo.get_by_slug(slug, track_view=False, published_only=True)
+    # Soft-unavailable: rented/sold/archived remain crawlable with clear status.
+    prop = await repo.get_by_slug(slug, track_view=False, allow_soft_unavailable=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     return prop
@@ -150,8 +153,8 @@ async def record_property_view(
     from datetime import datetime, timezone, timedelta
 
     repo = PropertyRepository(db)
-    prop = await repo.get_by_slug(slug, track_view=False, published_only=True)
-    if not prop:
+    prop = await repo.get_by_slug(slug, track_view=False, allow_soft_unavailable=True)
+    if not prop or not prop.is_available:
         raise HTTPException(status_code=404, detail="Property not found")
 
     visitor = (session_id or "").strip()[:100] or None
@@ -198,7 +201,7 @@ async def related_properties(
     page_size: int = Query(12, ge=1, le=24),
 ):
     repo = PropertyRepository(db)
-    prop = await repo.get_by_slug(slug, track_view=False, published_only=True)
+    prop = await repo.get_by_slug(slug, track_view=False, allow_soft_unavailable=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
     db_prop = await repo.get_by_id(prop.id)
@@ -212,12 +215,17 @@ async def create_property(
     user: Annotated[User, Depends(require_staff)],
 ):
     from app.models import ListingType
+    from app.services.fx import get_default_fx_provider, resolve_property_usd_fields, store_rate
 
     slug = data.slug or slugify(data.title)
     slug = await _unique_slug(db, slug)
     status_enum = PropertyStatusEnum(data.status)
     published_at = datetime.now(timezone.utc) if status_enum == PropertyStatusEnum.PUBLISHED else None
     primary_type_id, type_ids = _resolve_property_types(data.property_type_id, data.property_type_ids)
+
+    fx = await get_default_fx_provider().get_rate("USD", "RWF")
+    await store_rate(db, fx)
+    usd_fields = resolve_property_usd_fields(data.price, data.currency, fx)
 
     prop = Property(
         title=data.title,
@@ -259,6 +267,9 @@ async def create_property(
         show_features_table=data.show_features_table,
         meta_title=data.meta_title,
         meta_description=data.meta_description,
+        data_source_kind="verified_kigali_rent",
+        last_verified_at=published_at or datetime.now(timezone.utc),
+        **usd_fields,
     )
     db.add(prop)
     await db.flush()
@@ -312,6 +323,18 @@ async def update_property(
 
     for field, value in updates.items():
         setattr(prop, field, value)
+
+    if "price" in updates or "currency" in updates or "status" in updates:
+        from app.services.fx import get_default_fx_provider, resolve_property_usd_fields, store_rate
+
+        fx = await get_default_fx_provider().get_rate("USD", "RWF")
+        await store_rate(db, fx)
+        usd_fields = resolve_property_usd_fields(prop.price, prop.currency, fx)
+        for k, v in usd_fields.items():
+            setattr(prop, k, v)
+        if prop.status == PropertyStatusEnum.PUBLISHED:
+            prop.last_verified_at = datetime.now(timezone.utc)
+            prop.data_source_kind = prop.data_source_kind or "verified_kigali_rent"
 
     await db.flush()
     if images is not None:

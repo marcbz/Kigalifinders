@@ -1,0 +1,76 @@
+export type MarketSnapshot = {
+  data_kind: string;
+  sample_size: number;
+  median_usd?: number;
+  p25_usd?: number;
+  p75_usd?: number;
+  min_usd?: number;
+  max_usd?: number;
+  period_end?: string;
+  common_amenities?: string[];
+  summary: string;
+  label: string;
+};
+
+export type ScoredPropertyCard = {
+  id: string;
+  title: string;
+  slug: string;
+  price: number;
+  usd_price?: number;
+  currency: string;
+  bedrooms?: number;
+  bathrooms?: number;
+  is_furnished: boolean;
+  has_pool: boolean;
+  has_parking: boolean;
+  neighborhood_name?: string;
+  property_type_name?: string;
+  primary_image?: string;
+  last_verified_at?: string;
+  data_source_kind: string;
+  status: string;
+  relevance_score: number;
+};
+
+export type SearchLandingPage = {
+  path: string;
+  location_slug: string;
+  intent_slug: string;
+  title: string;
+  h1: string;
+  meta_description?: string;
+  intro_html?: string;
+  answer: string;
+  index_status: string;
+  robots: string;
+  canonical: string;
+  quality_score: number;
+  match_count: number;
+  last_updated?: string;
+  verified_matches: ScoredPropertyCard[];
+  market_snapshot?: MarketSnapshot | null;
+  related: { path: string; title: string; h1: string; location_slug: string; intent_slug: string }[];
+  methodology_note: string;
+};
+
+export type SearchIntentAdmin = {
+  id: string;
+  location_slug: string;
+  intent_slug: string;
+  path: string;
+  query: Record<string, unknown>;
+  title: string;
+  h1: string;
+  meta_description?: string;
+  quality_score: number;
+  index_status: string;
+  match_count: number;
+  last_built_at?: string;
+  gsc_impressions?: number;
+  gsc_clicks?: number;
+  gsc_ctr?: number;
+  gsc_position?: number;
+  is_enabled: boolean;
+  updated_at?: string;
+};

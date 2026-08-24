@@ -37,6 +37,12 @@ export interface PropertyListItem {
   views_count?: number;
   published_at?: string;
   created_at?: string;
+  usd_price?: number;
+  original_price?: number;
+  original_currency?: string;
+  last_verified_at?: string;
+  data_source_kind?: string;
+  availability_note?: string;
 }
 
 export interface PropertyDetail extends PropertyListItem {
@@ -54,6 +60,10 @@ export interface PropertyDetail extends PropertyListItem {
   amenities: string[];
   agent_name?: string;
   agent_phone?: string;
+  exchange_rate?: number;
+  exchange_rate_date?: string;
+  exchange_rate_source?: string;
+  is_available?: boolean;
   published_at?: string;
   created_at: string;
 }

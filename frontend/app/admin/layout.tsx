@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Link2, Home, Mail, Settings, FileText, BarChart3, LogOut } from "lucide-react";
+import { Link2, Home, Mail, Settings, FileText, BarChart3, LogOut, Search } from "lucide-react";
 import { AdminAuthGuard } from "@/components/admin/auth-guard";
 import { BrandName } from "@/components/brand/brand-name";
 import { clearAuthTokens } from "@/lib/auth";
@@ -10,6 +10,7 @@ import { clearAuthTokens } from "@/lib/auth";
 const sidebarLinks = [
   { href: "/admin", label: "Dashboard", icon: BarChart3 },
   { href: "/admin/properties", label: "Properties", icon: Home },
+  { href: "/admin/search-landings", label: "Search Landings", icon: Search },
   { href: "/admin/messages", label: "Messages", icon: Mail },
   { href: "/admin/blog", label: "Blog", icon: FileText },
   { href: "/admin/links", label: "Links", icon: Link2 },

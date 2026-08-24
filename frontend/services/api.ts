@@ -229,4 +229,15 @@ export const adminService = {
     api.patch("/admin/settings", updates).then((r) => r.data),
   updateLegalSettings: (data: { privacy_policy: string; terms_of_service: string; sitemap_intro: string }) =>
     api.patch("/admin/settings/legal", data).then((r) => r.data),
+  searchIntents: () => api.get("/admin/market/search-intents").then((r) => r.data),
+  regenerateSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/regenerate`).then((r) => r.data),
+  approveSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/approve`).then((r) => r.data),
+  noindexSearchIntent: (id: string) => api.post(`/admin/market/search-intents/${id}/noindex`).then((r) => r.data),
+  rebuildResearch: () => api.post("/admin/market/research/rebuild").then((r) => r.data),
+  importObservationsCsv: (file: File) => {
+    const form = new FormData();
+    form.append("file", file);
+    return api.post("/admin/market/observations/import-csv", form).then((r) => r.data);
+  },
+  gscSuggestions: () => api.get("/admin/market/gsc-suggestions").then((r) => r.data),
 };

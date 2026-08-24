@@ -78,6 +78,18 @@ class PropertyRepository:
             views_count=prop.views_count,
             published_at=prop.published_at,
             created_at=prop.created_at,
+            usd_price=prop.usd_price if prop.usd_price is not None else (
+                prop.price if (prop.currency or "USD").upper() == "USD" else None
+            ),
+            original_price=prop.original_price,
+            original_currency=prop.original_currency,
+            last_verified_at=prop.last_verified_at,
+            data_source_kind=getattr(prop, "data_source_kind", None) or "verified_kigali_rent",
+            availability_note=(
+                None
+                if prop.status == PropertyStatusEnum.PUBLISHED
+                else "This property is no longer verified as available."
+            ),
         )
 
     def _to_detail(self, prop: Property) -> PropertyDetail:
@@ -103,6 +115,10 @@ class PropertyRepository:
             amenities=[a.name for a in prop.amenities],
             agent_name=agent_name,
             agent_phone=agent_phone,
+            exchange_rate=prop.exchange_rate,
+            exchange_rate_date=prop.exchange_rate_date,
+            exchange_rate_source=prop.exchange_rate_source,
+            is_available=prop.status == PropertyStatusEnum.PUBLISHED,
         )
 
     async def _resolve_neighborhood_ids(
@@ -196,6 +212,14 @@ class PropertyRepository:
             query = query.where(Property.is_featured == params.is_featured)
         if params.is_furnished is not None:
             query = query.where(Property.is_furnished == params.is_furnished)
+        if params.has_pool is not None:
+            query = query.where(Property.has_pool == params.has_pool)
+        if params.amenity_ids:
+            for aid in params.amenity_ids:
+                query = query.where(Property.amenities.any(Amenity.id == aid))
+        if params.amenity_slugs:
+            for slug in params.amenity_slugs:
+                query = query.where(Property.amenities.any(Amenity.slug == slug.lower()))
 
         sort_col = getattr(Property, params.sort_by, Property.created_at)
         query = query.order_by(sort_col.desc() if params.sort_order == "desc" else sort_col.asc())
@@ -220,16 +244,30 @@ class PropertyRepository:
         slug: str,
         track_view: bool = True,
         published_only: bool = False,
+        allow_soft_unavailable: bool = False,
     ) -> Optional[PropertyDetail]:
         normalized = slug.strip().lower()
         query = self._base_query().where(Property.slug == normalized)
         if published_only:
             query = query.where(Property.status == PropertyStatusEnum.PUBLISHED)
+        elif allow_soft_unavailable:
+            query = query.where(
+                Property.status.in_(
+                    [
+                        PropertyStatusEnum.PUBLISHED,
+                        PropertyStatusEnum.RENTED,
+                        PropertyStatusEnum.SOLD,
+                        PropertyStatusEnum.ARCHIVED,
+                    ]
+                )
+            )
         result = await self.db.execute(query)
         prop = result.scalar_one_or_none()
         if not prop:
             return None
-        if track_view:
+        if prop.status == PropertyStatusEnum.DRAFT:
+            return None
+        if track_view and prop.status == PropertyStatusEnum.PUBLISHED:
             prop.views_count += 1
             await self.db.flush()
         return self._to_detail(prop)

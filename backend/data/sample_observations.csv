@@ -1,0 +1,4 @@
+source,source_url,source_listing_id,observed_at,property_type,bedrooms,bathrooms,neighborhood,neighborhood_slug,asking_price,currency,is_furnished,observation_status,confidence,notes
+manual-import,https://example.com/listing/1,ext-1,2026-08-01,apartment,2,1,Kacyiru,kacyiru,750,USD,true,active_observed,0.8,Sample observation — replace with real approved-source data
+manual-import,https://example.com/listing/2,ext-2,2026-08-01,apartment,3,2,Kibagabaga,kibagabaga,1200,USD,true,active_observed,0.8,
+manual-import,https://example.com/listing/3,ext-3,2026-08-15,house,3,2,Nyarutarama,nyarutarama,1400,USD,false,active_observed,0.7,
