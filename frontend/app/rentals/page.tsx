@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { fetchRentalDirectorySafe } from "@/lib/market-api";
 import { RentalHubPage } from "@/components/rentals/rental-hub-page";
 
@@ -20,7 +21,10 @@ export default async function RentalsDirectoryPage() {
   if (!page) {
     return (
       <div className="p-12 text-center text-gray-500">
-        Rental directory is temporarily unavailable. <a href="/properties">Browse properties</a>
+        Rental directory is temporarily unavailable.{" "}
+        <Link href="/properties" className="text-gold-600 underline">
+          Browse properties
+        </Link>
       </div>
     );
   }
