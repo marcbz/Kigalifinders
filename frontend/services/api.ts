@@ -245,19 +245,10 @@ export const adminService = {
   bulkObservations: (ids: string[], action: string) =>
     api.post("/admin/market/observations/bulk", { ids, action }).then((r) => r.data),
   marketSources: () => api.get("/admin/market/market-sources").then((r) => r.data),
-  reviewMarketSource: (sourceId: string) =>
-    api.post(`/admin/market/market-sources/${sourceId}/review`).then((r) => r.data),
-  enableMarketSource: (sourceId: string) =>
-    api.post(`/admin/market/market-sources/${sourceId}/enable`).then((r) => r.data),
-  disableMarketSource: (sourceId: string) =>
-    api.post(`/admin/market/market-sources/${sourceId}/disable`).then((r) => r.data),
-  runMarketSourceNow: (sourceId: string) =>
-    api.post(`/admin/market/market-sources/${sourceId}/run`).then((r) => r.data),
-  runExternalResearch: (payload: { source_ids: string[]; mode: string }) =>
-    api.post("/admin/market/external-research/run", payload).then((r) => r.data),
-  listCollectionRuns: () => api.get("/admin/market/external-research/runs").then((r) => r.data),
-  getCollectionRun: (runId: string) =>
-    api.get(`/admin/market/external-research/runs/${runId}`).then((r) => r.data),
+  downloadObservationsCsvTemplate: () =>
+    api
+      .get("/admin/market/observations/csv-template", { responseType: "blob" })
+      .then((r) => r.data as Blob),
   importObservationsCsv: (file: File, sourceId?: string) => {
     const form = new FormData();
     form.append("file", file);

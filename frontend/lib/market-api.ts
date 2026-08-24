@@ -89,6 +89,7 @@ export function fetchResearchChartsSafe() {
     verified_label: string;
     external_label: string;
     external_disclaimer: string;
+    external_active_count?: number;
     price_range: {
       verified: {
         typical?: number | null;
@@ -108,6 +109,13 @@ export function fetchResearchChartsSafe() {
       };
     };
     by_bedroom: { bedrooms: number; median_usd?: number; p25_usd?: number; p75_usd?: number; sample_size: number }[];
+    by_bedroom_external?: {
+      bedrooms: number;
+      median_usd?: number;
+      p25_usd?: number;
+      p75_usd?: number;
+      sample_size: number;
+    }[];
     by_neighborhood: {
       location_slug: string;
       label: string;
@@ -116,9 +124,19 @@ export function fetchResearchChartsSafe() {
       p75_usd?: number;
       sample_size: number;
     }[];
+    by_neighborhood_external?: {
+      location_slug: string;
+      label: string;
+      median_usd?: number;
+      p25_usd?: number;
+      p75_usd?: number;
+      sample_size: number;
+    }[];
     trend: { period_end: string; median_usd?: number; sample_size: number }[];
+    trend_external?: { period_end: string; median_usd?: number; sample_size: number }[];
     observation_activity: { month: string; observations: number }[];
     has_trend_history: boolean;
+    has_external_trend_history?: boolean;
     last_updated?: string | null;
-  }>("/research/kigali-rental-market/charts", 600);
+  }>("/research/kigali-rental-market/charts", 60);
 }

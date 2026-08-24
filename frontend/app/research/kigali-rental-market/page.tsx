@@ -7,7 +7,7 @@ import {
 } from "@/lib/market-api";
 import { ResearchChart, ResearchRangeCard } from "@/components/research/research-charts";
 
-export const revalidate = 600;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Kigali Rental Market Research | KigaliRent",
@@ -22,6 +22,12 @@ export default async function ResearchHubPage() {
     fetchResearchReportsSafe(),
     fetchResearchChartsSafe(),
   ]);
+
+  const externalCount = charts?.external_active_count ?? 0;
+  const activityPoints = (charts?.observation_activity || []).map((a) => ({
+    label: a.month,
+    value: a.observations,
+  }));
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
@@ -77,8 +83,12 @@ export default async function ResearchHubPage() {
           <ResearchRangeCard
             label={charts?.external_label || "External Market Observations"}
             typicalText={charts?.price_range?.external?.typical_text}
-            rangeText={charts?.price_range?.external?.range_text || "Not enough historical data yet."}
-            sampleSize={charts?.price_range?.external?.sample_size || 0}
+            rangeText={
+              externalCount > 0
+                ? charts?.price_range?.external?.range_text || "Not enough historical data yet."
+                : "No external observations imported yet."
+            }
+            sampleSize={charts?.price_range?.external?.sample_size || externalCount}
             periodEnd={charts?.price_range?.external?.period_end}
             disclaimer={charts?.external_disclaimer}
           />
@@ -99,6 +109,25 @@ export default async function ResearchHubPage() {
         />
 
         <ResearchChart
+          title="External asking rent by bedroom"
+          subtitle="External Market Observations · USD/month"
+          points={(charts?.by_bedroom_external || [])
+            .filter((b) => b.median_usd != null)
+            .map((b) => ({
+              label: `${b.bedrooms}+`,
+              value: b.median_usd || 0,
+              sample_size: b.sample_size,
+              p25: b.p25_usd,
+              p75: b.p75_usd,
+            }))}
+          emptyText={
+            externalCount > 0
+              ? "Not enough bedroom breakdown data yet."
+              : "No external observations imported yet."
+          }
+        />
+
+        <ResearchChart
           title="Asking rent by neighborhood"
           subtitle="KigaliRent verified inventory · typical asking rent (USD/month)"
           points={(charts?.by_neighborhood || [])
@@ -111,6 +140,26 @@ export default async function ResearchHubPage() {
               p25: n.p25_usd,
               p75: n.p75_usd,
             }))}
+        />
+
+        <ResearchChart
+          title="External asking rent by neighborhood"
+          subtitle="External Market Observations · typical asking rent (USD/month)"
+          points={(charts?.by_neighborhood_external || [])
+            .filter((n) => n.median_usd != null)
+            .slice(0, 12)
+            .map((n) => ({
+              label: n.label,
+              value: n.median_usd || 0,
+              sample_size: n.sample_size,
+              p25: n.p25_usd,
+              p75: n.p75_usd,
+            }))}
+          emptyText={
+            externalCount > 0
+              ? "Not enough neighborhood breakdown data yet."
+              : "No external observations imported yet."
+          }
         />
 
         <ResearchChart
@@ -132,15 +181,38 @@ export default async function ResearchHubPage() {
         />
 
         <ResearchChart
+          title="External median asking rent over time"
+          subtitle="External Market Observations · enough history required"
+          kind="line"
+          points={
+            charts?.has_external_trend_history
+              ? (charts.trend_external || [])
+                  .filter((t) => t.median_usd != null)
+                  .map((t) => ({
+                    label: t.period_end.slice(0, 7),
+                    value: t.median_usd || 0,
+                    sample_size: t.sample_size,
+                  }))
+              : []
+          }
+          emptyText={
+            externalCount > 0
+              ? "Not enough historical data yet."
+              : "No external observations imported yet."
+          }
+        />
+
+        <ResearchChart
           title="External observed listing activity"
-          subtitle="Count of external observations over time — not total market supply"
+          subtitle={`Count of external observations over time — ${externalCount} active observation(s) · not total market supply`}
           kind="line"
           unitPrefix=""
-          points={(charts?.observation_activity || []).map((a) => ({
-            label: a.month,
-            value: a.observations,
-          }))}
-          emptyText="No external observations imported yet."
+          points={activityPoints}
+          emptyText={
+            externalCount > 0
+              ? "Not enough historical data yet."
+              : "No external observations imported yet."
+          }
         />
 
         <p className="text-xs text-gray-500 border-t pt-6">

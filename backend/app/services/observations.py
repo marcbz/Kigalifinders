@@ -1,21 +1,48 @@
-"""Manual CSV/XLSX import for market observations. Append-only."""
+"""Manual CSV import for external market observations. Append-only.
+
+CSV-first only — no automated crawling. Completely separate from KigaliRent Verified.
+"""
 
 from __future__ import annotations
 
 import csv
 import hashlib
 import io
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ObservationStatus, RentalObservation
 from app.services.fx import get_default_fx_provider, store_rate, to_usd
 
 
-REQUIRED_COLUMNS = {"asking_price", "currency", "source"}
+REQUIRED_COLUMNS = {"asking_price", "currency", "source", "source_url"}
+RECOMMENDED_COLUMNS = [
+    "source",
+    "source_url",
+    "source_listing_id",
+    "observed_at",
+    "property_type",
+    "bedrooms",
+    "bathrooms",
+    "neighborhood",
+    "neighborhood_slug",
+    "asking_price",
+    "currency",
+    "is_furnished",
+    "amenities",
+    "observation_status",
+    "notes",
+]
+
+CSV_TEMPLATE = (
+    "source,source_url,source_listing_id,observed_at,property_type,bedrooms,bathrooms,"
+    "neighborhood,neighborhood_slug,asking_price,currency,is_furnished,amenities,observation_status,notes\n"
+    "house_in_rwanda,https://example.com/listing/123,ext-123,2026-08-01,apartment,2,1,"
+    "Kacyiru,kacyiru,750,USD,true,pool,active_observed,Replace with real permitted-source data\n"
+)
 
 
 def _parse_bool(val: Any) -> bool | None:
@@ -43,7 +70,14 @@ def _parse_dt(val: Any) -> datetime:
     return datetime.now(timezone.utc)
 
 
-def make_dedupe_key(source: str, source_listing_id: str | None, source_url: str | None, neighborhood: str | None, bedrooms: Any, price: Any) -> str:
+def make_dedupe_key(
+    source: str,
+    source_listing_id: str | None,
+    source_url: str | None,
+    neighborhood: str | None,
+    bedrooms: Any,
+    price: Any,
+) -> str:
     raw = "|".join(
         [
             (source or "").lower(),
@@ -63,31 +97,39 @@ async def ingest_observation_rows(
     *,
     default_source: str | None = None,
 ) -> dict:
-    """Normalize, dedupe, and append structured observation dicts. Never invents data."""
+    """Validate, normalize, dedupe, and append structured observation dicts."""
     fx = await get_default_fx_provider().get_rate("USD", "RWF")
     await store_rate(db, fx)
 
     imported = 0
     updated = 0
-    skipped = 0
+    duplicates = 0
+    invalid_rows = 0
     errors: list[str] = []
+    rows_processed = 0
 
     for i, raw in enumerate(rows, start=1):
+        rows_processed += 1
         try:
             row = {str(k).strip().lower(): v for k, v in raw.items()}
-            if row.get("asking_price") in (None, ""):
-                skipped += 1
-                continue
-            price = float(row["asking_price"])
-            currency = (str(row.get("currency") or "USD")).upper()
             source = str(row.get("source") or default_source or "").strip()
+            source_url = str(row.get("source_url") or "").strip() or None
+            if row.get("asking_price") in (None, ""):
+                invalid_rows += 1
+                errors.append(f"Row {i}: missing asking_price")
+                continue
             if not source:
+                invalid_rows += 1
                 errors.append(f"Row {i}: missing source")
                 continue
-            source_url = row.get("source_url") or None
+            if not source_url:
+                invalid_rows += 1
+                errors.append(f"Row {i}: missing source_url (required for attribution)")
+                continue
+
+            price = float(row["asking_price"])
+            currency = (str(row.get("currency") or "USD")).upper()
             source_listing_id = row.get("source_listing_id") or None
-            if source_url is not None:
-                source_url = str(source_url)
             if source_listing_id is not None:
                 source_listing_id = str(source_listing_id)
             neighborhood = row.get("neighborhood") or None
@@ -115,7 +157,7 @@ async def ingest_observation_rows(
             prev = existing.scalar_one_or_none()
             if prev and prev.asking_price == price and prev.observed_at.date() == observed_at.date():
                 if prev.observation_status == status:
-                    skipped += 1
+                    duplicates += 1
                     continue
 
             usd = to_usd(price, currency, fx.rate)
@@ -165,14 +207,19 @@ async def ingest_observation_rows(
                 imported += 1
             db.add(obs)
         except Exception as exc:  # noqa: BLE001
+            invalid_rows += 1
             errors.append(f"Row {i}: {exc}")
 
     await db.flush()
     return {
-        "found": imported + updated + skipped,
+        "rows_processed": rows_processed,
         "imported": imported,
+        "new_observations": imported,
         "updated": updated,
-        "skipped": skipped,
+        "updated_observations": updated,
+        "duplicates": duplicates,
+        "skipped": duplicates,
+        "invalid_rows": invalid_rows,
         "errors": errors[:50],
     }
 
@@ -181,16 +228,30 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
     text = content.decode("utf-8-sig") if isinstance(content, bytes) else content
     reader = csv.DictReader(io.StringIO(text))
     if not reader.fieldnames:
-        return {"imported": 0, "skipped": 0, "errors": ["Empty CSV"], "updated": 0, "found": 0}
+        return {
+            "rows_processed": 0,
+            "imported": 0,
+            "new_observations": 0,
+            "updated": 0,
+            "updated_observations": 0,
+            "duplicates": 0,
+            "skipped": 0,
+            "invalid_rows": 0,
+            "errors": ["Empty CSV"],
+        }
     fields = {f.strip().lower() for f in reader.fieldnames}
     missing = REQUIRED_COLUMNS - fields
     if missing:
         return {
+            "rows_processed": 0,
             "imported": 0,
-            "skipped": 0,
+            "new_observations": 0,
             "updated": 0,
-            "found": 0,
-            "errors": [f"Missing columns: {', '.join(sorted(missing))}"],
+            "updated_observations": 0,
+            "duplicates": 0,
+            "skipped": 0,
+            "invalid_rows": 0,
+            "errors": [f"Missing required columns: {', '.join(sorted(missing))}"],
         }
 
     rows = []
@@ -198,6 +259,26 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
         row = {k.strip().lower(): (v.strip() if isinstance(v, str) else v) for k, v in raw.items() if k}
         rows.append(row)
     return await ingest_observation_rows(db, rows)
+
+
+async def refresh_research_after_import(db: AsyncSession) -> dict:
+    """CSV → snapshots → charts inputs → search intents. Does not touch verified inventory rebuild unless needed."""
+    from app.services.intent_automation import apply_index_rules, discover_intents, recalculate_all_intent_metrics
+    from app.services.intent_config import load_automation_config
+    from app.services.market_sources import refresh_observation_counts
+    from app.services.research import rebuild_observation_snapshots
+
+    snaps = await rebuild_observation_snapshots(db)
+    disc = await discover_intents(db, deep=False)
+    recalculated = await recalculate_all_intent_metrics(db)
+    index_stats = await apply_index_rules(db, await load_automation_config(db))
+    await refresh_observation_counts(db)
+    return {
+        "observation_snapshots": snaps,
+        "discovery": disc,
+        "recalculated": recalculated,
+        "index_rules": index_stats,
+    }
 
 
 async def list_observations(
@@ -208,8 +289,6 @@ async def list_observations(
     source: str | None = None,
     status: str | None = None,
 ) -> dict:
-    from sqlalchemy import func
-
     q = select(RentalObservation).order_by(RentalObservation.observed_at.desc())
     count_q = select(func.count()).select_from(RentalObservation)
     if source:
@@ -267,9 +346,9 @@ async def bulk_update_observations(
     rows = list(result.scalars().all())
     updated = 0
     for row in rows:
-        if action == "mark_invalid":
+        if action in {"mark_invalid", "hide", "delete"}:
             row.observation_status = ObservationStatus.INVALID.value
-            row.notes = ((row.notes or "") + " Marked invalid by admin.").strip()
+            row.notes = ((row.notes or "") + " Hidden/invalidated by admin.").strip()
             updated += 1
         elif action == "mark_not_found":
             row.observation_status = ObservationStatus.NOT_FOUND.value

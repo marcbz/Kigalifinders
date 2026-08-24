@@ -167,6 +167,7 @@ async def research_overview(db: AsyncSession = Depends(get_db)):
             MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
             MarketStatSnapshot.location_slug == "kigali",
             MarketStatSnapshot.bedrooms.is_(None),
+            MarketStatSnapshot.property_type.is_(None),
         )
         .order_by(MarketStatSnapshot.period_end.desc())
         .limit(6)
@@ -176,6 +177,8 @@ async def research_overview(db: AsyncSession = Depends(get_db)):
         .where(
             MarketStatSnapshot.data_kind == MarketDataKind.MARKET_OBSERVATION.value,
             MarketStatSnapshot.location_slug == "kigali",
+            MarketStatSnapshot.bedrooms.is_(None),
+            MarketStatSnapshot.property_type.is_(None),
         )
         .order_by(MarketStatSnapshot.period_end.desc())
         .limit(6)
@@ -302,9 +305,11 @@ async def research_methodology():
             "USD is the primary public currency; RWF may be shown for transparency.",
             "Historical observations keep the exchange rate from the observation date.",
             "External listings that disappear are marked not_found — never assumed rented.",
-            "Statistics are withheld when sample size is insufficient (minimum 3).",
+            "Statistics for verified inventory are withheld when sample size is insufficient (minimum 3).",
+            "External observation charts update after CSV import; overall external stats appear from the first valid row.",
             "Verified KigaliRent inventory is never mixed with observations without labels.",
             "External Market Observations are public listings observed on external sources; availability is not confirmed.",
+            "External data is imported via CSV only — no automated crawling.",
         ],
         "labels": {
             "verified": "KigaliRent Verified",
