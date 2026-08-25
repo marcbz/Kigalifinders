@@ -2,13 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { ResearchChart } from "@/components/research/research-charts";
-import {
-  DataInsights,
-  KeyAttributes,
-  RelatedNeighborhoods,
-  TrendCharts,
-} from "@/components/rentals/rental-landing-sections";
+import { KeyAttributes, RelatedNeighborhoods } from "@/components/rentals/rental-landing-sections";
 import { getPropertyHref } from "@/lib/property-url";
 
 type Listing = {
@@ -93,7 +87,7 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
-      <header className="bg-navy-800 text-white py-14 px-6">
+      <header className="bg-navy-800 text-white py-10 px-6">
         <div className="max-w-6xl mx-auto">
           <nav className="text-sm text-gray-300 mb-4">
             <Link href="/" className="hover:text-gold-400">Home</Link>
@@ -106,20 +100,48 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
               </>
             )}
           </nav>
-          <p className="text-gold-400 text-xs tracking-[0.25em] uppercase mb-3">
-            {data.page_type === "directory" ? "Directory" : data.page_type === "city" ? "Market overview" : "Neighborhood guide"}
-          </p>
-          <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight mb-4">{data.h1}</h1>
-          <p className="text-lg text-gray-100 max-w-3xl leading-relaxed">{data.intro}</p>
-          {data.last_updated && (
-            <p className="text-sm text-gray-300 mt-4">
-              Updated {new Date(data.last_updated).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-          )}
+          <h1 className="font-serif text-3xl md:text-4xl font-bold leading-tight">{data.h1}</h1>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-12">
+      <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+        {listings.length > 0 && (
+          <section>
+            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Available verified rentals</p>
+            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">Verified listings</h2>
+            <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {listings.map((p) => (
+                <li key={p.id} className="bg-white dark:bg-navy-800 rounded-xl overflow-hidden border">
+                  <Link href={getPropertyHref(p)} className="block">
+                    <div className="relative aspect-[4/3] bg-navy-700">
+                      {p.primary_image ? (
+                        <Image src={p.primary_image} alt="" fill className="object-cover" sizes="33vw" />
+                      ) : null}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-serif font-semibold line-clamp-2">{p.title}</h3>
+                      <p className="text-gold-600 font-semibold mt-1">${(p.usd_price ?? p.price).toLocaleString()}/month</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {p.neighborhood_name}
+                        {p.bedrooms != null ? ` · ${p.bedrooms} bed` : ""}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {listings.length === 0 && data.page_type !== "directory" && (
+          <section className="rounded-xl border border-dashed p-8 bg-white dark:bg-navy-800">
+            <p className="text-navy-800 dark:text-white font-medium">No verified listings in this area right now.</p>
+            <p className="text-sm text-gray-500 mt-2">
+              <Link href="/properties" className="text-gold-600 underline">Browse all rentals</Link>
+            </p>
+          </section>
+        )}
+
         {data.page_type === "directory" && data.neighborhoods && (
           <section>
             <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Browse by neighborhood</h2>
@@ -166,119 +188,7 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           </section>
         )}
 
-        {data.market_answer?.has_enough_data && (
-          <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800 space-y-2">
-            <p className="text-xs uppercase tracking-wider text-gray-500">Market data</p>
-            <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white">
-              {data.market_answer.question || "Typical asking rent"}
-            </h2>
-            <p className="text-3xl font-serif">{data.market_answer.headline}</p>
-            {data.market_answer.range_text && (
-              <p className="text-sm text-gray-600">{data.market_answer.range_text}</p>
-            )}
-            <p className="text-sm text-gray-600">{data.market_answer.summary}</p>
-            {data.market_answer.last_updated_display && (
-              <p className="text-xs text-gray-500">Updated {data.market_answer.last_updated_display}</p>
-            )}
-            <p className="text-xs">
-              <Link href="/research/kigali-rental-market" className="underline text-gold-600">
-                Full market research
-              </Link>
-            </p>
-          </section>
-        )}
-
-        {!data.market_answer?.has_enough_data && (
-          <section className="rounded-2xl border border-dashed p-6 bg-white dark:bg-navy-800">
-            <h2 className="font-serif text-xl font-bold mb-2">Market data</h2>
-            <p className="text-sm text-gray-500">
-              {data.market_answer?.summary || "Not enough data to provide a reliable estimate yet."}
-            </p>
-          </section>
-        )}
-
         {!!data.key_attributes?.length && <KeyAttributes attrs={data.key_attributes} />}
-
-        <DataInsights insights={data.data_insights || []} />
-
-        <TrendCharts verified={data.trend_verified} external={[]} />
-
-        {listings.length > 0 && (
-          <section>
-            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Available verified rentals</p>
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">Verified listings</h2>
-            <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {listings.map((p) => (
-                <li key={p.id} className="bg-white dark:bg-navy-800 rounded-xl overflow-hidden border">
-                  <Link href={getPropertyHref(p)} className="block">
-                    <div className="relative aspect-[4/3] bg-navy-700">
-                      {p.primary_image ? (
-                        <Image src={p.primary_image} alt="" fill className="object-cover" sizes="33vw" />
-                      ) : null}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-serif font-semibold line-clamp-2">{p.title}</h3>
-                      <p className="text-gold-600 font-semibold mt-1">${(p.usd_price ?? p.price).toLocaleString()}/month</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {p.neighborhood_name}
-                        {p.bedrooms != null ? ` · ${p.bedrooms} bed` : ""}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {listings.length === 0 && data.page_type !== "directory" && (
-          <section className="rounded-xl border border-dashed p-8 bg-white dark:bg-navy-800">
-            <p className="text-navy-800 dark:text-white font-medium">No verified listings in this area right now.</p>
-            <p className="text-sm text-gray-500 mt-2">
-              Market estimates above still use the combined eligible observation set when sample size allows.{" "}
-              <Link href="/properties" className="text-gold-600 underline">Browse all rentals</Link>
-            </p>
-          </section>
-        )}
-
-        {(data.by_bedroom_verified?.length || 0) > 0 && (
-          <ResearchChart
-            title="Asking rent by bedroom"
-            subtitle="Combined eligible observations"
-            points={(data.by_bedroom_verified || []).map((r) => ({
-              label: r.bedrooms === 4 ? "4+" : String(r.bedrooms),
-              value: r.median_usd || 0,
-              sample_size: r.sample_size,
-              p25: r.p25_usd,
-              p75: r.p75_usd,
-            }))}
-            emptyText="Not enough bedroom breakdown data yet."
-          />
-        )}
-
-        {data.furnished_breakdown && data.furnished_breakdown.total > 0 && (
-          <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800">
-            <h2 className="font-serif text-xl font-bold mb-3">Furnished vs unfurnished</h2>
-            <p className="text-sm text-gray-600">
-              {data.furnished_breakdown.furnished} furnished · {data.furnished_breakdown.unfurnished} unfurnished
-              (from {data.furnished_breakdown.total} observations / listings in this view)
-            </p>
-          </section>
-        )}
-
-        {(data.property_types?.length || 0) > 0 && (
-          <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800">
-            <h2 className="font-serif text-xl font-bold mb-3">Property types</h2>
-            <ul className="text-sm space-y-1">
-              {data.property_types!.map((t) => (
-                <li key={t.slug} className="flex justify-between gap-4 border-b py-2">
-                  <span>{t.name}</span>
-                  <span className="text-gray-500">{t.count}</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
 
         {searches.length > 0 && (
           <section>
@@ -298,20 +208,6 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
 
         {(data.related_neighborhoods?.length || 0) > 0 && (
           <RelatedNeighborhoods items={data.related_neighborhoods!} />
-        )}
-
-        {(data.faqs?.length || 0) > 0 && (
-          <section className="border-t pt-8">
-            <h2 className="font-serif text-2xl font-bold mb-4">FAQs</h2>
-            <dl className="space-y-4">
-              {data.faqs!.map((f) => (
-                <div key={f.q}>
-                  <dt className="font-medium text-navy-800 dark:text-white">{f.q}</dt>
-                  <dd className="text-sm text-gray-600 mt-1">{f.a}</dd>
-                </div>
-              ))}
-            </dl>
-          </section>
         )}
       </div>
     </div>

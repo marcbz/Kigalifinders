@@ -2,14 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ResearchChart } from "@/components/research/research-charts";
-import {
-  DataInsights,
-  KeyAttributes,
-  RelatedNeighborhoods,
-  TrendCharts,
-} from "@/components/rentals/rental-landing-sections";
-import { MarketAnswerBlock } from "@/components/research/research-narrative";
+import { KeyAttributes, RelatedNeighborhoods } from "@/components/rentals/rental-landing-sections";
 import { fetchRentalLandingSafe } from "@/lib/market-api";
 import { getPropertyHref } from "@/lib/property-url";
 
@@ -48,11 +41,9 @@ export default async function RentalLandingPage({ params }: Props) {
   const page = await fetchRentalLandingSafe(location, intent);
   if (!page) notFound();
 
-  const intro = page.intro_html ? null : page.intro || page.answer;
-
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
-      <header className="bg-navy-800 text-white py-14 px-6">
+      <header className="bg-navy-800 text-white py-10 px-6">
         <div className="max-w-6xl mx-auto">
           <nav className="text-sm text-gray-300 mb-4">
             <Link href="/rentals" className="hover:text-gold-400">Rentals</Link>
@@ -61,103 +52,23 @@ export default async function RentalLandingPage({ params }: Props) {
               {page.location_slug.replace(/-/g, " ")}
             </Link>
           </nav>
-          <p className="text-gold-400 text-xs tracking-[0.25em] uppercase mb-3">Rental search</p>
-          <h1 className="font-serif text-3xl md:text-5xl font-bold leading-tight mb-4">{page.h1}</h1>
-          {page.intro_html ? (
-            <div className="prose prose-invert prose-sm max-w-3xl text-gray-200" dangerouslySetInnerHTML={{ __html: page.intro_html }} />
-          ) : (
-            <p className="text-lg text-gray-100 max-w-3xl leading-relaxed">{intro}</p>
-          )}
-          {page.last_updated && (
-            <p className="text-sm text-gray-300 mt-4">
-              Updated {new Date(page.last_updated).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-          )}
+          <h1 className="font-serif text-3xl md:text-4xl font-bold leading-tight">{page.h1}</h1>
         </div>
       </header>
 
-      <div className="max-w-6xl mx-auto px-6 py-12 space-y-12">
-        {!!page.key_attributes?.length && <KeyAttributes attrs={page.key_attributes} />}
-
-        {/* Market data first — combined eligible observations */}
-        <div className="space-y-6">
-          <p className="text-xs uppercase tracking-wider text-gray-500">Market data</p>
-          {page.market_answer ? (
-            <MarketAnswerBlock answer={page.market_answer} />
-          ) : (
-            <section className="rounded-2xl border border-dashed p-6 bg-white dark:bg-navy-800">
-              <h2 className="font-serif text-xl font-bold mb-2">Market data</h2>
-              <p className="text-sm text-gray-500">Not enough data to provide a reliable estimate yet.</p>
-            </section>
-          )}
-
-          <DataInsights insights={page.data_insights || []} />
-
-          {(page.trend_verified?.length || 0) >= 2 && (
-            <TrendCharts verified={page.trend_verified} external={[]} />
-          )}
-
-          {(page.by_bedroom_verified?.length || 0) > 0 && (
-            <ResearchChart
-              title="Asking rent by bedroom"
-              subtitle="Combined eligible observations in this area"
-              points={(page.by_bedroom_verified || []).map((r) => ({
-                label: (r as { label?: string }).label || (r.bedrooms === 4 ? "4+" : String(r.bedrooms)),
-                value: r.median_usd || 0,
-                sample_size: r.sample_size,
-                p25: r.p25_usd,
-                p75: r.p75_usd,
-              }))}
-              emptyText="Not enough bedroom data yet."
-            />
-          )}
-
-          {page.furnished_breakdown &&
-            (page.furnished_breakdown.furnished_median_usd != null ||
-              page.furnished_breakdown.unfurnished_median_usd != null) && (
-              <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800">
-                <h2 className="font-serif text-xl font-bold mb-3">Furnished vs unfurnished</h2>
-                <dl className="grid sm:grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <dt className="text-gray-500">Furnished (typical asking rent)</dt>
-                    <dd className="text-2xl font-serif">
-                      {page.furnished_breakdown.furnished_median_usd != null
-                        ? `$${page.furnished_breakdown.furnished_median_usd.toLocaleString()}/month`
-                        : "Not enough data"}
-                    </dd>
-                    <p className="text-xs text-gray-500 mt-1">n={page.furnished_breakdown.furnished}</p>
-                  </div>
-                  <div>
-                    <dt className="text-gray-500">Unfurnished (typical asking rent)</dt>
-                    <dd className="text-2xl font-serif">
-                      {page.furnished_breakdown.unfurnished_median_usd != null
-                        ? `$${page.furnished_breakdown.unfurnished_median_usd.toLocaleString()}/month`
-                        : "Not enough data"}
-                    </dd>
-                    <p className="text-xs text-gray-500 mt-1">n={page.furnished_breakdown.unfurnished}</p>
-                  </div>
-                </dl>
-              </section>
-            )}
-        </div>
-
-        {/* Available verified rentals — separate from market statistics */}
+      <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
         <section>
           <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Available verified rentals</p>
-          <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-2">
+          <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">
             {page.match_count} verified {page.match_count === 1 ? "property" : "properties"}
           </h2>
-          <p className="text-sm text-gray-600 dark:text-gray-300 mb-8">
-            Current KigaliRent inventory matching this search — separate from the market statistics above.
-          </p>
 
           {page.verified_matches.length === 0 ? (
             <div className="rounded-xl border border-dashed border-gray-300 p-8 bg-white dark:bg-navy-800">
               <p className="text-navy-800 dark:text-white font-medium mb-2">
                 No verified listings match this exact search right now.
               </p>
-              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-                Market estimates above still use the combined eligible observation set when sample size allows.{" "}
+              <p className="text-sm text-gray-600 dark:text-gray-300">
                 <Link href="/properties" className="text-gold-600 underline">
                   Browse all rentals
                 </Link>
@@ -193,6 +104,8 @@ export default async function RentalLandingPage({ params }: Props) {
           )}
         </section>
 
+        {!!page.key_attributes?.length && <KeyAttributes attrs={page.key_attributes} />}
+
         {page.related.length > 0 && (
           <section>
             <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Related rental searches</h2>
@@ -211,20 +124,6 @@ export default async function RentalLandingPage({ params }: Props) {
         {(page.related_neighborhoods?.length || 0) > 0 && (
           <RelatedNeighborhoods items={page.related_neighborhoods!} />
         )}
-
-        <section className="text-sm text-gray-600 dark:text-gray-300 border-t pt-8 space-y-2">
-          <h2 className="font-semibold text-navy-800 dark:text-white mb-2">About this data</h2>
-          <p>{page.methodology_note}</p>
-          <p>
-            <Link href="/research/kigali-rental-market/methodology/" className="text-gold-600 underline">
-              Full methodology
-            </Link>
-            {" · "}
-            <Link href="/research/kigali-rental-market" className="text-gold-600 underline">
-              Full market research
-            </Link>
-          </p>
-        </section>
       </div>
     </div>
   );

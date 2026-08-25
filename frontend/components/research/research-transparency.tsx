@@ -1,5 +1,18 @@
 import Link from "next/link";
 
+const UNLINKED_SOURCE_HOSTS = ["houseinrwanda.com", "kigaliproperty.com"];
+
+function sourceNameOnly(sourceUrl?: string | null, sourceKey?: string): boolean {
+  if (sourceKey === "house_in_rwanda" || sourceKey === "kigali_property") return true;
+  if (!sourceUrl) return false;
+  try {
+    const host = new URL(sourceUrl).hostname.replace(/^www\./, "");
+    return UNLINKED_SOURCE_HOSTS.includes(host);
+  } catch {
+    return UNLINKED_SOURCE_HOSTS.some((host) => sourceUrl.includes(host));
+  }
+}
+
 export type ResearchTransparencyData = {
   last_updated_display?: string | null;
   total_count?: number;
@@ -119,7 +132,7 @@ export function ResearchTransparency({
           <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600">
             {sources.map((s) => (
               <li key={s.source_key || s.name}>
-                {s.source_url ? (
+                {s.source_url && !sourceNameOnly(s.source_url, s.source_key) ? (
                   <a href={s.source_url} target="_blank" rel="noreferrer" className="underline">
                     {s.name}
                   </a>
