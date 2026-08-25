@@ -6,54 +6,48 @@ import Link from "next/link";
 import { adminService } from "@/services/api";
 import type { SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
+const PAGE_SIZE = 20;
+
 type SortMode =
+  | "eligible"
   | "best"
-  | "filters_desc"
-  | "filters_asc"
+  | "properties_desc"
+  | "properties_asc"
   | "quality_desc"
   | "quality_asc"
-  | "properties_desc"
-  | "properties_asc";
+  | "intent_desc"
+  | "intent_asc";
 
 type SeoControls = {
   min_dimensions_for_index: number;
   max_dimensions_for_index: number;
   min_quality_for_index: number;
-  max_sitemap_urls: number;
-  require_min_intent: boolean;
-  min_intent_for_index: number;
-  require_min_properties: boolean;
   min_verified_for_index: number;
+  max_sitemap_urls: number;
+  min_intent_strength: "weak" | "useful" | "strong";
 };
 
-type EligibilityFilter = "all" | "eligible" | "under";
-type IndexFilter = "all" | "indexable" | "noindex";
+type StatusFilter = "all" | "eligible" | "under" | "indexable" | "noindex";
+type IntentFilter = "all" | "strong" | "useful" | "weak";
 
 type ObservationRow = {
   id: string;
   source: string;
-  source_url?: string | null;
   neighborhood?: string | null;
-  bedrooms?: number | null;
-  property_type?: string | null;
-  usd_price?: number | null;
   observation_status: string;
-  observed_at?: string | null;
+  usd_price?: number | null;
 };
 
 type SourceSummary = {
   source_id: string;
   name: string;
   observation_count: number;
-  is_enabled?: boolean;
-  is_archived?: boolean;
 };
 
 type MarketSummary = {
   total_observations: number;
   last_import_at?: string | null;
   top_sources: SourceSummary[];
-  other_sources_count: number;
   sources: SourceSummary[];
 };
 
@@ -70,32 +64,12 @@ function fmtDate(v?: string | null) {
   }
 }
 
-function friendlyStatus(s: string) {
-  return s.replace(/_/g, " ");
-}
-
 function errMsg(err: unknown, fallback: string) {
   const ax = err as { response?: { data?: { detail?: string } }; message?: string };
   const detail = ax?.response?.data?.detail;
   if (typeof detail === "string") return detail;
   if (ax?.message) return ax.message;
   return fallback;
-}
-
-function eligibilityLabel(row: SearchIntentAdmin) {
-  if (row.automatic_eligibility === "eligible") return "Eligible";
-  return "Not eligible";
-}
-
-function indexLabel(row: SearchIntentAdmin) {
-  if (row.index_status === "indexable") return "Indexed";
-  if (row.index_status === "noindex") return "Noindex";
-  return row.index_status;
-}
-
-function sitemapLabel(row: SearchIntentAdmin) {
-  if (row.sitemap_status === "included") return "Sitemap included";
-  return "Sitemap excluded";
 }
 
 function intentStrengthLabel(row: SearchIntentAdmin) {
@@ -106,13 +80,24 @@ function intentStrengthLabel(row: SearchIntentAdmin) {
   return "—";
 }
 
+function statusLines(row: SearchIntentAdmin) {
+  const lines: string[] = [];
+  lines.push(row.automatic_eligibility === "eligible" ? "Eligible" : "Under eligibility");
+  if (row.index_status === "indexable") lines.push("Index");
+  else if (row.index_status === "noindex") lines.push("Noindex");
+  else lines.push(row.index_status);
+  lines.push(row.sitemap_status === "included" ? "Sitemap included" : "Sitemap excluded");
+  return lines;
+}
+
 export default function SeoMarketAdminPage() {
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
-  const [sort, setSort] = useState<SortMode>("best");
+  const [sort, setSort] = useState<SortMode>("eligible");
   const [searchPage, setSearchPage] = useState(1);
-  const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [intentFilter, setIntentFilter] = useState<IntentFilter>("all");
   const [message, setMessage] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [seoForm, setSeoForm] = useState<SeoControls | null>(null);
@@ -121,33 +106,30 @@ export default function SeoMarketAdminPage() {
   const [obsPage, setObsPage] = useState(1);
   const [obsStatus, setObsStatus] = useState("");
   const [obsSource, setObsSource] = useState("");
-  const [eligibilityFilter, setEligibilityFilter] = useState<EligibilityFilter>("all");
-  const [indexFilter, setIndexFilter] = useState<IndexFilter>("all");
 
   const sortParams = useMemo(() => {
-    if (sort === "filters_desc") return { sort_by: "filter_count", sort_dir: "desc" as const };
-    if (sort === "filters_asc") return { sort_by: "filter_count", sort_dir: "asc" as const };
-    if (sort === "quality_desc") return { sort_by: "quality_score", sort_dir: "desc" as const };
-    if (sort === "quality_asc") return { sort_by: "quality_score", sort_dir: "asc" as const };
+    if (sort === "eligible") return { sort_by: "eligible", sort_dir: "desc" as const };
     if (sort === "properties_desc") return { sort_by: "match_count", sort_dir: "desc" as const };
     if (sort === "properties_asc") return { sort_by: "match_count", sort_dir: "asc" as const };
+    if (sort === "quality_desc") return { sort_by: "quality_score", sort_dir: "desc" as const };
+    if (sort === "quality_asc") return { sort_by: "quality_score", sort_dir: "asc" as const };
+    if (sort === "intent_desc") return { sort_by: "intent_strength", sort_dir: "desc" as const };
+    if (sort === "intent_asc") return { sort_by: "intent_strength", sort_dir: "asc" as const };
     return { sort_by: "best", sort_dir: "desc" as const };
   }, [sort]);
 
   const searchQuery = useQuery({
-    queryKey: ["admin-search-intents", search, sort, searchPage, eligibilityFilter, indexFilter],
+    queryKey: ["admin-search-intents", search, sort, searchPage, statusFilter, intentFilter],
     queryFn: () =>
       adminService.searchIntents({
         search: search || undefined,
         page: searchPage,
-        page_size: 40,
+        page_size: PAGE_SIZE,
         automatic_eligibility:
-          eligibilityFilter === "eligible"
-            ? "eligible"
-            : eligibilityFilter === "under"
-              ? "excluded"
-              : undefined,
-        index_status: indexFilter === "all" ? undefined : indexFilter,
+          statusFilter === "eligible" ? "eligible" : statusFilter === "under" ? "excluded" : undefined,
+        index_status:
+          statusFilter === "indexable" || statusFilter === "noindex" ? statusFilter : undefined,
+        intent_strength: intentFilter === "all" ? undefined : intentFilter,
         ...sortParams,
       }) as Promise<SearchIntentListResponse>,
   });
@@ -160,15 +142,15 @@ export default function SeoMarketAdminPage() {
   useEffect(() => {
     if (seoSettingsQuery.data?.settings) {
       const s = seoSettingsQuery.data.settings;
+      const strength = String(s.min_intent_strength || "useful").toLowerCase();
       setSeoForm({
         min_dimensions_for_index: s.min_dimensions_for_index ?? 3,
         max_dimensions_for_index: s.max_dimensions_for_index ?? 5,
         min_quality_for_index: s.min_quality_for_index ?? 50,
-        max_sitemap_urls: s.max_sitemap_urls ?? 100,
-        require_min_intent: s.require_min_intent ?? false,
-        min_intent_for_index: s.min_intent_for_index ?? 30,
-        require_min_properties: s.require_min_properties ?? false,
         min_verified_for_index: s.min_verified_for_index ?? 1,
+        max_sitemap_urls: s.max_sitemap_urls ?? 100,
+        min_intent_strength:
+          strength === "strong" || strength === "weak" || strength === "useful" ? strength : "useful",
       });
     }
     const summary = seoSettingsQuery.data?.summary;
@@ -192,12 +174,13 @@ export default function SeoMarketAdminPage() {
   });
 
   const searchItems = searchQuery.data?.items ?? [];
-  const searchTotalPages = Math.max(1, Math.ceil((searchQuery.data?.total ?? 0) / (searchQuery.data?.page_size ?? 40)));
+  const searchTotalPages = Math.max(
+    1,
+    Math.ceil((searchQuery.data?.total ?? 0) / (searchQuery.data?.page_size ?? PAGE_SIZE))
+  );
   const obsItems = observations.data?.items ?? [];
   const obsTotalPages = Math.max(1, Math.ceil((observations.data?.total ?? 0) / (observations.data?.page_size ?? 15)));
   const summary = marketSummary.data;
-  const pageVisibleIds = searchItems.map((r) => r.id);
-  const maxSitemap = seoForm?.max_sitemap_urls ?? 100;
 
   const flash = (text: string) => {
     setErrorMsg(null);
@@ -219,14 +202,14 @@ export default function SeoMarketAdminPage() {
     qc.invalidateQueries({ queryKey: ["admin-observations"] });
   };
 
-  const applySummary = (res?: { summary?: { recalc_label?: string }; recalculation?: unknown }) => {
+  const applySummary = (res?: { summary?: { recalc_label?: string } }) => {
     if (res?.summary?.recalc_label) setRecalcLabel(res.summary.recalc_label);
   };
 
   const publish = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "indexable"),
     onSuccess: () => {
-      flash("Page set to indexable (manual override).");
+      flash("Page set to Index.");
       invalidateSearch();
     },
     onError: (e) => flashErr(errMsg(e, "Failed to index page.")),
@@ -235,7 +218,7 @@ export default function SeoMarketAdminPage() {
   const noindex = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "noindex"),
     onSuccess: () => {
-      flash("Page set to noindex; sitemap excluded.");
+      flash("Page set to Noindex; sitemap excluded.");
       invalidateSearch();
     },
     onError: (e) => flashErr(errMsg(e, "Failed to noindex page.")),
@@ -244,30 +227,19 @@ export default function SeoMarketAdminPage() {
   const includeSitemap = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentSitemap(id, "included"),
     onSuccess: () => {
-      flash("Page included in sitemap (manual override).");
+      flash("Included in sitemap (manual). Cap still applies.");
       invalidateSearch();
     },
-    onError: (e) => flashErr(errMsg(e, "Could not include in sitemap — page must be indexable first.")),
+    onError: (e) => flashErr(errMsg(e, "Could not include in sitemap — must be Index first.")),
   });
 
   const excludeSitemap = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentSitemap(id, "excluded"),
     onSuccess: () => {
-      flash("Page excluded from sitemap.");
+      flash("Excluded from sitemap.");
       invalidateSearch();
     },
     onError: (e) => flashErr(errMsg(e, "Failed to exclude from sitemap.")),
-  });
-
-  const bulkPages = useMutation({
-    mutationFn: (action: string) => adminService.bulkSearchIntents(Array.from(selectedPages), action),
-    onSuccess: (res: { updated?: number; errors?: string[] }) => {
-      if (res.errors?.length) flashErr(res.errors[0]);
-      else flash(`Updated ${res.updated ?? 0} page(s).`);
-      setSelectedPages(new Set());
-      invalidateSearch();
-    },
-    onError: (e) => flashErr(errMsg(e, "Bulk action failed.")),
   });
 
   const saveSeo = useMutation({
@@ -276,11 +248,11 @@ export default function SeoMarketAdminPage() {
         min_dimensions_for_index: seoForm!.min_dimensions_for_index,
         max_dimensions_for_index: seoForm!.max_dimensions_for_index,
         min_quality_for_index: seoForm!.min_quality_for_index,
-        max_sitemap_urls: seoForm!.max_sitemap_urls,
-        require_min_intent: seoForm!.require_min_intent,
-        min_intent_for_index: seoForm!.min_intent_for_index,
-        require_min_properties: seoForm!.require_min_properties,
         min_verified_for_index: seoForm!.min_verified_for_index,
+        max_sitemap_urls: seoForm!.max_sitemap_urls,
+        min_intent_strength: seoForm!.min_intent_strength,
+        require_min_properties: true,
+        require_min_intent: seoForm!.min_intent_strength !== "weak",
       }),
     onSuccess: (res: { summary?: { recalc_label?: string } }) => {
       applySummary(res);
@@ -288,16 +260,6 @@ export default function SeoMarketAdminPage() {
       invalidateSearch();
     },
     onError: (e) => flashErr(errMsg(e, "Failed to save SEO controls.")),
-  });
-
-  const refreshSeo = useMutation({
-    mutationFn: () => adminService.recalculateSeoLandings(),
-    onSuccess: (res: { summary?: { recalc_label?: string } }) => {
-      applySummary(res);
-      flash(res?.summary?.recalc_label || "Recalculated.");
-      invalidateSearch();
-    },
-    onError: (e) => flashErr(errMsg(e, "Recalculate failed.")),
   });
 
   const importCsv = useMutation({
@@ -314,50 +276,45 @@ export default function SeoMarketAdminPage() {
   });
 
   return (
-    <div className="space-y-4 max-w-[1400px]">
+    <div className="space-y-4 max-w-[1200px]">
       <div>
         <h2 className="text-xl font-semibold text-navy-800 dark:text-white">SEO &amp; Market Data</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Control which rental search pages are eligible, indexed, and included in the sitemap (hard URL cap).
-          Strong search intents are prioritized. Manual overrides are labeled.
+          Three tools, one eligibility system. Save &amp; Recalculate updates Search Pages and the sitemap.
         </p>
       </div>
 
       {message && (
-        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">{message}</p>
+        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">{message}</p>
       )}
       {errorMsg && (
-        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{errorMsg}</p>
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{errorMsg}</p>
       )}
 
-      <div className="grid lg:grid-cols-[320px_1fr] gap-6 items-start">
-        {/* LEFT */}
-        <aside className="space-y-5 sticky top-4">
-          <div
-            id="seo-controls"
-            className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50/80 dark:bg-navy-800/90 p-4 space-y-3"
-          >
-            <h3 className="font-semibold text-navy-800 dark:text-white">SEO controls</h3>
-            <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 border rounded-lg px-3 py-2 bg-white/70 dark:bg-navy-900/50">
-              <p className="font-medium text-navy-800 dark:text-white">Search-intent rules</p>
+      <div className="grid lg:grid-cols-[300px_1fr] gap-4 items-start">
+        <aside className="space-y-4">
+          {/* 1. SEO Controls */}
+          <section className="rounded-lg border border-gray-200 dark:border-navy-700 bg-gray-50/90 dark:bg-navy-800/90 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-navy-800 dark:text-white">SEO Controls</h3>
+            <div className="text-[11px] text-gray-600 dark:text-gray-400 space-y-0.5 leading-snug">
               <p>
-                <span className="font-medium">Strong:</span> neighborhood + bedrooms + type + budget, or + furnished
+                <span className="font-medium">Strong:</span> neighborhood + bedrooms + type + budget / furnished
               </p>
               <p>
-                <span className="font-medium">Useful:</span> any valid combination with 3–5 parameters
+                <span className="font-medium">Useful:</span> any valid 3–5 parameters
               </p>
               <p>
-                <span className="font-medium">Weak:</span> fewer than 3, or more than 5 parameters
+                <span className="font-medium">Weak:</span> fewer than 3 or more than 5
               </p>
             </div>
             {recalcLabel && (
-              <p className="text-xs font-medium text-navy-800 dark:text-white border rounded-lg px-3 py-2 bg-gray-50 dark:bg-navy-900">
+              <p className="text-xs font-medium border rounded-md px-2.5 py-1.5 bg-white dark:bg-navy-900 text-navy-800 dark:text-white">
                 {recalcLabel}
               </p>
             )}
             {seoForm && (
               <form
-                className="space-y-3"
+                className="space-y-2.5"
                 onSubmit={(e) => {
                   e.preventDefault();
                   saveSeo.mutate();
@@ -403,6 +360,19 @@ export default function SeoMarketAdminPage() {
                   />
                 </label>
                 <label className="block space-y-1">
+                  <span className="text-xs font-medium">Minimum Properties Listing Number</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
+                    value={seoForm.min_verified_for_index}
+                    onChange={(e) =>
+                      setSeoForm({ ...seoForm, min_verified_for_index: Number(e.target.value) })
+                    }
+                  />
+                </label>
+                <label className="block space-y-1">
                   <span className="text-xs font-medium">Maximum indexed / sitemap URLs</span>
                   <input
                     type="number"
@@ -412,58 +382,24 @@ export default function SeoMarketAdminPage() {
                     value={seoForm.max_sitemap_urls}
                     onChange={(e) => setSeoForm({ ...seoForm, max_sitemap_urls: Number(e.target.value) })}
                   />
-                  <span className="text-[11px] text-gray-500">
-                    Hard global cap. After Save &amp; Recalculate, only the top ranked eligible pages stay in the
-                    sitemap.
-                  </span>
                 </label>
-
-                <div className="border-t border-gray-200 dark:border-navy-700 pt-3 space-y-2">
-                  <label className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={seoForm.require_min_intent}
-                      onChange={(e) => setSeoForm({ ...seoForm, require_min_intent: e.target.checked })}
-                    />
-                    <span className="font-medium">Require minimum Intent (optional)</span>
-                  </label>
-                  {seoForm.require_min_intent && (
-                    <input
-                      type="number"
-                      min={0}
-                      max={200}
-                      className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
-                      value={seoForm.min_intent_for_index}
-                      onChange={(e) =>
-                        setSeoForm({ ...seoForm, min_intent_for_index: Number(e.target.value) })
-                      }
-                    />
-                  )}
-                </div>
-
-                <div className="border-t border-gray-200 dark:border-navy-700 pt-3 space-y-2">
-                  <label className="flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
-                      checked={seoForm.require_min_properties}
-                      onChange={(e) => setSeoForm({ ...seoForm, require_min_properties: e.target.checked })}
-                    />
-                    <span className="font-medium">Require minimum Properties (optional)</span>
-                  </label>
-                  {seoForm.require_min_properties && (
-                    <input
-                      type="number"
-                      min={0}
-                      max={100}
-                      className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
-                      value={seoForm.min_verified_for_index}
-                      onChange={(e) =>
-                        setSeoForm({ ...seoForm, min_verified_for_index: Number(e.target.value) })
-                      }
-                    />
-                  )}
-                </div>
-
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium">Require minimum Intent</span>
+                  <select
+                    className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
+                    value={seoForm.min_intent_strength}
+                    onChange={(e) =>
+                      setSeoForm({
+                        ...seoForm,
+                        min_intent_strength: e.target.value as SeoControls["min_intent_strength"],
+                      })
+                    }
+                  >
+                    <option value="strong">Strong</option>
+                    <option value="useful">Useful</option>
+                    <option value="weak">Weak</option>
+                  </select>
+                </label>
                 <button
                   type="submit"
                   className="w-full px-3 py-2 text-sm rounded-lg bg-navy-800 text-white"
@@ -473,38 +409,16 @@ export default function SeoMarketAdminPage() {
                 </button>
               </form>
             )}
-          </div>
+          </section>
 
-          <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50/80 dark:bg-navy-800/90 p-4 space-y-3">
-            <h3 className="font-semibold text-navy-800 dark:text-white">External market data</h3>
-            <dl className="grid grid-cols-2 gap-2 text-xs">
-              <div>
-                <dt className="text-gray-500">Observations</dt>
-                <dd className="text-lg font-serif">{summary?.total_observations ?? "—"}</dd>
-              </div>
-              <div>
-                <dt className="text-gray-500">Last import</dt>
-                <dd>{fmtDate(summary?.last_import_at)}</dd>
-              </div>
-            </dl>
+          {/* 3. External Market Data */}
+          <section className="rounded-lg border border-gray-200 dark:border-navy-700 bg-gray-50/90 dark:bg-navy-800/90 p-4 space-y-3">
+            <h3 className="text-sm font-semibold text-navy-800 dark:text-white">External Market Data</h3>
+            <p className="text-[11px] text-gray-500">
+              {summary?.total_observations ?? "—"} observations · Last import {fmtDate(summary?.last_import_at)}
+            </p>
             <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                className="px-2 py-1.5 text-xs rounded-lg border"
-                onClick={() =>
-                  adminService.downloadObservationsCsvTemplate().then((blob: Blob) => {
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement("a");
-                    a.href = url;
-                    a.download = "external-observations-template.csv";
-                    a.click();
-                    URL.revokeObjectURL(url);
-                  })
-                }
-              >
-                Download CSV template
-              </button>
-              <label className="px-2 py-1.5 text-xs rounded-lg bg-navy-800 text-white cursor-pointer">
+              <label className="px-2.5 py-1.5 text-xs rounded-md bg-navy-800 text-white cursor-pointer">
                 {importCsv.isPending ? "Importing…" : "Import CSV"}
                 <input
                   type="file"
@@ -517,36 +431,26 @@ export default function SeoMarketAdminPage() {
                   }}
                 />
               </label>
+              <button
+                type="button"
+                className="px-2.5 py-1.5 text-xs rounded-md border"
+                onClick={() =>
+                  adminService.downloadObservationsCsvTemplate().then((blob: Blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "external-observations-template.csv";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  })
+                }
+              >
+                Download template
+              </button>
             </div>
-            {summary && (
-              <ul className="text-xs space-y-1 max-h-40 overflow-y-auto">
-                {summary.top_sources.map((s) => (
-                  <li key={s.source_id}>
-                    <button
-                      type="button"
-                      className="underline text-left"
-                      onClick={() => {
-                        setObsSource(s.source_id);
-                        setObsPage(1);
-                      }}
-                    >
-                      {s.name}
-                    </button>
-                    {" — "}
-                    {s.observation_count}
-                  </li>
-                ))}
-                {summary.other_sources_count > 0 && (
-                  <li className="text-gray-600">Other — {summary.other_sources_count}</li>
-                )}
-                {!summary.top_sources.length && !summary.other_sources_count && (
-                  <li className="text-gray-500">No observations yet.</li>
-                )}
-              </ul>
-            )}
             <div className="flex flex-wrap gap-2 text-xs">
               <select
-                className="border rounded px-1 py-1"
+                className="border rounded px-1.5 py-1 bg-white dark:bg-navy-900"
                 value={obsSource}
                 onChange={(e) => {
                   setObsSource(e.target.value);
@@ -561,7 +465,7 @@ export default function SeoMarketAdminPage() {
                 ))}
               </select>
               <select
-                className="border rounded px-1 py-1"
+                className="border rounded px-1.5 py-1 bg-white dark:bg-navy-900"
                 value={obsStatus}
                 onChange={(e) => {
                   setObsStatus(e.target.value);
@@ -575,63 +479,52 @@ export default function SeoMarketAdminPage() {
                 <option value="invalid">Invalid</option>
               </select>
             </div>
-            <ul className="text-xs space-y-1 max-h-48 overflow-y-auto border-t pt-2">
+            <ul className="text-xs space-y-1 max-h-44 overflow-y-auto border-t pt-2">
               {obsItems.map((row) => (
-                <li key={row.id} className="border-b pb-1">
+                <li key={row.id} className="border-b border-gray-100 dark:border-navy-700 pb-1">
                   <span className="font-medium">{row.source}</span>
                   {" · "}
                   {row.neighborhood || "—"}
                   {" · "}
-                  {friendlyStatus(row.observation_status)}
+                  {row.observation_status.replace(/_/g, " ")}
                 </li>
               ))}
               {!observations.isLoading && !obsItems.length && (
                 <li className="text-gray-500">No observations match.</li>
               )}
             </ul>
-            {obsTotalPages > 1 && (
-              <div className="flex gap-2 text-xs items-center">
-                <button
-                  type="button"
-                  className="border rounded px-2 py-0.5 disabled:opacity-40"
-                  disabled={obsPage <= 1}
-                  onClick={() => setObsPage((p) => p - 1)}
-                >
-                  Prev
-                </button>
-                <span>
-                  {obsPage}/{obsTotalPages}
-                </span>
-                <button
-                  type="button"
-                  className="border rounded px-2 py-0.5 disabled:opacity-40"
-                  disabled={obsPage >= obsTotalPages}
-                  onClick={() => setObsPage((p) => p + 1)}
-                >
-                  Next
-                </button>
-              </div>
-            )}
-          </div>
+            <div className="flex gap-2 text-xs items-center">
+              <button
+                type="button"
+                className="border rounded px-2 py-0.5 disabled:opacity-40"
+                disabled={obsPage <= 1}
+                onClick={() => setObsPage((p) => p - 1)}
+              >
+                Previous
+              </button>
+              <span>
+                Page {obsPage}
+                {obsTotalPages > 1 ? ` / ${obsTotalPages}` : ""}
+              </span>
+              <button
+                type="button"
+                className="border rounded px-2 py-0.5 disabled:opacity-40"
+                disabled={obsPage >= obsTotalPages}
+                onClick={() => setObsPage((p) => p + 1)}
+              >
+                Next
+              </button>
+            </div>
+          </section>
         </aside>
 
-        {/* RIGHT */}
-        <section className="space-y-3 min-w-0 rounded-xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Search pages</h3>
-            <button
-              type="button"
-              className="px-3 py-1.5 text-sm rounded-lg border"
-              disabled={refreshSeo.isPending}
-              onClick={() => refreshSeo.mutate()}
-            >
-              {refreshSeo.isPending ? "Refreshing…" : "Refresh"}
-            </button>
-          </div>
+        {/* 2. Search Pages */}
+        <section className="rounded-lg border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-4 space-y-3 min-w-0">
+          <h3 className="text-sm font-semibold text-navy-800 dark:text-white">Search Pages</h3>
 
-          <div className="flex flex-wrap gap-2 items-center">
+          <div className="flex flex-wrap gap-2 items-center text-sm">
             <input
-              className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px]"
+              className="border rounded-md px-2.5 py-1.5 text-sm flex-1 min-w-[140px]"
               placeholder="Search…"
               value={search}
               onChange={(e) => {
@@ -640,199 +533,129 @@ export default function SeoMarketAdminPage() {
               }}
             />
             <select
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={sort}
-              onChange={(e) => setSort(e.target.value as SortMode)}
+              className="border rounded-md px-2 py-1.5 text-sm"
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value as StatusFilter);
+                setSearchPage(1);
+              }}
             >
-              <option value="best">Best first</option>
-              <option value="properties_desc">Most properties</option>
-              <option value="properties_asc">Fewest properties</option>
-              <option value="quality_desc">Highest quality</option>
-              <option value="quality_asc">Lowest quality</option>
-              <option value="filters_desc">Most filters</option>
-              <option value="filters_asc">Fewest filters</option>
+              <option value="all">All</option>
+              <option value="eligible">Eligible</option>
+              <option value="under">Under eligibility</option>
+              <option value="indexable">Index</option>
+              <option value="noindex">Noindex</option>
+            </select>
+            <select
+              className="border rounded-md px-2 py-1.5 text-sm"
+              value={intentFilter}
+              onChange={(e) => {
+                setIntentFilter(e.target.value as IntentFilter);
+                setSearchPage(1);
+              }}
+            >
+              <option value="all">Intent: All</option>
+              <option value="strong">Intent: Strong</option>
+              <option value="useful">Intent: Useful</option>
+              <option value="weak">Intent: Weak</option>
+            </select>
+            <select
+              className="border rounded-md px-2 py-1.5 text-sm"
+              value={sort}
+              onChange={(e) => {
+                setSort(e.target.value as SortMode);
+                setSearchPage(1);
+              }}
+            >
+              <option value="eligible">Sort: Eligible</option>
+              <option value="best">Sort: Highest overall</option>
+              <option value="properties_desc">Sort: Properties high</option>
+              <option value="properties_asc">Sort: Properties low</option>
+              <option value="quality_desc">Sort: Quality high</option>
+              <option value="quality_asc">Sort: Quality low</option>
+              <option value="intent_desc">Sort: Intent high</option>
+              <option value="intent_asc">Sort: Intent low</option>
             </select>
           </div>
 
-          <div className="flex flex-wrap gap-3 items-center text-sm">
-            <label className="flex items-center gap-2">
-              <span className="text-gray-500">Eligibility</span>
-              <select
-                className="border rounded-lg px-2 py-1.5 text-sm"
-                value={eligibilityFilter}
-                onChange={(e) => {
-                  setEligibilityFilter(e.target.value as EligibilityFilter);
-                  setSearchPage(1);
-                }}
-              >
-                <option value="all">All</option>
-                <option value="eligible">Eligible</option>
-                <option value="under">Not eligible</option>
-              </select>
-            </label>
-            <label className="flex items-center gap-2">
-              <span className="text-gray-500">Index</span>
-              <select
-                className="border rounded-lg px-2 py-1.5 text-sm"
-                value={indexFilter}
-                onChange={(e) => {
-                  setIndexFilter(e.target.value as IndexFilter);
-                  setSearchPage(1);
-                }}
-              >
-                <option value="all">All</option>
-                <option value="indexable">Index</option>
-                <option value="noindex">NoIndex</option>
-              </select>
-            </label>
-          </div>
-
-          <div className="flex flex-wrap gap-3 text-sm">
-            <button type="button" className="underline" onClick={() => setSelectedPages(new Set(pageVisibleIds))}>
-              Select visible
-            </button>
-            <button type="button" className="underline" onClick={() => setSelectedPages(new Set())}>
-              Unselect all
-            </button>
-            <button
-              type="button"
-              className="underline"
-              onClick={() => {
-                if (!selectedPages.size || !window.confirm(`Index ${selectedPages.size} page(s)?`)) return;
-                bulkPages.mutate("set_indexable");
-              }}
-            >
-              Publish/Index selected
-            </button>
-            <button
-              type="button"
-              className="underline"
-              onClick={() => {
-                if (!selectedPages.size || !window.confirm(`Noindex ${selectedPages.size} page(s)?`)) return;
-                bulkPages.mutate("set_noindex");
-              }}
-            >
-              Noindex selected
-            </button>
-            <button
-              type="button"
-              className="underline"
-              onClick={() => {
-                if (
-                  !selectedPages.size ||
-                  !window.confirm(`Include ${selectedPages.size} page(s) in sitemap? Must be indexable.`)
-                )
-                  return;
-                bulkPages.mutate("sitemap_include");
-              }}
-            >
-              Include in sitemap
-            </button>
-            <button
-              type="button"
-              className="underline"
-              onClick={() => {
-                if (!selectedPages.size || !window.confirm(`Exclude ${selectedPages.size} page(s) from sitemap?`))
-                  return;
-                bulkPages.mutate("sitemap_exclude");
-              }}
-            >
-              Exclude from sitemap
-            </button>
-          </div>
-
-          <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
-            <table className="w-full text-sm min-w-[980px]">
-              <thead className="bg-gray-50 dark:bg-navy-900 text-left">
+          <div className="border rounded-md overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 dark:bg-navy-900 text-left text-xs">
                 <tr>
-                  <th className="p-3 w-8" />
-                  <th className="p-3">Page</th>
-                  <th className="p-3">Filters</th>
-                  <th className="p-3">Intent</th>
-                  <th className="p-3">Properties</th>
-                  <th className="p-3">Quality</th>
-                  <th className="p-3">Eligibility</th>
-                  <th className="p-3">Index</th>
-                  <th className="p-3">Sitemap</th>
-                  <th className="p-3">Actions</th>
+                  <th className="p-2.5">Page</th>
+                  <th className="p-2.5">Properties</th>
+                  <th className="p-2.5">Quality</th>
+                  <th className="p-2.5">Intent</th>
+                  <th className="p-2.5">Status</th>
+                  <th className="p-2.5">Action</th>
                 </tr>
               </thead>
               <tbody>
                 {searchQuery.isLoading && (
                   <tr>
-                    <td colSpan={10} className="p-6 text-gray-500">
+                    <td colSpan={6} className="p-4 text-gray-500">
                       Loading…
                     </td>
                   </tr>
                 )}
                 {searchItems.map((row) => (
                   <tr key={row.id} className="border-t align-top">
-                    <td className="p-3">
-                      <input
-                        type="checkbox"
-                        checked={selectedPages.has(row.id)}
-                        onChange={() => {
-                          setSelectedPages((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(row.id)) next.delete(row.id);
-                            else next.add(row.id);
-                            return next;
-                          });
-                        }}
-                      />
-                    </td>
-                    <td className="p-3 font-medium max-w-[200px]">
-                      <Link href={row.path} target="_blank" rel="noreferrer" className="text-gold-600 hover:underline">
+                    <td className="p-2.5 max-w-[220px]">
+                      <Link
+                        href={row.path}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="font-medium text-gold-600 hover:underline"
+                      >
                         {pageName(row)}
                       </Link>
-                      <p className="text-[11px] text-gray-500 mt-0.5 break-all">{row.path}</p>
+                      <p className="text-[11px] text-gray-500 break-all mt-0.5">{row.path}</p>
                       {(row.seo_control === "manual" || row.locked_by_admin) && (
-                        <span className="text-[11px] text-amber-700 font-medium">Manual override</span>
+                        <span className="text-[10px] text-amber-700">Manual</span>
                       )}
                     </td>
-                    <td className="p-3 text-xs max-w-[200px]">
-                      <span className="font-medium">{row.filter_count ?? "—"}</span>
-                      <p className="mt-0.5 leading-snug text-gray-600">{row.filters_label || "—"}</p>
-                    </td>
-                    <td className="p-3 text-xs">
+                    <td className="p-2.5">{row.match_count}</td>
+                    <td className="p-2.5">{Math.round(row.quality_score)}%</td>
+                    <td className="p-2.5 text-xs">
                       <span className="font-medium">{intentStrengthLabel(row)}</span>
-                      <p className="text-gray-500">{row.intent_score != null ? Math.round(row.intent_score) : "—"}</p>
+                      <p className="text-gray-500">
+                        {row.intent_score != null ? `${Math.round(row.intent_score)}/100` : "—"}
+                      </p>
                     </td>
-                    <td className="p-3">{row.match_count}</td>
-                    <td className="p-3">{Math.round(row.quality_score)}%</td>
-                    <td className="p-3 text-xs">{eligibilityLabel(row)}</td>
-                    <td className="p-3 text-xs">{indexLabel(row)}</td>
-                    <td className="p-3 text-xs">{sitemapLabel(row)}</td>
-                    <td className="p-3 space-x-2 whitespace-nowrap text-xs">
-                      {row.index_status !== "indexable" && (
+                    <td className="p-2.5 text-xs space-y-0.5">
+                      {statusLines(row).map((line) => (
+                        <p key={line}>{line}</p>
+                      ))}
+                    </td>
+                    <td className="p-2.5 text-xs whitespace-nowrap space-x-2">
+                      <Link href={row.path} target="_blank" rel="noreferrer" className="underline">
+                        Review
+                      </Link>
+                      {row.index_status !== "indexable" ? (
                         <button type="button" className="underline" onClick={() => publish.mutate(row.id)}>
                           Index
                         </button>
-                      )}
-                      {row.index_status === "indexable" && (
+                      ) : (
                         <button type="button" className="underline" onClick={() => noindex.mutate(row.id)}>
                           Noindex
                         </button>
                       )}
                       {row.index_status === "indexable" && row.sitemap_status !== "included" && (
                         <button type="button" className="underline" onClick={() => includeSitemap.mutate(row.id)}>
-                          Include
+                          Sitemap include
                         </button>
                       )}
                       {row.index_status === "indexable" && row.sitemap_status === "included" && (
                         <button type="button" className="underline" onClick={() => excludeSitemap.mutate(row.id)}>
-                          Exclude
+                          Sitemap exclude
                         </button>
                       )}
-                      <Link href={row.path} target="_blank" rel="noreferrer" className="underline">
-                        Open
-                      </Link>
                     </td>
                   </tr>
                 ))}
                 {!searchQuery.isLoading && !searchItems.length && (
                   <tr>
-                    <td colSpan={10} className="p-6 text-gray-500">
+                    <td colSpan={6} className="p-4 text-gray-500">
                       No pages match.
                     </td>
                   </tr>
@@ -841,38 +664,29 @@ export default function SeoMarketAdminPage() {
             </table>
           </div>
 
-          {searchTotalPages > 1 && (
-            <div className="flex gap-2 text-sm items-center">
-              <button
-                type="button"
-                className="border rounded px-3 py-1 disabled:opacity-40"
-                disabled={searchPage <= 1}
-                onClick={() => setSearchPage((p) => p - 1)}
-              >
-                Previous
-              </button>
-              <span>
-                Page {searchPage} of {searchTotalPages}
-              </span>
-              <button
-                type="button"
-                className="border rounded px-3 py-1 disabled:opacity-40"
-                disabled={searchPage >= searchTotalPages}
-                onClick={() => setSearchPage((p) => p + 1)}
-              >
-                Next
-              </button>
-            </div>
-          )}
-
-          <p className="text-xs text-gray-500">
-            Sitemap cap: {maxSitemap} search URLs. After Index/Include, DB{" "}
-            <code className="text-[10px]">sitemap_status</code> drives{" "}
-            <Link href="/sitemap-rentals.xml" target="_blank" className="underline">
-              /sitemap-rentals.xml
-            </Link>
-            .
-          </p>
+          <div className="flex gap-2 text-sm items-center">
+            <button
+              type="button"
+              className="border rounded px-3 py-1 disabled:opacity-40"
+              disabled={searchPage <= 1}
+              onClick={() => setSearchPage((p) => p - 1)}
+            >
+              Previous
+            </button>
+            <span>
+              Page {searchPage}
+              {searchTotalPages > 1 ? ` / ${searchTotalPages}` : ""}
+            </span>
+            <button
+              type="button"
+              className="border rounded px-3 py-1 disabled:opacity-40"
+              disabled={searchPage >= searchTotalPages}
+              onClick={() => setSearchPage((p) => p + 1)}
+            >
+              Next
+            </button>
+            <span className="text-xs text-gray-500 ml-auto">{searchQuery.data?.total ?? 0} pages</span>
+          </div>
         </section>
       </div>
     </div>

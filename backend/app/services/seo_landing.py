@@ -15,7 +15,7 @@ from app.models import (
     SeoControl,
     SitemapStatus,
 )
-from app.services.intent_config import IntentAutomationConfig
+from app.services.intent_config import INTENT_STRENGTH_RANK, IntentAutomationConfig
 from app.services.intent_copy import normalize_query
 from app.services.seo_attributes import (
     classify_search_intent_strength,
@@ -51,7 +51,7 @@ def is_manual_override(intent: SearchIntent) -> bool:
 
 
 def compute_intent_score(intent: SearchIntent) -> float:
-    """Intent strength score for optional gate + admin display.
+    """Intent strength score for admin display (always 0–100).
 
     Strong patterns score highest; useful (3–5 filters) mid; weak low.
     Opportunity is a light secondary signal only.
@@ -61,12 +61,19 @@ def compute_intent_score(intent: SearchIntent) -> float:
     label, _tier = classify_search_intent_strength(q)
     opp = float(intent.opportunity_score or 0)
     if label == "strong":
-        base = 75.0
+        base = 70.0
     elif label == "useful":
         base = 45.0
     else:
         base = 10.0
-    return round(base + dims * 4 + min(opp, 100) * 0.2, 1)
+    raw = base + min(dims, 5) * 4 + min(opp, 100) * 0.15
+    return round(max(0.0, min(100.0, raw)), 1)
+
+
+def meets_min_intent_strength(strength_label: str, min_required: str) -> bool:
+    need = INTENT_STRENGTH_RANK.get(str(min_required or "useful").lower(), 2)
+    have = INTENT_STRENGTH_RANK.get(str(strength_label or "weak").lower(), 0)
+    return have >= need
 
 
 def content_uniqueness_score(intent: SearchIntent) -> int:
@@ -85,18 +92,17 @@ def content_uniqueness_score(intent: SearchIntent) -> int:
 
 
 def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) -> dict[str, Any]:
-    """Eligibility: PRIMARY = meaningful search-filter count range, then quality.
+    """Eligibility gates used by Save & Recalculate and Search Pages.
 
-    Matching properties are an optional secondary safety check only.
-    Intent strength / observations remain ranking signals for sitemap selection.
+    Hard gates: filter range, quality, property listings, minimum intent strength.
     """
     q = normalize_query(intent.query or {})
     dims = count_seo_dimensions(q)
     strength_label, strength_tier = classify_search_intent_strength(q)
     blocked = query_has_blocked_seo_attributes(intent.query or {})
+    intent_score = compute_intent_score(intent)
     checks: list[dict[str, Any]] = []
 
-    # PRIMARY criterion — minimum filters
     checks.append(
         {
             "label": f"Minimum search filters ({cfg.min_dimensions_for_index})",
@@ -107,7 +113,6 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
         }
     )
 
-    # PRIMARY criterion — maximum filters (over-specific = weak)
     checks.append(
         {
             "label": f"Maximum search filters ({cfg.max_dimensions_for_index})",
@@ -131,59 +136,27 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
         }
     )
 
+    # Always enforce Properties Listing Number (0 = no minimum)
+    min_props = int(cfg.min_verified_for_index or 0)
     checks.append(
         {
-            "label": "Search intent strength",
-            "passed": True,
-            "detail": f"{strength_label} ({dims} filters)",
-            "hard": False,
+            "label": f"Minimum Properties Listing Number ({min_props})",
+            "passed": int(intent.match_count or 0) >= min_props,
+            "detail": f"{int(intent.match_count or 0)} matching KigaliRent listing"
+            f"{'' if int(intent.match_count or 0) == 1 else 's'}",
+            "hard": True,
         }
     )
 
-    # Optional: minimum Intent score
-    intent_score = compute_intent_score(intent)
-    if cfg.require_min_intent:
-        checks.append(
-            {
-                "label": f"Minimum Intent ({cfg.min_intent_for_index:.0f})",
-                "passed": intent_score >= cfg.min_intent_for_index,
-                "detail": f"Intent {intent_score:.0f}",
-                "hard": True,
-                "optional": True,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "label": "Minimum Intent",
-                "passed": True,
-                "detail": f"Intent {intent_score:.0f} (optional — disabled)",
-                "hard": False,
-                "optional": True,
-            }
-        )
-
-    # Optional: minimum matching properties
-    if cfg.require_min_properties:
-        checks.append(
-            {
-                "label": f"Minimum properties ({cfg.min_verified_for_index})",
-                "passed": intent.match_count >= cfg.min_verified_for_index,
-                "detail": f"{intent.match_count} matching propert{'y' if intent.match_count == 1 else 'ies'}",
-                "hard": True,
-                "optional": True,
-            }
-        )
-    else:
-        checks.append(
-            {
-                "label": "Minimum properties",
-                "passed": True,
-                "detail": f"{intent.match_count} matching (optional — disabled)",
-                "hard": False,
-                "optional": True,
-            }
-        )
+    min_strength = str(cfg.min_intent_strength or "useful").lower()
+    checks.append(
+        {
+            "label": f"Require minimum Intent ({min_strength})",
+            "passed": meets_min_intent_strength(strength_label, min_strength),
+            "detail": f"{strength_label} · score {intent_score:.0f}/100",
+            "hard": True,
+        }
+    )
 
     if blocked:
         checks.append(
@@ -207,15 +180,6 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
         }
     )
 
-    # Ranking signals (informational — do not block eligibility)
-    checks.append(
-        {
-            "label": "Search opportunity (ranking)",
-            "passed": True,
-            "detail": f"Opportunity {float(intent.opportunity_score or 0):.0f}",
-            "hard": False,
-        }
-    )
     checks.append(
         {
             "label": "Page enabled",
@@ -286,15 +250,12 @@ def apply_automatic_statuses(intent: SearchIntent, cfg: IntentAutomationConfig) 
         return
 
     if intent.automatic_eligibility == AutomaticEligibility.ELIGIBLE.value:
+        details = build_eligibility_checks(intent, cfg)
         intent.index_status = SearchIndexStatus.INDEXABLE.value
         intent.status_reason = (
-            f"Auto-indexable: {build_eligibility_checks(intent, cfg)['filter_count']} search filters, "
-            f"quality {float(intent.quality_score or 0):.0f}%"
-            + (
-                f", {intent.match_count} matching properties"
-                if cfg.min_verified_for_index > 0
-                else ""
-            )
+            f"Auto-indexable: {details['filter_count']} search filters, "
+            f"quality {float(intent.quality_score or 0):.0f}%, "
+            f"{intent.match_count} listings, intent {details.get('intent_strength', '')}"
         )
         # Provisional include — apply_sitemap_cap keeps only the strongest max_sitemap_urls
         if cfg.allow_sitemap_inclusion:
@@ -539,12 +500,18 @@ SORT_COLUMNS = {
 }
 
 # Sort modes that require in-memory ranking (not a DB column)
-MEMORY_SORTS = frozenset({"filter_count", "filters", "best"})
+MEMORY_SORTS = frozenset({"filter_count", "filters", "best", "intent_strength", "intent", "eligible"})
 
 
 def _intent_sort_key(intent: SearchIntent, sort_by: str):
     if sort_by in {"filter_count", "filters"}:
         return count_seo_dimensions(normalize_query(intent.query or {}))
+    if sort_by in {"intent_strength", "intent"}:
+        _label, tier = classify_search_intent_strength(normalize_query(intent.query or {}))
+        return (tier, compute_intent_score(intent))
+    if sort_by == "eligible":
+        eligible = 1 if intent.automatic_eligibility == AutomaticEligibility.ELIGIBLE.value else 0
+        return (eligible, *_intent_sort_key(intent, "best"))
     if sort_by == "best":
         return sitemap_priority_key(intent)
     return getattr(intent, sort_by, None) or 0
@@ -582,12 +549,15 @@ async def list_search_intents_admin(
     seo_control: str | None = None,
     simple_status: str | None = None,
     attribute: str | None = None,
+    intent_strength: str | None = None,
     sort_by: str = "updated_at",
     sort_dir: str = "desc",
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
     from app.services.seo_attributes import intent_uses_attribute
+
+    strength_filter = (intent_strength or "").strip().lower() or None
 
     def _matches_row_filters(i: SearchIntent) -> bool:
         if search:
@@ -609,6 +579,10 @@ async def list_search_intents_admin(
             return False
         if seo_control and i.seo_control != seo_control:
             return False
+        if strength_filter:
+            label, _tier = classify_search_intent_strength(normalize_query(i.query or {}))
+            if label != strength_filter:
+                return False
         if simple_status == "published" and i.index_status != SearchIndexStatus.INDEXABLE.value:
             return False
         if simple_status == "noindex" and i.index_status != SearchIndexStatus.NOINDEX.value:
@@ -635,7 +609,12 @@ async def list_search_intents_admin(
             return False
         return True
 
-    needs_memory = bool(attribute) or sort_by in MEMORY_SORTS or sort_by == "filter_count"
+    needs_memory = (
+        bool(attribute)
+        or bool(strength_filter)
+        or sort_by in MEMORY_SORTS
+        or sort_by == "filter_count"
+    )
 
     if needs_memory:
         all_rows = list((await db.execute(select(SearchIntent))).scalars().all())

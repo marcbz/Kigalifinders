@@ -55,6 +55,7 @@ class SeoSettingsUpdate(BaseModel):
     min_verified_for_index: Optional[int] = None
     min_quality_for_index: Optional[float] = None
     max_sitemap_urls: Optional[int] = None
+    min_intent_strength: Optional[str] = None
     require_min_intent: Optional[bool] = None
     min_intent_for_index: Optional[float] = None
     require_min_properties: Optional[bool] = None
@@ -99,6 +100,7 @@ async def list_search_intents(
     seo_control: Optional[str] = Query(None),
     simple_status: Optional[str] = Query(None),
     attribute: Optional[str] = Query(None),
+    intent_strength: Optional[str] = Query(None),
     sort_by: str = Query("updated_at"),
     sort_dir: str = Query("desc"),
     page: int = Query(1, ge=1),
@@ -119,6 +121,7 @@ async def list_search_intents(
         seo_control=seo_control,
         simple_status=simple_status,
         attribute=attribute,
+        intent_strength=intent_strength,
         sort_by=sort_by,
         sort_dir=sort_dir,
         page=page,

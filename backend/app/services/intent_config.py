@@ -20,11 +20,14 @@ class IntentAutomationConfig:
     max_dimensions_for_index: int = 5  # >5 filters = weak / thin combos
     min_quality_for_index: float = 50.0
     max_sitemap_urls: int = 100
-    # Optional eligibility criteria (disabled by default — enable in admin when needed)
-    require_min_intent: bool = False
-    min_intent_for_index: float = 30.0
-    require_min_properties: bool = False
+    # Minimum matching KigaliRent listings (always enforced when > 0)
     min_verified_for_index: int = 1
+    # Minimum intent strength: weak | useful | strong (always enforced)
+    min_intent_strength: str = "useful"
+    # Legacy optional flags (kept for stored JSON compatibility)
+    require_min_intent: bool = True
+    min_intent_for_index: float = 45.0
+    require_min_properties: bool = True
     allow_auto_index: bool = True
     allow_sitemap_inclusion: bool = True
     require_unique_content: bool = True
@@ -48,54 +51,37 @@ class IntentAutomationConfig:
 
 DEFAULT_CONFIG = IntentAutomationConfig()
 
+INTENT_STRENGTH_LEVELS = ("weak", "useful", "strong")
+INTENT_STRENGTH_RANK = {"weak": 0, "useful": 2, "strong": 3}
+
 SEO_SETTING_FIELDS = (
     "min_dimensions_for_index",
     "max_dimensions_for_index",
     "min_quality_for_index",
-    "max_sitemap_urls",
-    "require_min_intent",
-    "min_intent_for_index",
-    "require_min_properties",
     "min_verified_for_index",
-    "allow_auto_index",
-    "allow_sitemap_inclusion",
+    "max_sitemap_urls",
+    "min_intent_strength",
 )
 
 SEO_SETTING_HELP = {
     "min_dimensions_for_index": (
-        "Minimum meaningful search filters for eligibility. "
-        "Strong intents (neighborhood + bedrooms + type + budget/furnished) are prioritized. "
-        "Fewer than this count is weak."
+        "Minimum meaningful search filters for eligibility."
     ),
     "max_dimensions_for_index": (
-        "Maximum meaningful search filters for eligibility. "
-        "Combinations above this are treated as weak/over-specific and excluded automatically."
+        "Maximum meaningful search filters for eligibility. Over-specific combos are weak."
     ),
     "min_quality_for_index": (
         "Minimum quality score (0–100) required for automatic eligibility."
     ),
+    "min_verified_for_index": (
+        "Minimum matching KigaliRent property listings required for eligibility."
+    ),
     "max_sitemap_urls": (
-        "Hard global cap: maximum rental search URLs in sitemap-rentals.xml (default 100). "
+        "Hard global cap: maximum rental search URLs in sitemap-rentals.xml. "
         "Only the top ranked eligible pages are included."
     ),
-    "require_min_intent": (
-        "When enabled, pages must meet the minimum Intent score to be automatically eligible."
-    ),
-    "min_intent_for_index": (
-        "Minimum Intent score (filter specificity + opportunity) when Intent criterion is enabled."
-    ),
-    "require_min_properties": (
-        "When enabled, pages must meet the minimum matching verified properties count."
-    ),
-    "min_verified_for_index": (
-        "Minimum matching verified properties when the Properties criterion is enabled."
-    ),
-    "allow_auto_index": (
-        "When on, eligible pages may automatically become indexable."
-    ),
-    "allow_sitemap_inclusion": (
-        "When on, the strongest eligible rental landings are added to the XML sitemap "
-        "(still subject to the maximum URL cap)."
+    "min_intent_strength": (
+        "Minimum search-intent strength: weak, useful, or strong."
     ),
 }
 
@@ -117,9 +103,17 @@ async def load_automation_config(db: AsyncSession) -> IntentAutomationConfig:
         data["max_sitemap_urls"] = DEFAULT_CONFIG.max_sitemap_urls
         if row.value.get("min_quality_for_index") in (None, 40, 40.0):
             data["min_quality_for_index"] = DEFAULT_CONFIG.min_quality_for_index
-    # Legacy: min_verified > 0 without explicit toggle meant properties gate was on
+    # Legacy → always-on properties gate
     if "require_min_properties" not in row.value and int(row.value.get("min_verified_for_index") or 0) > 0:
         data["require_min_properties"] = True
+    data["require_min_properties"] = True
+    # Legacy intent score toggle → strength level
+    raw_strength = str(data.get("min_intent_strength") or "").strip().lower()
+    if raw_strength not in INTENT_STRENGTH_LEVELS:
+        if row.value.get("require_min_intent") is False:
+            data["min_intent_strength"] = "weak"
+        else:
+            data["min_intent_strength"] = DEFAULT_CONFIG.min_intent_strength
     if isinstance(data.get("bedroom_levels"), list):
         data["bedroom_levels"] = tuple(int(x) for x in data["bedroom_levels"])
     if isinstance(data.get("bathroom_levels"), list):
@@ -141,7 +135,13 @@ async def save_automation_config(
     cfg.min_dimensions_for_index = max(1, min(10, int(cfg.min_dimensions_for_index)))
     cfg.max_dimensions_for_index = max(cfg.min_dimensions_for_index, min(12, int(cfg.max_dimensions_for_index)))
     cfg.min_verified_for_index = max(0, min(100, int(cfg.min_verified_for_index)))
-    cfg.min_intent_for_index = max(0.0, min(200.0, float(cfg.min_intent_for_index)))
+    strength = str(cfg.min_intent_strength or "useful").strip().lower()
+    if strength not in INTENT_STRENGTH_LEVELS:
+        strength = "useful"
+    cfg.min_intent_strength = strength
+    cfg.require_min_intent = strength != "weak"
+    cfg.require_min_properties = True
+    cfg.min_intent_for_index = max(0.0, min(100.0, float(cfg.min_intent_for_index)))
     cfg.min_unique_content_chars = max(0, min(2000, int(cfg.min_unique_content_chars)))
     cfg.min_quality_for_index = max(0.0, min(100.0, float(cfg.min_quality_for_index)))
     cfg.max_sitemap_urls = max(1, min(5000, int(cfg.max_sitemap_urls)))
@@ -173,24 +173,12 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
         "labels": {
             "min_dimensions_for_index": "Minimum search filters",
             "max_dimensions_for_index": "Maximum search filters",
-            "min_quality_for_index": "Minimum quality score",
-            "max_sitemap_urls": "Maximum rental sitemap URLs",
-            "require_min_intent": "Require minimum Intent",
-            "min_intent_for_index": "Minimum Intent score",
-            "require_min_properties": "Require minimum Properties",
-            "min_verified_for_index": "Minimum matching properties",
+            "min_quality_for_index": "Minimum quality (%)",
+            "min_verified_for_index": "Minimum Properties Listing Number",
+            "max_sitemap_urls": "Maximum indexed / sitemap URLs",
+            "min_intent_strength": "Require minimum Intent",
         },
-        "allowed_attributes": [
-            "furnished / unfurnished",
-            "bedrooms",
-            "bathrooms",
-            "kitchen",
-            "parking",
-            "garden",
-            "swimming pool",
-            "compound",
-        ],
-        "removed_attributes": ["internet", "staff quarters", "security", "balcony"],
+        "intent_strength_options": list(INTENT_STRENGTH_LEVELS),
         "search_intent_rules": {
             "strong": [
                 "Neighborhood + Bedrooms + Property Type + Budget",
@@ -200,9 +188,8 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
             "weak": "Fewer than 3 parameters, or more than 5 parameters",
         },
         "notes": (
-            "Eligibility uses minimum/maximum search filters plus quality. "
-            "Sitemap includes at most the configured maximum URLs, ranked by "
-            "search-intent strength, matching listings, quality, freshness, then uniqueness. "
-            "Intent and Properties remain optional gates. Manual overrides are labeled."
+            "Eligibility uses filters, quality, property listings, and minimum intent strength. "
+            "Sitemap includes at most the configured maximum URLs, ranked by intent strength, "
+            "listings, quality, freshness, then uniqueness."
         ),
     }

@@ -596,7 +596,8 @@ async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> di
 
 def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConfig) -> str | None:
     """Return exclusion reason if not eligible for SEO index, else None."""
-    from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
+    from app.services.seo_attributes import classify_search_intent_strength, count_seo_dimensions, query_has_blocked_seo_attributes
+    from app.services.seo_landing import meets_min_intent_strength
 
     if intent.index_status == SearchIndexStatus.DISABLED.value or not intent.is_enabled:
         return "Disabled"
@@ -610,16 +611,15 @@ def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConf
         return f"Disallowed attributes: {', '.join(blocked)}"
     if dims < cfg.min_dimensions_for_index:
         return f"Below search-filter threshold ({dims} < {cfg.min_dimensions_for_index})"
+    if dims > cfg.max_dimensions_for_index:
+        return f"Above search-filter threshold ({dims} > {cfg.max_dimensions_for_index})"
     if float(intent.quality_score or 0) < cfg.min_quality_for_index:
         return f"Below quality threshold ({float(intent.quality_score or 0):.0f} < {cfg.min_quality_for_index:.0f})"
-    if cfg.require_min_intent:
-        from app.services.seo_landing import compute_intent_score
-
-        score = compute_intent_score(intent)
-        if score < cfg.min_intent_for_index:
-            return f"Below Intent threshold ({score:.0f} < {cfg.min_intent_for_index:.0f})"
-    if cfg.require_min_properties and intent.match_count < cfg.min_verified_for_index:
+    if int(intent.match_count or 0) < int(cfg.min_verified_for_index or 0):
         return f"Below properties threshold ({intent.match_count} < {cfg.min_verified_for_index})"
+    strength_label, _tier = classify_search_intent_strength(q)
+    if not meets_min_intent_strength(strength_label, cfg.min_intent_strength):
+        return f"Below Intent strength ({strength_label} < {cfg.min_intent_strength})"
     if intent.status_reason and "duplicate" in (intent.status_reason or "").lower():
         return intent.status_reason
     if intent.index_status == SearchIndexStatus.NOINDEX.value:
@@ -660,7 +660,7 @@ async def seo_eligibility_summary(db: AsyncSession) -> dict[str, Any]:
     excluded = stats["excluded"]
     sitemap_max = int(cfg.max_sitemap_urls)
     recalc_label = (
-        f"{evaluated} evaluated · {eligible} eligible · {excluded} excluded · "
+        f"{evaluated} evaluated · {eligible} eligible · "
         f"{search_sitemap_included} / {sitemap_max} in sitemap"
     )
     return {

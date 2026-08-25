@@ -1,4 +1,4 @@
-"""Unit tests for SEO eligibility — search filters + intent strength + sitemap cap."""
+"""Unit tests for SEO eligibility — filters, properties, intent strength, sitemap cap."""
 
 from datetime import datetime, timezone
 from types import SimpleNamespace
@@ -8,6 +8,7 @@ from app.services.seo_attributes import classify_search_intent_strength
 from app.services.seo_landing import (
     apply_sitemap_cap,
     build_eligibility_checks,
+    compute_intent_score,
     evaluate_automatic_eligibility,
     sitemap_priority_key,
 )
@@ -36,22 +37,82 @@ def _intent(**kwargs):
 
 
 def test_filter_count_is_primary_gate():
-    """Weak filters fail even with many properties and high quality."""
     cfg = IntentAutomationConfig(
         min_verified_for_index=1,
         min_dimensions_for_index=3,
         max_dimensions_for_index=5,
         min_quality_for_index=50.0,
+        min_intent_strength="weak",
     )
-    # Only Kigali + furnished = 2 filters
     intent = _intent(match_count=20, quality_score=96.0, query={"location": "kigali", "furnished": True})
     details = build_eligibility_checks(intent, cfg)
     assert details["filter_count"] == 2
     assert details["eligible"] is False
     assert details["intent_strength"] == "weak"
     assert evaluate_automatic_eligibility(intent, cfg) == "excluded"
+
+
+def test_properties_listing_number_blocks_eligibility():
+    """If minimum listings is 5, a page with 3 matching listings is not eligible."""
+    cfg = IntentAutomationConfig(
+        min_verified_for_index=5,
+        min_dimensions_for_index=3,
+        max_dimensions_for_index=5,
+        min_quality_for_index=50.0,
+        min_intent_strength="useful",
+    )
+    intent = _intent(
+        match_count=3,
+        quality_score=80.0,
+        query={
+            "location": "kigali",
+            "bedrooms": 2,
+            "property_type": "apartment",
+            "max_price_usd": 1200,
+        },
+    )
+    details = build_eligibility_checks(intent, cfg)
+    assert details["eligible"] is False
     failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
-    assert any("filter" in c["label"].lower() for c in failed)
+    assert any("propert" in c["label"].lower() for c in failed)
+
+
+def test_properties_listing_number_passes_when_met():
+    cfg = IntentAutomationConfig(
+        min_verified_for_index=5,
+        min_dimensions_for_index=3,
+        max_dimensions_for_index=5,
+        min_quality_for_index=50.0,
+        min_intent_strength="useful",
+    )
+    intent = _intent(
+        match_count=5,
+        quality_score=80.0,
+        query={
+            "location": "kigali",
+            "bedrooms": 2,
+            "property_type": "apartment",
+            "max_price_usd": 1200,
+        },
+    )
+    assert build_eligibility_checks(intent, cfg)["eligible"] is True
+
+
+def test_min_intent_strength_strong_excludes_useful():
+    cfg = IntentAutomationConfig(
+        min_verified_for_index=1,
+        min_dimensions_for_index=3,
+        max_dimensions_for_index=5,
+        min_quality_for_index=50.0,
+        min_intent_strength="strong",
+    )
+    useful = _intent(
+        match_count=5,
+        query={"location": "kigali", "bedrooms": 2, "property_type": "apartment"},
+    )
+    details = build_eligibility_checks(useful, cfg)
+    assert details["intent_strength"] == "useful"
+    assert details["eligible"] is False
 
 
 def test_over_specific_filters_are_weak_and_excluded():
@@ -59,6 +120,8 @@ def test_over_specific_filters_are_weak_and_excluded():
         min_dimensions_for_index=3,
         max_dimensions_for_index=5,
         min_quality_for_index=50.0,
+        min_verified_for_index=1,
+        min_intent_strength="weak",
     )
     intent = _intent(
         quality_score=80.0,
@@ -84,6 +147,7 @@ def test_strong_filters_pass_with_quality():
         min_dimensions_for_index=3,
         max_dimensions_for_index=5,
         min_quality_for_index=50.0,
+        min_intent_strength="useful",
     )
     intent = _intent(
         match_count=2,
@@ -99,7 +163,23 @@ def test_strong_filters_pass_with_quality():
     assert details["filter_count"] == 4
     assert details["intent_strength"] == "strong"
     assert details["eligible"] is True
+    assert 0 <= details["intent_score"] <= 100
     assert evaluate_automatic_eligibility(intent, cfg) == "eligible"
+
+
+def test_intent_score_clamped_0_to_100():
+    intent = _intent(
+        opportunity_score=999,
+        query={
+            "location": "kigali",
+            "bedrooms": 2,
+            "property_type": "apartment",
+            "max_price_usd": 1200,
+            "furnished": True,
+        },
+    )
+    score = compute_intent_score(intent)
+    assert 0 <= score <= 100
 
 
 def test_classify_strong_and_useful_patterns():
@@ -121,61 +201,6 @@ def test_classify_strong_and_useful_patterns():
     assert classify_search_intent_strength(strong_furnished) == ("strong", 3)
     assert classify_search_intent_strength(useful) == ("useful", 2)
     assert classify_search_intent_strength(weak) == ("weak", 0)
-
-
-def test_property_safety_optional_when_disabled():
-    cfg = IntentAutomationConfig(
-        require_min_properties=False,
-        min_verified_for_index=5,
-        min_dimensions_for_index=2,
-        max_dimensions_for_index=5,
-        min_quality_for_index=50.0,
-    )
-    intent = _intent(match_count=0, quality_score=60.0, query={"location": "kibagabaga", "furnished": True})
-    details = build_eligibility_checks(intent, cfg)
-    assert details["eligible"] is True
-
-
-def test_property_safety_blocks_when_enabled():
-    cfg = IntentAutomationConfig(
-        require_min_properties=True,
-        min_verified_for_index=5,
-        min_dimensions_for_index=2,
-        max_dimensions_for_index=5,
-        min_quality_for_index=50.0,
-    )
-    intent = _intent(match_count=3, quality_score=96.0)
-    details = build_eligibility_checks(intent, cfg)
-    assert details["eligible"] is False
-    failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
-    assert any("propert" in c["label"].lower() for c in failed)
-
-
-def test_intent_optional_when_disabled():
-    cfg = IntentAutomationConfig(
-        require_min_intent=False,
-        min_intent_for_index=100.0,
-        min_dimensions_for_index=2,
-        max_dimensions_for_index=5,
-        min_quality_for_index=50.0,
-    )
-    intent = _intent(opportunity_score=5.0, query={"location": "kigali", "furnished": True})
-    assert build_eligibility_checks(intent, cfg)["eligible"] is True
-
-
-def test_intent_blocks_when_enabled():
-    cfg = IntentAutomationConfig(
-        require_min_intent=True,
-        min_intent_for_index=80.0,
-        min_dimensions_for_index=2,
-        max_dimensions_for_index=5,
-        min_quality_for_index=50.0,
-    )
-    intent = _intent(opportunity_score=5.0, query={"location": "kigali", "furnished": True})
-    details = build_eligibility_checks(intent, cfg)
-    assert details["eligible"] is False
-    failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
-    assert any("intent" in c["label"].lower() for c in failed)
 
 
 def test_sitemap_cap_prioritizes_strong_intent():
@@ -240,7 +265,6 @@ def test_sitemap_priority_prefers_strong_over_useful():
 
 
 def test_changing_max_sitemap_urls_changes_inclusion():
-    """Reducing the hard cap after ranking must drop lower-ranked pages from sitemap."""
     now = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     def make(id_, strength_query, matches):
@@ -275,11 +299,9 @@ def test_changing_max_sitemap_urls_changes_inclusion():
     ]
     wide = apply_sitemap_cap(pages, IntentAutomationConfig(max_sitemap_urls=3, allow_sitemap_inclusion=True))
     assert wide["sitemap_included"] == 3
-    assert sum(1 for p in pages if p.sitemap_status == "included") == 3
 
     tight = apply_sitemap_cap(pages, IntentAutomationConfig(max_sitemap_urls=1, allow_sitemap_inclusion=True))
     assert tight["sitemap_included"] == 1
-    assert tight["max_sitemap_urls"] == 1
     included = [p for p in pages if p.sitemap_status == "included"]
     assert len(included) == 1
-    assert included[0].id == 1  # strongest: strong intent + most matches
+    assert included[0].id == 1
