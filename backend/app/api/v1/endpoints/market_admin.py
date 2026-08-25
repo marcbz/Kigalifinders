@@ -53,12 +53,9 @@ class SeoSettingsUpdate(BaseModel):
     min_dimensions_for_index: Optional[int] = None
     min_verified_for_index: Optional[int] = None
     min_quality_for_index: Optional[float] = None
-    min_opportunity_for_index: Optional[float] = None
-    min_observations_for_research_value: Optional[int] = None
+    max_sitemap_urls: Optional[int] = None
     allow_auto_index: Optional[bool] = None
     allow_sitemap_inclusion: Optional[bool] = None
-    require_unique_content: Optional[bool] = None
-    min_unique_content_chars: Optional[int] = None
 
 
 class IndexStatusPayload(BaseModel):
@@ -97,6 +94,7 @@ async def list_search_intents(
     automatic_eligibility: Optional[str] = Query(None),
     seo_control: Optional[str] = Query(None),
     simple_status: Optional[str] = Query(None),
+    attribute: Optional[str] = Query(None),
     sort_by: str = Query("updated_at"),
     sort_dir: str = Query("desc"),
     page: int = Query(1, ge=1),
@@ -116,6 +114,7 @@ async def list_search_intents(
         automatic_eligibility=automatic_eligibility,
         seo_control=seo_control,
         simple_status=simple_status,
+        attribute=attribute,
         sort_by=sort_by,
         sort_dir=sort_dir,
         page=page,
@@ -332,6 +331,16 @@ async def get_seo_settings(
 
     summary = await seo_eligibility_summary(db)
     return {**seo_settings_public(cfg), "summary": summary}
+
+
+@router.get("/seo-attributes")
+async def get_seo_attributes(
+    db: AsyncSession = Depends(get_db),
+    _: User = Depends(require_staff),
+):
+    from app.services.seo_attributes import seo_attribute_admin_stats
+
+    return await seo_attribute_admin_stats(db)
 
 
 @router.put("/seo-settings")

@@ -578,7 +578,19 @@ async def apply_index_rules(db: AsyncSession, cfg: IntentAutomationConfig) -> di
             demoted += 1
 
     await db.flush()
-    return {"promoted": promoted, "demoted": demoted, "skipped_manual": skipped_manual}
+
+    # Cap rental sitemap to strongest eligible URLs
+    from app.services.seo_landing import apply_sitemap_cap
+
+    all_intents = list((await db.execute(select(SearchIntent))).scalars().all())
+    sitemap_stats = apply_sitemap_cap(all_intents, cfg)
+    await db.flush()
+    return {
+        "promoted": promoted,
+        "demoted": demoted,
+        "skipped_manual": skipped_manual,
+        "sitemap": sitemap_stats,
+    }
 
 
 def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConfig) -> str | None:
@@ -596,16 +608,11 @@ def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConf
     if blocked:
         return f"Disallowed attributes: {', '.join(blocked)}"
     if dims < cfg.min_dimensions_for_index:
-        return f"Below dimension threshold ({dims} < {cfg.min_dimensions_for_index})"
+        return f"Below attribute threshold ({dims} < {cfg.min_dimensions_for_index})"
     if intent.match_count < cfg.min_verified_for_index:
         return f"Below match threshold ({intent.match_count} < {cfg.min_verified_for_index})"
-    if cfg.require_unique_content:
-        intro = (intent.intro_html or "").strip()
-        meta = (intent.meta_description or "").strip()
-        has_text = len(intro) >= cfg.min_unique_content_chars or len(meta) >= cfg.min_unique_content_chars
-        has_market = bool(intent.matching_observation_count and intent.matching_observation_count >= 3)
-        if not (has_text or has_market or bool(intent.title and intent.h1 and meta)):
-            return "Insufficient unique content or market data"
+    if float(intent.quality_score or 0) < cfg.min_quality_for_index:
+        return f"Below quality threshold ({float(intent.quality_score or 0):.0f} < {cfg.min_quality_for_index:.0f})"
     if intent.status_reason and "duplicate" in (intent.status_reason or "").lower():
         return intent.status_reason
     if intent.index_status == SearchIndexStatus.NOINDEX.value:
@@ -650,12 +657,14 @@ async def seo_eligibility_summary(db: AsyncSession) -> dict[str, Any]:
             "min_dimensions_for_index": cfg.min_dimensions_for_index,
             "min_verified_for_index": cfg.min_verified_for_index,
             "min_quality_for_index": cfg.min_quality_for_index,
-            "min_opportunity_for_index": cfg.min_opportunity_for_index,
-            "min_observations_for_research_value": cfg.min_observations_for_research_value,
+            "max_sitemap_urls": cfg.max_sitemap_urls,
             "allow_auto_index": cfg.allow_auto_index,
             "allow_sitemap_inclusion": cfg.allow_sitemap_inclusion,
-            "require_unique_content": cfg.require_unique_content,
-            "min_unique_content_chars": cfg.min_unique_content_chars,
+        },
+        "rental_sitemap": {
+            "included": stats["sitemap_included"],
+            "max": cfg.max_sitemap_urls,
+            "label": f"Rental sitemap: {stats['sitemap_included']} / {cfg.max_sitemap_urls} URLs",
         },
         "allowed_attributes": [
             "furnished / unfurnished",

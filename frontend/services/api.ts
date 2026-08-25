@@ -249,6 +249,7 @@ export const adminService = {
   bulkSearchIntents: (ids: string[], action: string) =>
     api.post("/admin/market/search-intents/bulk", { ids, action }).then((r) => r.data),
   getSeoSettings: () => api.get("/admin/market/seo-settings").then((r) => r.data),
+  getSeoAttributes: () => api.get("/admin/market/seo-attributes").then((r) => r.data),
   updateSeoSettings: (data: Record<string, unknown>) =>
     api.put("/admin/market/seo-settings", data).then((r) => r.data),
   resetSeoSettings: () => api.post("/admin/market/seo-settings/reset").then((r) => r.data),

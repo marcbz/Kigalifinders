@@ -3,11 +3,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { adminService } from "@/services/api";
+import { adminService, propertyService } from "@/services/api";
 import type { SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
 type SimpleStatus = "all" | "ready" | "published" | "noindex" | "not_ready";
 type SortMode = "best" | "properties" | "quality";
+type Section = "search" | "properties" | "attributes" | "market";
 
 type ObservationRow = {
   id: string;
@@ -38,6 +39,21 @@ type MarketSummary = {
   other_sources_count: number;
   sources: SourceSummary[];
 };
+
+type AttributeRow = {
+  key: string;
+  label: string;
+  matching_properties: number;
+  eligible_pages: number;
+  search_pages: number;
+};
+
+const SECTIONS: { id: Section; label: string }[] = [
+  { id: "search", label: "Search Pages" },
+  { id: "properties", label: "Properties" },
+  { id: "attributes", label: "Attributes" },
+  { id: "market", label: "Market Data" },
+];
 
 const TABS: { id: SimpleStatus; label: string }[] = [
   { id: "all", label: "All" },
@@ -116,12 +132,16 @@ function sitemapCell(row: SearchIntentAdmin) {
 export default function SeoMarketAdminPage() {
   const qc = useQueryClient();
 
+  const [section, setSection] = useState<Section>("search");
+
   // --- Search pages state ---
   const [tab, setTab] = useState<SimpleStatus>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("best");
   const [searchPage, setSearchPage] = useState(1);
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
+  const [attributeFilter, setAttributeFilter] = useState<string | null>(null);
+  const [attrSort, setAttrSort] = useState<"label" | "properties" | "pages">("properties");
   const [message, setMessage] = useState<string | null>(null);
 
   // --- Market data state ---
@@ -139,31 +159,61 @@ export default function SeoMarketAdminPage() {
   }, [sort]);
 
   useEffect(() => {
-    if (window.location.hash === "#market-data") {
-      document.getElementById("market-data")?.scrollIntoView({ behavior: "smooth" });
-    }
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status") as SimpleStatus | null;
     if (status && TABS.some((t) => t.id === status)) {
       setTab(status);
+      setSection("search");
+    }
+    const sec = params.get("section") as Section | null;
+    if (sec && SECTIONS.some((s) => s.id === sec)) {
+      setSection(sec);
+    }
+    const attr = params.get("attribute");
+    if (attr) {
+      setAttributeFilter(attr);
+      setSection("search");
+    }
+    if (window.location.hash === "#market-data") {
+      setSection("market");
     }
   }, []);
 
   const searchQuery = useQuery({
-    queryKey: ["admin-search-intents", tab, search, sort, searchPage],
+    queryKey: ["admin-search-intents", tab, search, sort, searchPage, attributeFilter],
     queryFn: () =>
       adminService.searchIntents({
         search: search || undefined,
         simple_status: tab === "all" ? undefined : tab,
+        attribute: attributeFilter || undefined,
         page: searchPage,
         page_size: 40,
         ...sortParams,
       }) as Promise<SearchIntentListResponse>,
+    enabled: section === "search",
+  });
+
+  const attributesQuery = useQuery({
+    queryKey: ["admin-seo-attributes"],
+    queryFn: () => adminService.getSeoAttributes() as Promise<{ items: AttributeRow[] }>,
+    enabled: section === "attributes",
+  });
+
+  const propertiesQuery = useQuery({
+    queryKey: ["admin-seo-properties"],
+    queryFn: () =>
+      propertyService.listAdmin({
+        page: 1,
+        page_size: 40,
+        listing_type: "rent",
+      }),
+    enabled: section === "properties",
   });
 
   const marketSummary = useQuery({
     queryKey: ["admin-market-summary"],
     queryFn: () => adminService.marketDataSummary() as Promise<MarketSummary>,
+    enabled: section === "market",
   });
 
   const observations = useQuery({
@@ -175,6 +225,7 @@ export default function SeoMarketAdminPage() {
         status: obsStatus || undefined,
         source: obsSource || undefined,
       }) as Promise<{ items: ObservationRow[]; total: number; page_size: number }>,
+    enabled: section === "market",
   });
 
   const searchItems = searchQuery.data?.items ?? [];
@@ -182,10 +233,26 @@ export default function SeoMarketAdminPage() {
   const obsItems = observations.data?.items ?? [];
   const obsTotalPages = Math.max(1, Math.ceil((observations.data?.total ?? 0) / (observations.data?.page_size ?? 30)));
   const summary = marketSummary.data;
+  const attributeItems = useMemo(() => {
+    const items = attributesQuery.data?.items ?? [];
+    const sorted = [...items];
+    if (attrSort === "label") sorted.sort((a, b) => a.label.localeCompare(b.label));
+    else if (attrSort === "pages") sorted.sort((a, b) => b.eligible_pages - a.eligible_pages);
+    else sorted.sort((a, b) => b.matching_properties - a.matching_properties);
+    return sorted;
+  }, [attributesQuery.data?.items, attrSort]);
+  const propertyItems = propertiesQuery.data?.items ?? [];
 
   const flash = (text: string) => {
     setMessage(text);
     setTimeout(() => setMessage(null), 4000);
+  };
+
+  const openAttributePages = (key: string) => {
+    setAttributeFilter(key);
+    setTab("all");
+    setSearchPage(1);
+    setSection("search");
   };
 
   const invalidateSearch = () => qc.invalidateQueries({ queryKey: ["admin-search-intents"] });
@@ -270,22 +337,46 @@ export default function SeoMarketAdminPage() {
   const obsVisibleIds = obsItems.map((r) => r.id);
 
   return (
-    <div className="space-y-10 max-w-5xl">
+    <div className="space-y-6 max-w-5xl">
       <div>
         <h2 className="text-xl font-semibold text-navy-800 dark:text-white">SEO &amp; Market Data</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Publish search pages and manage external market observations.{" "}
+          Publish search pages, review attributes, and manage external market observations.{" "}
           <Link href="/admin/seo-settings" className="underline">
             Publishing rules
           </Link>
         </p>
       </div>
 
+      <div className="flex flex-wrap gap-2 border-b pb-3">
+        {SECTIONS.map((s) => (
+          <button
+            key={s.id}
+            type="button"
+            onClick={() => setSection(s.id)}
+            className={`px-3 py-1.5 text-sm rounded-lg border ${
+              section === s.id ? "bg-navy-800 text-white border-navy-800" : "bg-white"
+            }`}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
       {message && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">{message}</p>}
 
       {/* --- Search Pages --- */}
+      {section === "search" && (
       <section className="space-y-4">
         <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Search pages</h3>
+        {attributeFilter && (
+          <p className="text-sm text-gray-600">
+            Filtered by attribute: <span className="font-medium">{attributeFilter.replace(/_/g, " ")}</span>{" "}
+            <button type="button" className="underline ml-2" onClick={() => setAttributeFilter(null)}>
+              Clear
+            </button>
+          </p>
+        )}
 
         <div className="flex flex-wrap gap-2 items-center">
           <input
@@ -415,7 +506,14 @@ export default function SeoMarketAdminPage() {
                     </td>
                     <td className="p-3">{row.match_count}</td>
                     <td className="p-3">{Math.round(row.quality_score)}%</td>
-                    <td className="p-3"><StatusDot status={status} /></td>
+                    <td className="p-3">
+                      <div className="flex flex-col gap-0.5">
+                        <StatusDot status={status} />
+                        {(row.seo_control === "manual" || row.locked_by_admin) && (
+                          <span className="text-[11px] text-amber-700 font-medium">Manual override</span>
+                        )}
+                      </div>
+                    </td>
                     <td className="p-3 text-xs text-gray-600">{sitemapCell(row)}</td>
                     <td className="p-3 space-x-2 whitespace-nowrap text-xs">
                       {row.automatic_eligibility === "eligible" && row.index_status !== "indexable" && (
@@ -470,10 +568,139 @@ export default function SeoMarketAdminPage() {
           </div>
         )}
       </section>
+      )}
+
+      {/* --- Properties --- */}
+      {section === "properties" && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Properties</h3>
+              <p className="text-sm text-gray-500">Published rentals that power search landing pages.</p>
+            </div>
+            <Link href="/admin/properties" className="text-sm underline">
+              Open full property admin
+            </Link>
+          </div>
+          <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
+              <thead className="bg-gray-50 dark:bg-navy-900 text-left">
+                <tr>
+                  <th className="p-3">Property</th>
+                  <th className="p-3">Area</th>
+                  <th className="p-3">Beds</th>
+                  <th className="p-3">Furnished</th>
+                  <th className="p-3">Price</th>
+                </tr>
+              </thead>
+              <tbody>
+                {propertiesQuery.isLoading && (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-gray-500">
+                      Loading…
+                    </td>
+                  </tr>
+                )}
+                {propertyItems.map((p: {
+                  id: string;
+                  title?: string;
+                  slug?: string;
+                  neighborhood_name?: string;
+                  bedrooms?: number | null;
+                  is_furnished?: boolean;
+                  price?: number;
+                  currency?: string;
+                }) => (
+                  <tr key={p.id} className="border-t">
+                    <td className="p-3 font-medium">
+                      <Link href={`/admin/properties`} className="hover:underline">
+                        {p.title || p.slug || p.id}
+                      </Link>
+                    </td>
+                    <td className="p-3">{p.neighborhood_name || "—"}</td>
+                    <td className="p-3">{p.bedrooms ?? "—"}</td>
+                    <td className="p-3">{p.is_furnished ? "Yes" : "No"}</td>
+                    <td className="p-3">
+                      {p.price != null ? `${p.currency || "USD"} ${Number(p.price).toLocaleString()}` : "—"}
+                    </td>
+                  </tr>
+                ))}
+                {!propertiesQuery.isLoading && !propertyItems.length && (
+                  <tr>
+                    <td colSpan={5} className="p-6 text-gray-500">
+                      No published rentals found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
+
+      {/* --- Attributes --- */}
+      {section === "attributes" && (
+        <section className="space-y-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Attributes</h3>
+              <p className="text-sm text-gray-500">Rental attributes used to build and match search landing pages.</p>
+            </div>
+            <select
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={attrSort}
+              onChange={(e) => setAttrSort(e.target.value as typeof attrSort)}
+            >
+              <option value="properties">Most properties</option>
+              <option value="pages">Most eligible pages</option>
+              <option value="label">Name A–Z</option>
+            </select>
+          </div>
+          <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
+            <table className="w-full text-sm min-w-[520px]">
+              <thead className="bg-gray-50 dark:bg-navy-900 text-left">
+                <tr>
+                  <th className="p-3">Attribute</th>
+                  <th className="p-3">Matching Properties</th>
+                  <th className="p-3">Eligible Pages</th>
+                </tr>
+              </thead>
+              <tbody>
+                {attributesQuery.isLoading && (
+                  <tr>
+                    <td colSpan={3} className="p-6 text-gray-500">
+                      Loading…
+                    </td>
+                  </tr>
+                )}
+                {attributeItems.map((row) => (
+                  <tr key={row.key} className="border-t">
+                    <td className="p-3">
+                      <button type="button" className="font-medium underline text-left" onClick={() => openAttributePages(row.key)}>
+                        {row.label}
+                      </button>
+                    </td>
+                    <td className="p-3">{row.matching_properties}</td>
+                    <td className="p-3">{row.eligible_pages}</td>
+                  </tr>
+                ))}
+                {!attributesQuery.isLoading && !attributeItems.length && (
+                  <tr>
+                    <td colSpan={3} className="p-6 text-gray-500">
+                      No attributes found.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      )}
 
       {/* --- External Market Data --- */}
-      <section id="market-data" className="space-y-4 border-t pt-8">
-        <h3 className="text-lg font-semibold text-navy-800 dark:text-white">External market data</h3>
+      {section === "market" && (
+      <section id="market-data" className="space-y-4">
+        <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Market Data</h3>
         <p className="text-xs text-gray-500">Separate from KigaliRent Verified inventory. Disappeared listings are never assumed rented.</p>
 
         <dl className="grid sm:grid-cols-2 gap-4 text-sm border rounded-xl p-4 bg-white dark:bg-navy-800">
@@ -721,6 +948,7 @@ export default function SeoMarketAdminPage() {
           </div>
         )}
       </section>
+      )}
     </div>
   );
 }

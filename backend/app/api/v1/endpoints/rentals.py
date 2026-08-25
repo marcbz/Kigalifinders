@@ -153,6 +153,7 @@ async def rentals_sitemap(
             "path": i.path,
             "last_built_at": i.last_built_at,
             "title": i.title,
+            "_intent": i,
         }
         for i in intents
         if i.path
@@ -160,12 +161,23 @@ async def rentals_sitemap(
         and i.path.count("/") >= 3  # /rentals/{location}/{intent}
     ]
 
+    from app.services.intent_config import load_automation_config
+    from app.services.seo_landing import sitemap_priority_key
+
+    cfg = await load_automation_config(db)
+    intent_items.sort(key=lambda row: sitemap_priority_key(row["_intent"]), reverse=True)
+    max_urls = int(cfg.max_sitemap_urls or 100)
+    intent_items = intent_items[:max_urls]
+    for row in intent_items:
+        row.pop("_intent", None)
+
     items = hub_items + intent_items
     payload: dict = {
         "items": items,
         "count": len(items),
         "hub_count": len(hub_items),
         "intent_count": len(intent_items),
+        "max_sitemap_urls": max_urls,
     }
     if debug:
         payload["diagnostics"] = {
@@ -177,6 +189,7 @@ async def rentals_sitemap(
                 "min_path_segments": 3,
             },
             "table": "search_intents",
+            "max_sitemap_urls": max_urls,
             "intent_paths_sample": [i["path"] for i in intent_items[:15]],
             "indexable_total": int(
                 (

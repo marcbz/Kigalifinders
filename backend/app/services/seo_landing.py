@@ -47,6 +47,11 @@ def is_manual_override(intent: SearchIntent) -> bool:
 
 
 def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) -> dict[str, Any]:
+    """READY gates: min properties + min attributes + min quality (all required).
+
+    Opportunity / observations / copy remain ranking signals for sitemap selection,
+    not hard READY thresholds.
+    """
     q = normalize_query(intent.query or {})
     dims = count_seo_dimensions(q)
     blocked = query_has_blocked_seo_attributes(intent.query or {})
@@ -65,9 +70,10 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
 
     checks.append(
         {
-            "label": f"Minimum dimensions ({cfg.min_dimensions_for_index})",
+            "label": f"Minimum attributes ({cfg.min_dimensions_for_index})",
             "passed": dims >= cfg.min_dimensions_for_index,
-            "detail": f"{dims} dimension(s)",
+            "detail": f"{dims} attribute(s)",
+            "hard": True,
         }
     )
     checks.append(
@@ -75,51 +81,25 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
             "label": f"Minimum matching properties ({cfg.min_verified_for_index})",
             "passed": intent.match_count >= cfg.min_verified_for_index,
             "detail": f"{intent.match_count} matching propert{'y' if intent.match_count == 1 else 'ies'}",
+            "hard": True,
         }
     )
     checks.append(
         {
-            "label": f"Minimum quality score ({cfg.min_quality_for_index})",
-            "passed": intent.quality_score >= cfg.min_quality_for_index,
-            "detail": f"Quality {intent.quality_score:.0f}",
-        }
-    )
-    checks.append(
-        {
-            "label": f"Minimum opportunity score ({cfg.min_opportunity_for_index})",
-            "passed": intent.opportunity_score >= cfg.min_opportunity_for_index,
-            "detail": f"Opportunity {intent.opportunity_score:.0f}",
-        }
-    )
-    checks.append(
-        {
-            "label": f"Minimum observations ({cfg.min_observations_for_research_value})",
-            "passed": intent.matching_observation_count >= cfg.min_observations_for_research_value
-            or intent.match_count >= cfg.min_verified_for_index,
-            "detail": f"{intent.matching_observation_count} observation(s)",
+            "label": f"Minimum quality ({cfg.min_quality_for_index:.0f})",
+            "passed": float(intent.quality_score or 0) >= cfg.min_quality_for_index,
+            "detail": f"Quality {float(intent.quality_score or 0):.0f}%",
+            "hard": True,
         }
     )
 
-    unique_ok = True
-    if cfg.require_unique_content:
-        intro = (intent.intro_html or "").strip()
-        meta = (intent.meta_description or "").strip()
-        has_text = len(intro) >= cfg.min_unique_content_chars or len(meta) >= cfg.min_unique_content_chars
-        has_market = bool(intent.matching_observation_count and intent.matching_observation_count >= 3)
-        unique_ok = has_text or has_market or bool(intent.title and intent.h1 and meta)
-        checks.append(
-            {
-                "label": "Unique content or market data",
-                "passed": unique_ok,
-                "detail": "Has intro/meta or observation-backed data" if unique_ok else "Needs more unique copy",
-            }
-        )
-
+    # Ranking signals (informational — do not block READY)
     checks.append(
         {
-            "label": "Automatic SEO landing generation enabled",
-            "passed": cfg.allow_auto_index,
-            "detail": "Enabled" if cfg.allow_auto_index else "Disabled in SEO settings",
+            "label": "Search opportunity (ranking)",
+            "passed": True,
+            "detail": f"Opportunity {float(intent.opportunity_score or 0):.0f}",
+            "hard": False,
         }
     )
     checks.append(
@@ -127,16 +107,14 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
             "label": "Page enabled",
             "passed": bool(intent.is_enabled) and intent.index_status != SearchIndexStatus.DISABLED.value,
             "detail": "Enabled" if intent.is_enabled else "Disabled",
+            "hard": True,
         }
     )
 
-    eligible = all(c["passed"] for c in checks if c["label"] != "Automatic SEO landing generation enabled") and (
-        cfg.allow_auto_index or is_manual_override(intent)
-    )
-    if not cfg.allow_auto_index and not is_manual_override(intent):
-        eligible = False
+    hard_checks = [c for c in checks if c.get("hard", True)]
+    eligible = all(c["passed"] for c in hard_checks)
 
-    failed = [c for c in checks if not c["passed"]]
+    failed = [c for c in hard_checks if not c["passed"]]
     return {
         "eligible": eligible,
         "checks": checks,
@@ -154,7 +132,7 @@ def evaluate_automatic_eligibility(intent: SearchIntent, cfg: IntentAutomationCo
 
 
 def apply_automatic_statuses(intent: SearchIntent, cfg: IntentAutomationConfig) -> None:
-    """Apply automatic index + sitemap from eligibility. Skipped when manual override."""
+    """Apply automatic index + provisional sitemap from eligibility. Skipped when manual override."""
     if is_manual_override(intent):
         return
     if not intent.is_enabled or intent.index_status == SearchIndexStatus.DISABLED.value:
@@ -166,37 +144,139 @@ def apply_automatic_statuses(intent: SearchIntent, cfg: IntentAutomationConfig) 
 
     if not cfg.allow_auto_index:
         if intent.index_status not in {SearchIndexStatus.DISABLED.value}:
-            intent.index_status = SearchIndexStatus.NOINDEX.value
-            intent.status_reason = "Automatic SEO landing generation disabled in settings"
+            # Keep READY visible when eligible; otherwise noindex below-threshold pages
+            if intent.automatic_eligibility == AutomaticEligibility.ELIGIBLE.value:
+                if intent.index_status == SearchIndexStatus.INDEXABLE.value:
+                    pass
+                elif intent.index_status not in {
+                    SearchIndexStatus.DISCOVERED.value,
+                    SearchIndexStatus.DRAFT.value,
+                }:
+                    intent.index_status = SearchIndexStatus.DRAFT.value
+                intent.status_reason = "READY — waiting for manual publish (auto-index off)"
+            else:
+                intent.index_status = SearchIndexStatus.NOINDEX.value
+                details = build_eligibility_checks(intent, cfg)
+                failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
+                reason = failed[0]["detail"] if failed else "Does not meet SEO thresholds"
+                intent.status_reason = f"Excluded: {reason}"
         intent.sitemap_status = SitemapStatus.EXCLUDED.value
         return
 
     if intent.automatic_eligibility == AutomaticEligibility.ELIGIBLE.value:
         intent.index_status = SearchIndexStatus.INDEXABLE.value
         intent.status_reason = (
-            f"Auto-indexable: {build_eligibility_checks(intent, cfg)['dimensions']} dimensions, "
-            f"{intent.match_count} matching properties"
+            f"Auto-indexable: {build_eligibility_checks(intent, cfg)['dimensions']} attributes, "
+            f"{intent.match_count} matching properties, quality {float(intent.quality_score or 0):.0f}%"
         )
+        # Provisional include — apply_sitemap_cap keeps only the strongest max_sitemap_urls
         if cfg.allow_sitemap_inclusion:
             intent.sitemap_status = SitemapStatus.INCLUDED.value
         else:
             intent.sitemap_status = SitemapStatus.EXCLUDED.value
     else:
         details = build_eligibility_checks(intent, cfg)
-        failed = [c for c in details["checks"] if not c["passed"]]
+        failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
         reason = failed[0]["detail"] if failed else "Does not meet SEO thresholds"
-        if intent.index_status == SearchIndexStatus.INDEXABLE.value:
-            intent.index_status = SearchIndexStatus.NOINDEX.value
-        elif intent.index_status not in {
-            SearchIndexStatus.DISCOVERED.value,
-            SearchIndexStatus.DRAFT.value,
-            SearchIndexStatus.NOINDEX.value,
-        }:
-            intent.index_status = SearchIndexStatus.NOINDEX.value
+        intent.index_status = SearchIndexStatus.NOINDEX.value
         intent.status_reason = f"Excluded: {reason}"
         intent.sitemap_status = SitemapStatus.EXCLUDED.value
 
     enforce_sitemap_rules(intent.index_status, intent.sitemap_status)
+
+
+def sitemap_priority_key(intent: SearchIntent) -> tuple:
+    """Higher tuple = stronger sitemap candidate.
+
+    Order: quality → matching properties → opportunity → data completeness → freshness.
+    """
+    q = normalize_query(intent.query or {})
+    dims = count_seo_dimensions(q)
+    completeness = dims
+    if (intent.intro_html or "").strip():
+        completeness += 2
+    if (intent.meta_description or "").strip():
+        completeness += 1
+    completeness += min(int(intent.matching_observation_count or 0), 10)
+    ts = intent.last_calculated_at or intent.last_evaluated_at or intent.updated_at or intent.last_built_at
+    freshness = float(ts.timestamp()) if ts is not None else 0.0
+    return (
+        float(intent.quality_score or 0),
+        int(intent.match_count or 0),
+        float(intent.opportunity_score or 0),
+        completeness,
+        freshness,
+    )
+
+
+def apply_sitemap_cap(intents: list[SearchIntent], cfg: IntentAutomationConfig) -> dict[str, int]:
+    """Keep at most max_sitemap_urls search pages included (manual includes reserved first)."""
+    included = 0
+    excluded = 0
+
+    if not cfg.allow_sitemap_inclusion:
+        for intent in intents:
+            if is_manual_override(intent) and intent.sitemap_status == SitemapStatus.INCLUDED.value:
+                if intent.index_status == SearchIndexStatus.INDEXABLE.value:
+                    included += 1
+                    continue
+            if intent.index_status != SearchIndexStatus.INDEXABLE.value:
+                intent.sitemap_status = SitemapStatus.EXCLUDED.value
+                excluded += 1
+                continue
+            if is_manual_override(intent) and intent.sitemap_status == SitemapStatus.EXCLUDED.value:
+                excluded += 1
+                continue
+            intent.sitemap_status = SitemapStatus.EXCLUDED.value
+            excluded += 1
+        return {"sitemap_included": included, "sitemap_excluded": excluded, "max_sitemap_urls": cfg.max_sitemap_urls}
+
+    eligible_pool: list[SearchIntent] = []
+    manual_included: list[SearchIntent] = []
+
+    for intent in intents:
+        if intent.index_status != SearchIndexStatus.INDEXABLE.value:
+            intent.sitemap_status = SitemapStatus.EXCLUDED.value
+            excluded += 1
+            continue
+        if not intent.is_enabled:
+            intent.sitemap_status = SitemapStatus.EXCLUDED.value
+            excluded += 1
+            continue
+        path = (intent.path or "").strip()
+        if not path.startswith("/rentals/") or path.count("/") < 3:
+            intent.sitemap_status = SitemapStatus.EXCLUDED.value
+            excluded += 1
+            continue
+        if is_manual_override(intent):
+            if intent.sitemap_status == SitemapStatus.INCLUDED.value:
+                manual_included.append(intent)
+            else:
+                excluded += 1
+            continue
+        eligible_pool.append(intent)
+
+    # Manual includes always keep their slots (may briefly exceed cap if many manuals)
+    for intent in manual_included:
+        intent.sitemap_status = SitemapStatus.INCLUDED.value
+        included += 1
+
+    slots = max(0, int(cfg.max_sitemap_urls) - len(manual_included))
+    eligible_pool.sort(key=sitemap_priority_key, reverse=True)
+    for intent in eligible_pool[:slots]:
+        intent.sitemap_status = SitemapStatus.INCLUDED.value
+        included += 1
+    for intent in eligible_pool[slots:]:
+        intent.sitemap_status = SitemapStatus.EXCLUDED.value
+        excluded += 1
+
+    return {
+        "sitemap_included": included,
+        "sitemap_excluded": excluded,
+        "max_sitemap_urls": cfg.max_sitemap_urls,
+        "auto_selected": min(slots, len(eligible_pool)),
+        "manual_included": len(manual_included),
+    }
 
 
 def set_index_status_manual(intent: SearchIntent, status: str) -> None:
@@ -273,18 +353,25 @@ async def recalculate_all_landings(db: AsyncSession, cfg: IntentAutomationConfig
 
     before = await landing_page_stats(db)
     await recalculate_all_intent_metrics(db)
-    await apply_index_rules(db, cfg)
+    index_stats = await apply_index_rules(db, cfg)
 
     result = await db.execute(select(SearchIntent))
-    for intent in result.scalars().all():
+    intents = list(result.scalars().all())
+    for intent in intents:
         if is_manual_override(intent):
             intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
             intent.last_evaluated_at = _now()
             sync_sitemap_with_index(intent)
 
+    sitemap_stats = apply_sitemap_cap(intents, cfg)
     await db.flush()
     after = await landing_page_stats(db)
-    return {"before": before, "after": after}
+    return {
+        "before": before,
+        "after": after,
+        "index_rules": index_stats,
+        "sitemap": sitemap_stats,
+    }
 
 
 SORT_COLUMNS = {
@@ -312,11 +399,70 @@ async def list_search_intents_admin(
     automatic_eligibility: str | None = None,
     seo_control: str | None = None,
     simple_status: str | None = None,
+    attribute: str | None = None,
     sort_by: str = "updated_at",
     sort_dir: str = "desc",
     page: int = 1,
     page_size: int = 50,
 ) -> dict[str, Any]:
+    from app.services.seo_attributes import intent_uses_attribute
+
+    def _matches_row_filters(i: SearchIntent) -> bool:
+        if search:
+            term = search.strip().lower()
+            blob = f"{i.path} {i.title} {i.h1} {i.intent_slug}".lower()
+            if term not in blob:
+                return False
+        if location and i.location_slug != location.lower():
+            return False
+        if property_type:
+            q = i.query or {}
+            if str(q.get("property_type") or "").lower() != property_type.lower():
+                return False
+        if index_status and i.index_status != index_status:
+            return False
+        if sitemap_status and i.sitemap_status != sitemap_status:
+            return False
+        if automatic_eligibility and i.automatic_eligibility != automatic_eligibility:
+            return False
+        if seo_control and i.seo_control != seo_control:
+            return False
+        if simple_status == "published" and i.index_status != SearchIndexStatus.INDEXABLE.value:
+            return False
+        if simple_status == "noindex" and i.index_status != SearchIndexStatus.NOINDEX.value:
+            return False
+        if simple_status == "ready":
+            if i.automatic_eligibility != AutomaticEligibility.ELIGIBLE.value:
+                return False
+            if i.index_status in {
+                SearchIndexStatus.INDEXABLE.value,
+                SearchIndexStatus.NOINDEX.value,
+                SearchIndexStatus.DISABLED.value,
+            }:
+                return False
+        if simple_status == "not_ready":
+            if i.automatic_eligibility != AutomaticEligibility.EXCLUDED.value:
+                return False
+            if i.index_status in {
+                SearchIndexStatus.INDEXABLE.value,
+                SearchIndexStatus.NOINDEX.value,
+                SearchIndexStatus.DISABLED.value,
+            }:
+                return False
+        if attribute and not intent_uses_attribute(i.query or {}, attribute):
+            return False
+        return True
+
+    # Attribute filter needs JSON inspection — use in-memory path when set
+    if attribute:
+        all_rows = list((await db.execute(select(SearchIntent))).scalars().all())
+        filtered = [i for i in all_rows if _matches_row_filters(i)]
+        reverse = sort_dir.lower() == "desc"
+        filtered.sort(key=lambda i: getattr(i, sort_by, None) or 0, reverse=reverse)
+        total = len(filtered)
+        rows = filtered[(page - 1) * page_size : page * page_size]
+        return {"total": total, "page": page, "page_size": page_size, "items": rows}
+
     q = select(SearchIntent)
     count_q = select(func.count()).select_from(SearchIntent)
 

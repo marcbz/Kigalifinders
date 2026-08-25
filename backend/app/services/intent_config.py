@@ -15,22 +15,23 @@ SETTINGS_KEY = "search_intent_thresholds"
 
 @dataclass
 class IntentAutomationConfig:
-    # SEO landing gates (admin-editable)
+    # SEO landing gates (admin-editable publishing rules)
     min_dimensions_for_index: int = 2
     min_verified_for_index: int = 5
+    min_quality_for_index: float = 50.0
+    max_sitemap_urls: int = 100
     allow_auto_index: bool = True  # automatic SEO landing-page generation / promotion
     allow_sitemap_inclusion: bool = True
     require_unique_content: bool = True
-    min_unique_content_chars: int = 40  # intro/meta uniqueness threshold when required
+    min_unique_content_chars: int = 40  # used for ranking completeness, not a hard READY gate
 
     # Discovery / draft (keep conservative — do not invent thousands of thin pages)
     min_verified_for_discover: int = 3
     min_verified_for_draft: int = 3
-    min_observations_for_research_value: int = 5
+    min_observations_for_research_value: int = 5  # ranking / research signal
     min_opportunity_for_draft: float = 35.0
-    min_opportunity_for_index: float = 45.0
-    min_quality_for_index: float = 40.0
-    max_auto_indexable: int = 80
+    min_opportunity_for_index: float = 45.0  # ranking signal for sitemap priority
+    max_auto_indexable: int = 500  # published pages cap (sitemap is capped separately)
     max_discovered_per_run: int = 80
     freshness_fresh_days: int = 14
     freshness_aging_days: int = 45
@@ -46,47 +47,33 @@ SEO_SETTING_FIELDS = (
     "min_dimensions_for_index",
     "min_verified_for_index",
     "min_quality_for_index",
-    "min_opportunity_for_index",
-    "min_observations_for_research_value",
+    "max_sitemap_urls",
     "allow_auto_index",
     "allow_sitemap_inclusion",
-    "require_unique_content",
-    "min_unique_content_chars",
 )
 
 SEO_SETTING_HELP = {
     "min_dimensions_for_index": (
-        "How many filters a page needs before it can be indexed. "
+        "Minimum attributes (dimensions) a page needs to be READY. "
         "Location counts as 1. Example: Kibagabaga + furnished = 2."
     ),
     "min_verified_for_index": (
-        "Minimum number of real published KigaliRent properties that must match the page. "
-        "Pages below this stay usable as filters but are not SEO landings."
+        "Minimum number of real published KigaliRent properties that must match the page."
     ),
     "min_quality_for_index": (
-        "Minimum quality score (0–100) required for automatic index eligibility."
+        "Minimum quality score (0–100) required for READY / automatic publishing."
     ),
-    "min_opportunity_for_index": (
-        "Minimum opportunity score (0–100) required for automatic index eligibility."
-    ),
-    "min_observations_for_research_value": (
-        "Minimum external observation count for research-backed eligibility "
-        "(or enough matching properties per the match threshold)."
+    "max_sitemap_urls": (
+        "Maximum search URLs included in sitemap-rentals.xml. "
+        "Strongest eligible pages are kept (by quality, matches, opportunity, completeness, freshness)."
     ),
     "allow_auto_index": (
-        "When on, the system may automatically mark eligible pages as indexable. "
-        "When off, pages stay draft/noindex until an admin approves them."
+        "When on, READY pages may automatically become published (indexable). "
+        "When off, pages stay unpublished until an admin publishes them."
     ),
     "allow_sitemap_inclusion": (
-        "When on, eligible indexable rental landings are added to the XML sitemap. "
-        "When off, they are excluded from the sitemap even if indexable."
-    ),
-    "require_unique_content": (
-        "When on, a page needs useful unique intro/meta text (or real market data) "
-        "before it can become an SEO landing."
-    ),
-    "min_unique_content_chars": (
-        "Minimum length of intro or meta description when unique-content checking is enabled."
+        "When on, the strongest published rental landings are added to the XML sitemap "
+        f"(up to the max URLs setting). When off, all are sitemap-excluded."
     ),
 }
 
@@ -104,6 +91,11 @@ async def load_automation_config(db: AsyncSession) -> IntentAutomationConfig:
     if "min_dimensions_for_index" not in row.value:
         for k in SEO_SETTING_FIELDS:
             data[k] = getattr(DEFAULT_CONFIG, k)
+    # Adopt max sitemap + quality=50 when upgrading from legacy stored settings
+    if "max_sitemap_urls" not in row.value:
+        data["max_sitemap_urls"] = DEFAULT_CONFIG.max_sitemap_urls
+        if row.value.get("min_quality_for_index") in (None, 40, 40.0):
+            data["min_quality_for_index"] = DEFAULT_CONFIG.min_quality_for_index
     if isinstance(data.get("bedroom_levels"), list):
         data["bedroom_levels"] = tuple(int(x) for x in data["bedroom_levels"])
     if isinstance(data.get("bathroom_levels"), list):
@@ -127,8 +119,10 @@ async def save_automation_config(
     cfg.min_verified_for_index = max(1, min(100, int(cfg.min_verified_for_index)))
     cfg.min_unique_content_chars = max(0, min(2000, int(cfg.min_unique_content_chars)))
     cfg.min_quality_for_index = max(0.0, min(100.0, float(cfg.min_quality_for_index)))
+    cfg.max_sitemap_urls = max(1, min(5000, int(cfg.max_sitemap_urls)))
     cfg.min_opportunity_for_index = max(0.0, min(100.0, float(cfg.min_opportunity_for_index)))
     cfg.min_observations_for_research_value = max(0, min(500, int(cfg.min_observations_for_research_value)))
+    cfg.max_auto_indexable = max(1, min(5000, int(cfg.max_auto_indexable)))
 
     result = await db.execute(
         select(IntentAutomationSetting).where(IntentAutomationSetting.key == SETTINGS_KEY)
@@ -162,7 +156,9 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
         ],
         "removed_attributes": ["internet", "staff quarters", "security", "balcony"],
         "notes": (
-            "Location counts as one dimension. Complex filters still work for users when not indexable. "
+            "A page is READY only when minimum properties, attributes, and quality are all met. "
+            "Below any threshold → not ready, noindex, sitemap excluded. "
+            "Manual overrides remain possible and are labeled. "
             "Never fabricates properties or market data."
         ),
     }
