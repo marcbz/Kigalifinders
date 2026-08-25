@@ -14,6 +14,16 @@ const nextConfig = {
   experimental: {
     optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
   },
+  // Next.js injects polyfill-module regardless of browserslist; drop it for our
+  // modern targets so PageSpeed stops flagging unused Array.at / Object.hasOwn / etc.
+  webpack(config) {
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      "../build/polyfills/polyfill-module": require.resolve("./lib/modern-polyfill.js"),
+      "next/dist/build/polyfills/polyfill-module": require.resolve("./lib/modern-polyfill.js"),
+    };
+    return config;
+  },
   async headers() {
     return [
       {

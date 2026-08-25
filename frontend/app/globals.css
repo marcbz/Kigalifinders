@@ -121,28 +121,29 @@
     @apply text-gold-500;
   }
 
-  /* Light marker sweep on “Find Your Dream Home” — single pass, fades out */
+  /* Light marker sweep — transform/opacity only (compositor-friendly) */
   .hero-title-mark::before {
     content: "";
     position: absolute;
     inset: -0.1em -0.16em;
     z-index: 0;
     border-radius: 0.28em;
-    transform: skewX(-6deg);
     pointer-events: none;
     opacity: 0;
+    overflow: hidden;
     background: linear-gradient(
       105deg,
       transparent 0%,
-      transparent 44%,
-      rgba(201, 169, 97, 0.12) 49%,
-      rgba(216, 188, 122, 0.22) 50%,
-      rgba(201, 169, 97, 0.12) 51%,
-      transparent 56%,
+      transparent 42%,
+      rgba(201, 169, 97, 0.14) 48%,
+      rgba(216, 188, 122, 0.26) 50%,
+      rgba(201, 169, 97, 0.14) 52%,
+      transparent 58%,
       transparent 100%
     );
-    background-size: 280% 100%;
-    background-position: 110% 0;
+    background-size: 220% 100%;
+    transform: translate3d(45%, 0, 0) skewX(-6deg);
+    will-change: transform, opacity;
   }
 
   .hero-title-mark--sweep::before {
@@ -151,26 +152,31 @@
 
   @keyframes hero-title-sweep {
     0% {
-      background-position: 110% 0;
+      transform: translate3d(45%, 0, 0) skewX(-6deg);
       opacity: 0;
     }
     12% {
-      opacity: 0.85;
+      opacity: 0.9;
     }
     88% {
-      opacity: 0.85;
+      opacity: 0.9;
     }
     100% {
-      background-position: -110% 0;
+      transform: translate3d(-45%, 0, 0) skewX(-6deg);
       opacity: 0;
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
+    .hero-title-mark::before {
+      will-change: auto;
+    }
+
     .hero-title-mark--sweep::before {
       animation: none;
       background: rgba(201, 169, 97, 0.14);
       background-size: 100% 100%;
+      transform: none;
       opacity: 0.5;
     }
   }

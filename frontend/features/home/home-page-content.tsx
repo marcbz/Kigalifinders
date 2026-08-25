@@ -1,9 +1,6 @@
-import { Suspense } from "react";
 import dynamic from "next/dynamic";
 import { fetchHomepageSafe } from "@/lib/server-api";
 import { StatsSection } from "@/features/home/stats-section";
-import { WhyUsSection, TestimonialsSection } from "@/features/home/why-us-section";
-import { BlogSection, CTASection, MapSection } from "@/features/home/content-sections";
 import { RecentlyViewedHomeStrip } from "@/features/home/recently-viewed-home-strip";
 
 const PropertyGridSection = dynamic(
@@ -21,14 +18,39 @@ const PlotsSection = dynamic(
   { loading: () => null },
 );
 
+const WhyUsSection = dynamic(
+  () => import("@/features/home/why-us-section").then((mod) => mod.WhyUsSection),
+  { loading: () => <div className="py-24" aria-hidden /> },
+);
+
+const TestimonialsSection = dynamic(
+  () => import("@/features/home/why-us-section").then((mod) => mod.TestimonialsSection),
+  { loading: () => <div className="py-20" aria-hidden /> },
+);
+
 const AreasSection = dynamic(
   () => import("@/features/home/property-sections").then((mod) => mod.AreasSection),
+  { loading: () => <div className="py-20" aria-hidden /> },
+);
+
+const MapSection = dynamic(
+  () => import("@/features/home/content-sections").then((mod) => mod.MapSection),
+  { loading: () => <div className="py-20" aria-hidden /> },
+);
+
+const BlogSection = dynamic(
+  () => import("@/features/home/content-sections").then((mod) => mod.BlogSection),
   { loading: () => <div className="py-20" aria-hidden /> },
 );
 
 const FAQSection = dynamic(
   () => import("@/features/home/faq-section").then((mod) => mod.FAQSection),
   { loading: () => <div className="py-20" aria-hidden /> },
+);
+
+const CTASection = dynamic(
+  () => import("@/features/home/content-sections").then((mod) => mod.CTASection),
+  { loading: () => <div className="py-24" aria-hidden /> },
 );
 
 function ApiErrorBanner() {
