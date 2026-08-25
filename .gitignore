@@ -36,3 +36,5 @@ htmlcov/
 
 # Docker
 postgres_data/
+
+frontend/tsconfig.tsbuildinfo
