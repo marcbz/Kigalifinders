@@ -26,20 +26,35 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function formatVerified(iso?: string) {
-  if (!iso) return null;
-  const d = new Date(iso);
-  const days = Math.floor((Date.now() - d.getTime()) / 86400000);
-  if (days <= 0) return "Verified today";
-  if (days === 1) return "Verified 1 day ago";
-  if (days < 30) return `Verified ${days} days ago`;
-  return `Last verified ${d.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}`;
+function truncateIntro(text: string, max = 200): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= max) return cleaned;
+  const cut = cleaned.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 80 ? cut.slice(0, lastSpace) : cut).trim()}…`;
+}
+
+function shortIntro(page: {
+  meta_description?: string;
+  intro_html?: string;
+  intro?: string;
+  answer?: string;
+}): string | null {
+  if (page.meta_description?.trim()) return page.meta_description.trim();
+  if (page.intro_html) {
+    const text = page.intro_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+    if (text) return truncateIntro(text);
+  }
+  const fallback = (page.intro || page.answer || "").trim();
+  return fallback ? truncateIntro(fallback) : null;
 }
 
 export default async function RentalLandingPage({ params }: Props) {
   const { location, intent } = await params;
   const page = await fetchRentalLandingSafe(location, intent);
   if (!page) notFound();
+
+  const intro = shortIntro(page);
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
@@ -52,11 +67,17 @@ export default async function RentalLandingPage({ params }: Props) {
               {page.location_slug.replace(/-/g, " ")}
             </Link>
           </nav>
-          <h1 className="font-serif text-3xl md:text-4xl font-bold leading-tight">{page.h1}</h1>
+          <p className="text-gold-400 text-xs tracking-[0.25em] uppercase mb-3">Rental search</p>
+          <h1 className="font-serif text-3xl md:text-4xl font-bold leading-tight mb-3">{page.h1}</h1>
+          {intro && (
+            <p className="text-base text-gray-200 max-w-3xl leading-relaxed">{intro}</p>
+          )}
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
+        {!!page.key_attributes?.length && <KeyAttributes attrs={page.key_attributes} />}
+
         <section>
           <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Available verified rentals</p>
           <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">
@@ -94,7 +115,6 @@ export default async function RentalLandingPage({ params }: Props) {
                       <p className="text-xs text-gray-500">
                         {p.neighborhood_name}
                         {p.bedrooms != null ? ` · ${p.bedrooms} bed` : ""}
-                        {formatVerified(p.last_verified_at) ? ` · ${formatVerified(p.last_verified_at)}` : ""}
                       </p>
                     </div>
                   </Link>
@@ -103,8 +123,6 @@ export default async function RentalLandingPage({ params }: Props) {
             </ul>
           )}
         </section>
-
-        {!!page.key_attributes?.length && <KeyAttributes attrs={page.key_attributes} />}
 
         {page.related.length > 0 && (
           <section>

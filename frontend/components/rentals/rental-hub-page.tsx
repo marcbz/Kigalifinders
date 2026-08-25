@@ -20,7 +20,6 @@ type Listing = {
   neighborhood_name?: string;
   property_type_name?: string;
   primary_image?: string;
-  last_verified_at?: string;
   relevance_score?: number;
 };
 
@@ -81,9 +80,24 @@ export type RentalHubData = {
   } | null;
 };
 
+function truncateIntro(text: string, max = 200): string {
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (cleaned.length <= max) return cleaned;
+  const cut = cleaned.slice(0, max);
+  const lastSpace = cut.lastIndexOf(" ");
+  return `${(lastSpace > 80 ? cut.slice(0, lastSpace) : cut).trim()}…`;
+}
+
+function shortHubIntro(data: RentalHubData): string | null {
+  if (data.meta_description?.trim()) return data.meta_description.trim();
+  if (data.intro?.trim()) return truncateIntro(data.intro);
+  return null;
+}
+
 export function RentalHubPage({ data }: { data: RentalHubData }) {
   const listings = data.verified_listings || [];
   const searches = data.related_searches || data.featured_searches || [];
+  const intro = shortHubIntro(data);
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
@@ -100,47 +114,18 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
               </>
             )}
           </nav>
-          <h1 className="font-serif text-3xl md:text-4xl font-bold leading-tight">{data.h1}</h1>
+          <p className="text-gold-400 text-xs tracking-[0.25em] uppercase mb-3">
+            {data.page_type === "directory" ? "Directory" : data.page_type === "city" ? "Market overview" : "Neighborhood guide"}
+          </p>
+          <h1 className="font-serif text-3xl md:text-4xl font-bold leading-tight mb-3">{data.h1}</h1>
+          {intro && (
+            <p className="text-base text-gray-200 max-w-3xl leading-relaxed">{intro}</p>
+          )}
         </div>
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
-        {listings.length > 0 && (
-          <section>
-            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Available verified rentals</p>
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">Verified listings</h2>
-            <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {listings.map((p) => (
-                <li key={p.id} className="bg-white dark:bg-navy-800 rounded-xl overflow-hidden border">
-                  <Link href={getPropertyHref(p)} className="block">
-                    <div className="relative aspect-[4/3] bg-navy-700">
-                      {p.primary_image ? (
-                        <Image src={p.primary_image} alt="" fill className="object-cover" sizes="33vw" />
-                      ) : null}
-                    </div>
-                    <div className="p-4">
-                      <h3 className="font-serif font-semibold line-clamp-2">{p.title}</h3>
-                      <p className="text-gold-600 font-semibold mt-1">${(p.usd_price ?? p.price).toLocaleString()}/month</p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {p.neighborhood_name}
-                        {p.bedrooms != null ? ` · ${p.bedrooms} bed` : ""}
-                      </p>
-                    </div>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
-        )}
-
-        {listings.length === 0 && data.page_type !== "directory" && (
-          <section className="rounded-xl border border-dashed p-8 bg-white dark:bg-navy-800">
-            <p className="text-navy-800 dark:text-white font-medium">No verified listings in this area right now.</p>
-            <p className="text-sm text-gray-500 mt-2">
-              <Link href="/properties" className="text-gold-600 underline">Browse all rentals</Link>
-            </p>
-          </section>
-        )}
+        {!!data.key_attributes?.length && <KeyAttributes attrs={data.key_attributes} />}
 
         {data.page_type === "directory" && data.neighborhoods && (
           <section>
@@ -188,7 +173,42 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           </section>
         )}
 
-        {!!data.key_attributes?.length && <KeyAttributes attrs={data.key_attributes} />}
+        {listings.length > 0 && (
+          <section>
+            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Available verified rentals</p>
+            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">Verified listings</h2>
+            <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {listings.map((p) => (
+                <li key={p.id} className="bg-white dark:bg-navy-800 rounded-xl overflow-hidden border">
+                  <Link href={getPropertyHref(p)} className="block">
+                    <div className="relative aspect-[4/3] bg-navy-700">
+                      {p.primary_image ? (
+                        <Image src={p.primary_image} alt="" fill className="object-cover" sizes="33vw" />
+                      ) : null}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="font-serif font-semibold line-clamp-2">{p.title}</h3>
+                      <p className="text-gold-600 font-semibold mt-1">${(p.usd_price ?? p.price).toLocaleString()}/month</p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {p.neighborhood_name}
+                        {p.bedrooms != null ? ` · ${p.bedrooms} bed` : ""}
+                      </p>
+                    </div>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
+        {listings.length === 0 && data.page_type !== "directory" && (
+          <section className="rounded-xl border border-dashed p-8 bg-white dark:bg-navy-800">
+            <p className="text-navy-800 dark:text-white font-medium">No verified listings in this area right now.</p>
+            <p className="text-sm text-gray-500 mt-2">
+              <Link href="/properties" className="text-gold-600 underline">Browse all rentals</Link>
+            </p>
+          </section>
+        )}
 
         {searches.length > 0 && (
           <section>
