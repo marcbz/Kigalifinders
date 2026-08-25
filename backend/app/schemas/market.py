@@ -87,6 +87,8 @@ class SearchIntentListItem(BaseModel):
     filters_label: Optional[str] = None
     filters: Optional[List[str]] = None
     intent_score: Optional[float] = None
+    intent_strength: Optional[str] = None
+    intent_strength_tier: Optional[int] = None
 
 
 class SearchIntentListResponse(BaseModel):

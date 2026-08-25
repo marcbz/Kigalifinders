@@ -17,6 +17,7 @@ type SortMode =
 
 type SeoControls = {
   min_dimensions_for_index: number;
+  max_dimensions_for_index: number;
   min_quality_for_index: number;
   max_sitemap_urls: number;
   require_min_intent: boolean;
@@ -83,13 +84,26 @@ function errMsg(err: unknown, fallback: string) {
 
 function eligibilityLabel(row: SearchIntentAdmin) {
   if (row.automatic_eligibility === "eligible") return "Eligible";
-  return "Excluded";
+  return "Not eligible";
 }
 
 function indexLabel(row: SearchIntentAdmin) {
-  if (row.index_status === "indexable") return "Indexable";
+  if (row.index_status === "indexable") return "Indexed";
   if (row.index_status === "noindex") return "Noindex";
   return row.index_status;
+}
+
+function sitemapLabel(row: SearchIntentAdmin) {
+  if (row.sitemap_status === "included") return "Sitemap included";
+  return "Sitemap excluded";
+}
+
+function intentStrengthLabel(row: SearchIntentAdmin) {
+  const s = (row.intent_strength || "").toLowerCase();
+  if (s === "strong") return "Strong";
+  if (s === "useful") return "Useful";
+  if (s === "weak") return "Weak";
+  return "—";
 }
 
 export default function SeoMarketAdminPage() {
@@ -147,7 +161,8 @@ export default function SeoMarketAdminPage() {
     if (seoSettingsQuery.data?.settings) {
       const s = seoSettingsQuery.data.settings;
       setSeoForm({
-        min_dimensions_for_index: s.min_dimensions_for_index ?? 2,
+        min_dimensions_for_index: s.min_dimensions_for_index ?? 3,
+        max_dimensions_for_index: s.max_dimensions_for_index ?? 5,
         min_quality_for_index: s.min_quality_for_index ?? 50,
         max_sitemap_urls: s.max_sitemap_urls ?? 100,
         require_min_intent: s.require_min_intent ?? false,
@@ -259,6 +274,7 @@ export default function SeoMarketAdminPage() {
     mutationFn: () =>
       adminService.updateSeoSettings({
         min_dimensions_for_index: seoForm!.min_dimensions_for_index,
+        max_dimensions_for_index: seoForm!.max_dimensions_for_index,
         min_quality_for_index: seoForm!.min_quality_for_index,
         max_sitemap_urls: seoForm!.max_sitemap_urls,
         require_min_intent: seoForm!.require_min_intent,
@@ -302,7 +318,8 @@ export default function SeoMarketAdminPage() {
       <div>
         <h2 className="text-xl font-semibold text-navy-800 dark:text-white">SEO &amp; Market Data</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Search-filter specificity is the primary SEO signal. Quality remains mandatory. Manual overrides are labeled.
+          Control which rental search pages are eligible, indexed, and included in the sitemap (hard URL cap).
+          Strong search intents are prioritized. Manual overrides are labeled.
         </p>
       </div>
 
@@ -321,10 +338,18 @@ export default function SeoMarketAdminPage() {
             className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50/80 dark:bg-navy-800/90 p-4 space-y-3"
           >
             <h3 className="font-semibold text-navy-800 dark:text-white">SEO controls</h3>
-            <p className="text-xs text-gray-500">
-              Filters: location, bedrooms, property type, budget, furnished, bathrooms, kitchen, parking, garden,
-              pool, compound.
-            </p>
+            <div className="text-xs text-gray-600 dark:text-gray-400 space-y-1 border rounded-lg px-3 py-2 bg-white/70 dark:bg-navy-900/50">
+              <p className="font-medium text-navy-800 dark:text-white">Search-intent rules</p>
+              <p>
+                <span className="font-medium">Strong:</span> neighborhood + bedrooms + type + budget, or + furnished
+              </p>
+              <p>
+                <span className="font-medium">Useful:</span> any valid combination with 3–5 parameters
+              </p>
+              <p>
+                <span className="font-medium">Weak:</span> fewer than 3, or more than 5 parameters
+              </p>
+            </div>
             {recalcLabel && (
               <p className="text-xs font-medium text-navy-800 dark:text-white border rounded-lg px-3 py-2 bg-gray-50 dark:bg-navy-900">
                 {recalcLabel}
@@ -339,15 +364,28 @@ export default function SeoMarketAdminPage() {
                 }}
               >
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium">Minimum meaningful search filters</span>
+                  <span className="text-xs font-medium">Minimum search filters</span>
                   <input
                     type="number"
                     min={1}
                     max={10}
-                    className="border rounded px-2 py-1.5 w-full text-sm"
+                    className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
                     value={seoForm.min_dimensions_for_index}
                     onChange={(e) =>
                       setSeoForm({ ...seoForm, min_dimensions_for_index: Number(e.target.value) })
+                    }
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium">Maximum search filters</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={12}
+                    className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
+                    value={seoForm.max_dimensions_for_index}
+                    onChange={(e) =>
+                      setSeoForm({ ...seoForm, max_dimensions_for_index: Number(e.target.value) })
                     }
                   />
                 </label>
@@ -357,7 +395,7 @@ export default function SeoMarketAdminPage() {
                     type="number"
                     min={0}
                     max={100}
-                    className="border rounded px-2 py-1.5 w-full text-sm"
+                    className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
                     value={seoForm.min_quality_for_index}
                     onChange={(e) =>
                       setSeoForm({ ...seoForm, min_quality_for_index: Number(e.target.value) })
@@ -365,7 +403,7 @@ export default function SeoMarketAdminPage() {
                   />
                 </label>
                 <label className="block space-y-1">
-                  <span className="text-xs font-medium">Maximum rental sitemap URLs</span>
+                  <span className="text-xs font-medium">Maximum indexed / sitemap URLs</span>
                   <input
                     type="number"
                     min={1}
@@ -374,6 +412,10 @@ export default function SeoMarketAdminPage() {
                     value={seoForm.max_sitemap_urls}
                     onChange={(e) => setSeoForm({ ...seoForm, max_sitemap_urls: Number(e.target.value) })}
                   />
+                  <span className="text-[11px] text-gray-500">
+                    Hard global cap. After Save &amp; Recalculate, only the top ranked eligible pages stay in the
+                    sitemap.
+                  </span>
                 </label>
 
                 <div className="border-t border-gray-200 dark:border-navy-700 pt-3 space-y-2">
@@ -625,7 +667,7 @@ export default function SeoMarketAdminPage() {
               >
                 <option value="all">All</option>
                 <option value="eligible">Eligible</option>
-                <option value="under">Under eligibility</option>
+                <option value="under">Not eligible</option>
               </select>
             </label>
             <label className="flex items-center gap-2">
@@ -706,10 +748,11 @@ export default function SeoMarketAdminPage() {
                   <th className="p-3 w-8" />
                   <th className="p-3">Page</th>
                   <th className="p-3">Filters</th>
+                  <th className="p-3">Intent</th>
                   <th className="p-3">Properties</th>
                   <th className="p-3">Quality</th>
-                  <th className="p-3">Intent</th>
                   <th className="p-3">Eligibility</th>
+                  <th className="p-3">Index</th>
                   <th className="p-3">Sitemap</th>
                   <th className="p-3">Actions</th>
                 </tr>
@@ -717,7 +760,7 @@ export default function SeoMarketAdminPage() {
               <tbody>
                 {searchQuery.isLoading && (
                   <tr>
-                    <td colSpan={9} className="p-6 text-gray-500">
+                    <td colSpan={10} className="p-6 text-gray-500">
                       Loading…
                     </td>
                   </tr>
@@ -743,7 +786,6 @@ export default function SeoMarketAdminPage() {
                         {pageName(row)}
                       </Link>
                       <p className="text-[11px] text-gray-500 mt-0.5 break-all">{row.path}</p>
-                      <p className="text-[11px] mt-0.5">{indexLabel(row)}</p>
                       {(row.seo_control === "manual" || row.locked_by_admin) && (
                         <span className="text-[11px] text-amber-700 font-medium">Manual override</span>
                       )}
@@ -752,14 +794,15 @@ export default function SeoMarketAdminPage() {
                       <span className="font-medium">{row.filter_count ?? "—"}</span>
                       <p className="mt-0.5 leading-snug text-gray-600">{row.filters_label || "—"}</p>
                     </td>
+                    <td className="p-3 text-xs">
+                      <span className="font-medium">{intentStrengthLabel(row)}</span>
+                      <p className="text-gray-500">{row.intent_score != null ? Math.round(row.intent_score) : "—"}</p>
+                    </td>
                     <td className="p-3">{row.match_count}</td>
                     <td className="p-3">{Math.round(row.quality_score)}%</td>
-                    <td className="p-3">{row.intent_score != null ? Math.round(row.intent_score) : "—"}</td>
                     <td className="p-3 text-xs">{eligibilityLabel(row)}</td>
-                    <td className="p-3 text-xs">
-                      {row.sitemap_status === "included" ? "Included" : "Excluded"}
-                      {row.index_status !== "indexable" && row.sitemap_status !== "included" ? " (not indexable)" : ""}
-                    </td>
+                    <td className="p-3 text-xs">{indexLabel(row)}</td>
+                    <td className="p-3 text-xs">{sitemapLabel(row)}</td>
                     <td className="p-3 space-x-2 whitespace-nowrap text-xs">
                       {row.index_status !== "indexable" && (
                         <button type="button" className="underline" onClick={() => publish.mutate(row.id)}>
@@ -789,7 +832,7 @@ export default function SeoMarketAdminPage() {
                 ))}
                 {!searchQuery.isLoading && !searchItems.length && (
                   <tr>
-                    <td colSpan={9} className="p-6 text-gray-500">
+                    <td colSpan={10} className="p-6 text-gray-500">
                       No pages match.
                     </td>
                   </tr>

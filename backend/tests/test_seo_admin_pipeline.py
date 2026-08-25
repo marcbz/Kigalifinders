@@ -66,7 +66,7 @@ def test_manual_noindex_forces_sitemap_excluded():
     assert intent.sitemap_status == "excluded"
 
 
-def test_sitemap_priority_prefers_more_filters():
+def test_sitemap_priority_prefers_strong_intent():
     weak = _intent(query={"location": "kigali", "property_type": "apartment"}, quality_score=99)
     strong = _intent(
         query={"location": "kigali", "bedrooms": 2, "property_type": "apartment", "max_price_usd": 1200},

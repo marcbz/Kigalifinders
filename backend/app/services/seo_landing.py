@@ -17,7 +17,11 @@ from app.models import (
 )
 from app.services.intent_config import IntentAutomationConfig
 from app.services.intent_copy import normalize_query
-from app.services.seo_attributes import count_seo_dimensions, query_has_blocked_seo_attributes
+from app.services.seo_attributes import (
+    classify_search_intent_strength,
+    count_seo_dimensions,
+    query_has_blocked_seo_attributes,
+)
 
 
 def _now() -> datetime:
@@ -47,30 +51,72 @@ def is_manual_override(intent: SearchIntent) -> bool:
 
 
 def compute_intent_score(intent: SearchIntent) -> float:
-    """Intent strength from filter specificity (primary) and opportunity (secondary)."""
-    q = normalize_query(intent.query or {})
-    dims = count_seo_dimensions(q)
-    opp = float(intent.opportunity_score or 0)
-    return round(dims * 15 + min(opp, 100) * 0.35, 1)
+    """Intent strength score for optional gate + admin display.
 
-
-def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) -> dict[str, Any]:
-    """Eligibility: PRIMARY = meaningful search-filter count, then quality.
-
-    Matching properties are an optional secondary safety check only.
-    Opportunity / observations remain ranking signals for sitemap selection.
+    Strong patterns score highest; useful (3–5 filters) mid; weak low.
+    Opportunity is a light secondary signal only.
     """
     q = normalize_query(intent.query or {})
     dims = count_seo_dimensions(q)
+    label, _tier = classify_search_intent_strength(q)
+    opp = float(intent.opportunity_score or 0)
+    if label == "strong":
+        base = 75.0
+    elif label == "useful":
+        base = 45.0
+    else:
+        base = 10.0
+    return round(base + dims * 4 + min(opp, 100) * 0.2, 1)
+
+
+def content_uniqueness_score(intent: SearchIntent) -> int:
+    """Cheap uniqueness proxy from existing page fields (no crawler)."""
+    intro = (intent.intro_html or "").strip()
+    meta = (intent.meta_description or "").strip()
+    title = (intent.h1 or intent.title or "").strip()
+    score = 0
+    if title:
+        score += min(len(title), 120)
+    if meta:
+        score += min(len(meta), 200)
+    if intro:
+        score += min(len(intro), 800)
+    return score
+
+
+def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) -> dict[str, Any]:
+    """Eligibility: PRIMARY = meaningful search-filter count range, then quality.
+
+    Matching properties are an optional secondary safety check only.
+    Intent strength / observations remain ranking signals for sitemap selection.
+    """
+    q = normalize_query(intent.query or {})
+    dims = count_seo_dimensions(q)
+    strength_label, strength_tier = classify_search_intent_strength(q)
     blocked = query_has_blocked_seo_attributes(intent.query or {})
     checks: list[dict[str, Any]] = []
 
-    # PRIMARY criterion
+    # PRIMARY criterion — minimum filters
     checks.append(
         {
             "label": f"Minimum search filters ({cfg.min_dimensions_for_index})",
             "passed": dims >= cfg.min_dimensions_for_index,
             "detail": f"{dims} meaningful filter{'s' if dims != 1 else ''}",
+            "hard": True,
+            "primary": True,
+        }
+    )
+
+    # PRIMARY criterion — maximum filters (over-specific = weak)
+    checks.append(
+        {
+            "label": f"Maximum search filters ({cfg.max_dimensions_for_index})",
+            "passed": dims <= cfg.max_dimensions_for_index,
+            "detail": (
+                f"{dims} filters (within range)"
+                if dims <= cfg.max_dimensions_for_index
+                else f"{dims} filters — over-specific / weak"
+            ),
             "hard": True,
             "primary": True,
         }
@@ -82,6 +128,15 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
             "passed": float(intent.quality_score or 0) >= cfg.min_quality_for_index,
             "detail": f"Quality {float(intent.quality_score or 0):.0f}%",
             "hard": True,
+        }
+    )
+
+    checks.append(
+        {
+            "label": "Search intent strength",
+            "passed": True,
+            "detail": f"{strength_label} ({dims} filters)",
+            "hard": False,
         }
     )
 
@@ -181,6 +236,8 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
         "filter_count": dims,
         "failed_count": len(failed),
         "intent_score": intent_score,
+        "intent_strength": strength_label,
+        "intent_strength_tier": strength_tier,
         "summary": (
             "Eligible for SEO indexing"
             if eligible
@@ -258,31 +315,30 @@ def apply_automatic_statuses(intent: SearchIntent, cfg: IntentAutomationConfig) 
 def sitemap_priority_key(intent: SearchIntent) -> tuple:
     """Higher tuple = stronger sitemap candidate.
 
-    Order: more meaningful search filters → quality → opportunity →
-    supporting data completeness → matching properties → freshness.
+    Order: search-intent strength → matching listings/data → quality →
+    freshness → content uniqueness.
     """
     q = normalize_query(intent.query or {})
-    dims = count_seo_dimensions(q)
-    completeness = dims
-    if (intent.intro_html or "").strip():
-        completeness += 2
-    if (intent.meta_description or "").strip():
-        completeness += 1
-    completeness += min(int(intent.matching_observation_count or 0), 10)
+    _label, strength_tier = classify_search_intent_strength(q)
+    matching_data = int(intent.match_count or 0) * 100 + min(int(intent.matching_observation_count or 0), 50)
     ts = intent.last_calculated_at or intent.last_evaluated_at or intent.updated_at or intent.last_built_at
     freshness = float(ts.timestamp()) if ts is not None else 0.0
     return (
-        dims,
+        strength_tier,
+        matching_data,
         float(intent.quality_score or 0),
-        float(intent.opportunity_score or 0),
-        completeness,
-        int(intent.match_count or 0),
         freshness,
+        content_uniqueness_score(intent),
     )
 
 
 def apply_sitemap_cap(intents: list[SearchIntent], cfg: IntentAutomationConfig) -> dict[str, int]:
-    """Keep at most max_sitemap_urls search pages included (manual includes reserved first)."""
+    """Hard global cap: keep at most max_sitemap_urls search pages included.
+
+    Eligible indexable pages beyond the cap stay indexable internally but are
+    excluded from the sitemap. Manual includes consume cap slots first; if
+    manuals exceed the cap, weakest manuals are dropped too.
+    """
     included = 0
     excluded = 0
 
@@ -501,6 +557,7 @@ def enrich_intent_admin_row(intent: SearchIntent) -> dict[str, Any]:
     q = intent.query or {}
     filters = key_attributes_from_query(q)
     dims = count_seo_dimensions(normalize_query(q))
+    strength_label, strength_tier = classify_search_intent_strength(normalize_query(q))
     intent_score = compute_intent_score(intent)
     return {
         "filter_count": dims,
@@ -508,6 +565,8 @@ def enrich_intent_admin_row(intent: SearchIntent) -> dict[str, Any]:
         "filters": filters,
         "dimensions": dims,
         "intent_score": intent_score,
+        "intent_strength": strength_label,
+        "intent_strength_tier": strength_tier,
     }
 
 

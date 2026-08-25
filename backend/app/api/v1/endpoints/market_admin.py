@@ -51,6 +51,7 @@ class BulkIntentPayload(BaseModel):
 
 class SeoSettingsUpdate(BaseModel):
     min_dimensions_for_index: Optional[int] = None
+    max_dimensions_for_index: Optional[int] = None
     min_verified_for_index: Optional[int] = None
     min_quality_for_index: Optional[float] = None
     max_sitemap_urls: Optional[int] = None

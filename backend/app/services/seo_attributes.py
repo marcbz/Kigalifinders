@@ -74,25 +74,76 @@ def sanitize_seo_amenities(amenities: list[Any] | None) -> tuple[list[str], list
     return sorted(set(allowed)), sorted(set(blocked))
 
 
+def query_seo_facets(query: dict[str, Any]) -> dict[str, Any]:
+    """Which meaningful SEO facets are present on a search query."""
+    allowed, _ = sanitize_seo_amenities(query.get("amenities") or [])
+    return {
+        "location": bool(query.get("location") or query.get("location_slug")),
+        "property_type": bool(query.get("property_type") or query.get("property_type_slug")),
+        "bedrooms": query.get("bedrooms") is not None,
+        "bathrooms": query.get("bathrooms") is not None,
+        "furnished": query.get("furnished") is not None or query.get("is_furnished") is not None,
+        "budget": query.get("max_price_usd") is not None or query.get("min_price_usd") is not None,
+        "amenities": len(allowed) > 0,
+        "amenity_count": len(allowed),
+    }
+
+
 def count_seo_dimensions(query: dict[str, Any]) -> int:
     """Count meaningful search filters. Location counts as 1 when present."""
+    facets = query_seo_facets(query)
     dims = 0
-    if query.get("location") or query.get("location_slug"):
+    if facets["location"]:
         dims += 1
-    if query.get("property_type") or query.get("property_type_slug"):
+    if facets["property_type"]:
         dims += 1
-    if query.get("bedrooms") is not None:
+    if facets["bedrooms"]:
         dims += 1
-    if query.get("bathrooms") is not None:
+    if facets["bathrooms"]:
         dims += 1
-    if query.get("furnished") is not None or query.get("is_furnished") is not None:
+    if facets["furnished"]:
         dims += 1
-    allowed, _ = sanitize_seo_amenities(query.get("amenities") or [])
-    dims += len(allowed)
-    # Price band is meaningful search intent (counts as one filter max)
-    if query.get("max_price_usd") is not None or query.get("min_price_usd") is not None:
+    dims += int(facets["amenity_count"])
+    if facets["budget"]:
         dims += 1
     return dims
+
+
+# Intent strength tiers used for sitemap ranking (higher = stronger).
+INTENT_STRENGTH_STRONG = 3
+INTENT_STRENGTH_USEFUL = 2
+INTENT_STRENGTH_WEAK = 0
+
+INTENT_STRENGTH_LABELS = {
+    INTENT_STRENGTH_STRONG: "strong",
+    INTENT_STRENGTH_USEFUL: "useful",
+    INTENT_STRENGTH_WEAK: "weak",
+}
+
+
+def is_strong_search_intent(query: dict[str, Any]) -> bool:
+    """Strong: Neighborhood + Bedrooms + Property Type + (Budget OR Furnished)."""
+    f = query_seo_facets(query)
+    if not (f["location"] and f["bedrooms"] and f["property_type"]):
+        return False
+    return bool(f["budget"] or f["furnished"])
+
+
+def classify_search_intent_strength(query: dict[str, Any]) -> tuple[str, int]:
+    """Classify rental search intent as strong / useful / weak.
+
+    Strong — prioritize:
+      Neighborhood + Bedrooms + Property Type + Budget
+      Neighborhood + Bedrooms + Property Type + Furnished/Unfurnished
+    Potentially useful: any valid combination with 3–5 parameters (not strong).
+    Weak: fewer than 3 or more than 5 parameters.
+    """
+    dims = count_seo_dimensions(query)
+    if dims < 3 or dims > 5:
+        return "weak", INTENT_STRENGTH_WEAK
+    if is_strong_search_intent(query):
+        return "strong", INTENT_STRENGTH_STRONG
+    return "useful", INTENT_STRENGTH_USEFUL
 
 
 def query_has_blocked_seo_attributes(query: dict[str, Any]) -> list[str]:

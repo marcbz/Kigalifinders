@@ -16,7 +16,8 @@ SETTINGS_KEY = "search_intent_thresholds"
 @dataclass
 class IntentAutomationConfig:
     # Primary SEO gate: meaningful search-filter count (admin: "Minimum search filters")
-    min_dimensions_for_index: int = 2
+    min_dimensions_for_index: int = 3
+    max_dimensions_for_index: int = 5  # >5 filters = weak / thin combos
     min_quality_for_index: float = 50.0
     max_sitemap_urls: int = 100
     # Optional eligibility criteria (disabled by default — enable in admin when needed)
@@ -49,6 +50,7 @@ DEFAULT_CONFIG = IntentAutomationConfig()
 
 SEO_SETTING_FIELDS = (
     "min_dimensions_for_index",
+    "max_dimensions_for_index",
     "min_quality_for_index",
     "max_sitemap_urls",
     "require_min_intent",
@@ -61,15 +63,20 @@ SEO_SETTING_FIELDS = (
 
 SEO_SETTING_HELP = {
     "min_dimensions_for_index": (
-        "PRIMARY: Minimum meaningful search filters required for eligibility. "
-        "Each of location, bedrooms, property type, budget, furnished, bathrooms, "
-        "and allowed amenities counts as one filter."
+        "Minimum meaningful search filters for eligibility. "
+        "Strong intents (neighborhood + bedrooms + type + budget/furnished) are prioritized. "
+        "Fewer than this count is weak."
+    ),
+    "max_dimensions_for_index": (
+        "Maximum meaningful search filters for eligibility. "
+        "Combinations above this are treated as weak/over-specific and excluded automatically."
     ),
     "min_quality_for_index": (
         "Minimum quality score (0–100) required for automatic eligibility."
     ),
     "max_sitemap_urls": (
-        "Maximum search URLs included in sitemap-rentals.xml (default 100)."
+        "Hard global cap: maximum rental search URLs in sitemap-rentals.xml (default 100). "
+        "Only the top ranked eligible pages are included."
     ),
     "require_min_intent": (
         "When enabled, pages must meet the minimum Intent score to be automatically eligible."
@@ -87,7 +94,8 @@ SEO_SETTING_HELP = {
         "When on, eligible pages may automatically become indexable."
     ),
     "allow_sitemap_inclusion": (
-        "When on, the strongest eligible rental landings are added to the XML sitemap."
+        "When on, the strongest eligible rental landings are added to the XML sitemap "
+        "(still subject to the maximum URL cap)."
     ),
 }
 
@@ -131,6 +139,7 @@ async def save_automation_config(
             merged["bathroom_levels"] = tuple(float(x) for x in merged["bathroom_levels"])
         cfg = IntentAutomationConfig(**{k: merged[k] for k in base.keys()})
     cfg.min_dimensions_for_index = max(1, min(10, int(cfg.min_dimensions_for_index)))
+    cfg.max_dimensions_for_index = max(cfg.min_dimensions_for_index, min(12, int(cfg.max_dimensions_for_index)))
     cfg.min_verified_for_index = max(0, min(100, int(cfg.min_verified_for_index)))
     cfg.min_intent_for_index = max(0.0, min(200.0, float(cfg.min_intent_for_index)))
     cfg.min_unique_content_chars = max(0, min(2000, int(cfg.min_unique_content_chars)))
@@ -163,6 +172,7 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
         "primary_criterion": "search_filters",
         "labels": {
             "min_dimensions_for_index": "Minimum search filters",
+            "max_dimensions_for_index": "Maximum search filters",
             "min_quality_for_index": "Minimum quality score",
             "max_sitemap_urls": "Maximum rental sitemap URLs",
             "require_min_intent": "Require minimum Intent",
@@ -181,9 +191,18 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
             "compound",
         ],
         "removed_attributes": ["internet", "staff quarters", "security", "balcony"],
+        "search_intent_rules": {
+            "strong": [
+                "Neighborhood + Bedrooms + Property Type + Budget",
+                "Neighborhood + Bedrooms + Property Type + Furnished/Unfurnished",
+            ],
+            "useful": "Any valid combination with 3–5 parameters",
+            "weak": "Fewer than 3 parameters, or more than 5 parameters",
+        },
         "notes": (
-            "PRIMARY eligibility: meaningful search-filter count plus minimum quality. "
-            "Intent and Properties are optional — enable only when needed. "
-            "Manual overrides remain possible and are labeled."
+            "Eligibility uses minimum/maximum search filters plus quality. "
+            "Sitemap includes at most the configured maximum URLs, ranked by "
+            "search-intent strength, matching listings, quality, freshness, then uniqueness. "
+            "Intent and Properties remain optional gates. Manual overrides are labeled."
         ),
     }
