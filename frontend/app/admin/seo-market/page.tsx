@@ -19,7 +19,14 @@ type SeoControls = {
   min_dimensions_for_index: number;
   min_quality_for_index: number;
   max_sitemap_urls: number;
+  require_min_intent: boolean;
+  min_intent_for_index: number;
+  require_min_properties: boolean;
+  min_verified_for_index: number;
 };
+
+type EligibilityFilter = "all" | "eligible" | "under";
+type IndexFilter = "all" | "indexable" | "noindex";
 
 type ObservationRow = {
   id: string;
@@ -100,6 +107,8 @@ export default function SeoMarketAdminPage() {
   const [obsPage, setObsPage] = useState(1);
   const [obsStatus, setObsStatus] = useState("");
   const [obsSource, setObsSource] = useState("");
+  const [eligibilityFilter, setEligibilityFilter] = useState<EligibilityFilter>("all");
+  const [indexFilter, setIndexFilter] = useState<IndexFilter>("all");
 
   const sortParams = useMemo(() => {
     if (sort === "filters_desc") return { sort_by: "filter_count", sort_dir: "desc" as const };
@@ -112,12 +121,19 @@ export default function SeoMarketAdminPage() {
   }, [sort]);
 
   const searchQuery = useQuery({
-    queryKey: ["admin-search-intents", search, sort, searchPage],
+    queryKey: ["admin-search-intents", search, sort, searchPage, eligibilityFilter, indexFilter],
     queryFn: () =>
       adminService.searchIntents({
         search: search || undefined,
         page: searchPage,
         page_size: 40,
+        automatic_eligibility:
+          eligibilityFilter === "eligible"
+            ? "eligible"
+            : eligibilityFilter === "under"
+              ? "excluded"
+              : undefined,
+        index_status: indexFilter === "all" ? undefined : indexFilter,
         ...sortParams,
       }) as Promise<SearchIntentListResponse>,
   });
@@ -134,6 +150,10 @@ export default function SeoMarketAdminPage() {
         min_dimensions_for_index: s.min_dimensions_for_index ?? 2,
         min_quality_for_index: s.min_quality_for_index ?? 50,
         max_sitemap_urls: s.max_sitemap_urls ?? 100,
+        require_min_intent: s.require_min_intent ?? false,
+        min_intent_for_index: s.min_intent_for_index ?? 30,
+        require_min_properties: s.require_min_properties ?? false,
+        min_verified_for_index: s.min_verified_for_index ?? 1,
       });
     }
     const summary = seoSettingsQuery.data?.summary;
@@ -241,6 +261,10 @@ export default function SeoMarketAdminPage() {
         min_dimensions_for_index: seoForm!.min_dimensions_for_index,
         min_quality_for_index: seoForm!.min_quality_for_index,
         max_sitemap_urls: seoForm!.max_sitemap_urls,
+        require_min_intent: seoForm!.require_min_intent,
+        min_intent_for_index: seoForm!.min_intent_for_index,
+        require_min_properties: seoForm!.require_min_properties,
+        min_verified_for_index: seoForm!.min_verified_for_index,
       }),
     onSuccess: (res: { summary?: { recalc_label?: string } }) => {
       applySummary(res);
@@ -291,8 +315,11 @@ export default function SeoMarketAdminPage() {
 
       <div className="grid lg:grid-cols-[320px_1fr] gap-6 items-start">
         {/* LEFT */}
-        <aside className="space-y-4 sticky top-4">
-          <div id="seo-controls" className="border rounded-xl p-4 bg-white dark:bg-navy-800 space-y-3">
+        <aside className="space-y-5 sticky top-4">
+          <div
+            id="seo-controls"
+            className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50/80 dark:bg-navy-800/90 p-4 space-y-3"
+          >
             <h3 className="font-semibold text-navy-800 dark:text-white">SEO controls</h3>
             <p className="text-xs text-gray-500">
               Filters: location, bedrooms, property type, budget, furnished, bathrooms, kitchen, parking, garden,
@@ -343,11 +370,58 @@ export default function SeoMarketAdminPage() {
                     type="number"
                     min={1}
                     max={5000}
-                    className="border rounded px-2 py-1.5 w-full text-sm"
+                    className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
                     value={seoForm.max_sitemap_urls}
                     onChange={(e) => setSeoForm({ ...seoForm, max_sitemap_urls: Number(e.target.value) })}
                   />
                 </label>
+
+                <div className="border-t border-gray-200 dark:border-navy-700 pt-3 space-y-2">
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={seoForm.require_min_intent}
+                      onChange={(e) => setSeoForm({ ...seoForm, require_min_intent: e.target.checked })}
+                    />
+                    <span className="font-medium">Require minimum Intent (optional)</span>
+                  </label>
+                  {seoForm.require_min_intent && (
+                    <input
+                      type="number"
+                      min={0}
+                      max={200}
+                      className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
+                      value={seoForm.min_intent_for_index}
+                      onChange={(e) =>
+                        setSeoForm({ ...seoForm, min_intent_for_index: Number(e.target.value) })
+                      }
+                    />
+                  )}
+                </div>
+
+                <div className="border-t border-gray-200 dark:border-navy-700 pt-3 space-y-2">
+                  <label className="flex items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={seoForm.require_min_properties}
+                      onChange={(e) => setSeoForm({ ...seoForm, require_min_properties: e.target.checked })}
+                    />
+                    <span className="font-medium">Require minimum Properties (optional)</span>
+                  </label>
+                  {seoForm.require_min_properties && (
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      className="border rounded px-2 py-1.5 w-full text-sm bg-white dark:bg-navy-900"
+                      value={seoForm.min_verified_for_index}
+                      onChange={(e) =>
+                        setSeoForm({ ...seoForm, min_verified_for_index: Number(e.target.value) })
+                      }
+                    />
+                  )}
+                </div>
+
                 <button
                   type="submit"
                   className="w-full px-3 py-2 text-sm rounded-lg bg-navy-800 text-white"
@@ -359,7 +433,7 @@ export default function SeoMarketAdminPage() {
             )}
           </div>
 
-          <div className="border rounded-xl p-4 bg-white dark:bg-navy-800 space-y-3">
+          <div className="rounded-xl border border-gray-200 dark:border-navy-700 bg-gray-50/80 dark:bg-navy-800/90 p-4 space-y-3">
             <h3 className="font-semibold text-navy-800 dark:text-white">External market data</h3>
             <dl className="grid grid-cols-2 gap-2 text-xs">
               <div>
@@ -500,7 +574,7 @@ export default function SeoMarketAdminPage() {
         </aside>
 
         {/* RIGHT */}
-        <section className="space-y-3 min-w-0">
+        <section className="space-y-3 min-w-0 rounded-xl border border-gray-200 dark:border-navy-700 bg-white dark:bg-navy-800 p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Search pages</h3>
             <button
@@ -536,6 +610,39 @@ export default function SeoMarketAdminPage() {
               <option value="filters_desc">Most filters</option>
               <option value="filters_asc">Fewest filters</option>
             </select>
+          </div>
+
+          <div className="flex flex-wrap gap-3 items-center text-sm">
+            <label className="flex items-center gap-2">
+              <span className="text-gray-500">Eligibility</span>
+              <select
+                className="border rounded-lg px-2 py-1.5 text-sm"
+                value={eligibilityFilter}
+                onChange={(e) => {
+                  setEligibilityFilter(e.target.value as EligibilityFilter);
+                  setSearchPage(1);
+                }}
+              >
+                <option value="all">All</option>
+                <option value="eligible">Eligible</option>
+                <option value="under">Under eligibility</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <span className="text-gray-500">Index</span>
+              <select
+                className="border rounded-lg px-2 py-1.5 text-sm"
+                value={indexFilter}
+                onChange={(e) => {
+                  setIndexFilter(e.target.value as IndexFilter);
+                  setSearchPage(1);
+                }}
+              >
+                <option value="all">All</option>
+                <option value="indexable">Index</option>
+                <option value="noindex">NoIndex</option>
+              </select>
+            </label>
           </div>
 
           <div className="flex flex-wrap gap-3 text-sm">

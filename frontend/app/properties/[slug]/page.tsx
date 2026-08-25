@@ -106,11 +106,6 @@ export default async function PropertyDetailPage({ params }: Props) {
               {property.availability_note || "This property is no longer verified as available."} Similar available listings are recommended below.
             </p>
           )}
-          {property.last_verified_at && property.is_available !== false && (
-            <p className="text-sm text-gray-300 mb-2">
-              Last verified {new Date(property.last_verified_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
-            </p>
-          )}
           <div className="flex items-center gap-2 text-gray-200">
             <MapPin className="w-4 h-4 text-gold-500" />
             {property.address || `${property.neighborhood_name || ""}${property.district_name ? `, ${property.district_name}` : ""}`}

@@ -63,9 +63,10 @@ def test_strong_filters_pass_with_quality():
     assert evaluate_automatic_eligibility(intent, cfg) == "eligible"
 
 
-def test_property_safety_optional_when_zero():
+def test_property_safety_optional_when_disabled():
     cfg = IntentAutomationConfig(
-        min_verified_for_index=0,
+        require_min_properties=False,
+        min_verified_for_index=5,
         min_dimensions_for_index=2,
         min_quality_for_index=50.0,
     )
@@ -74,8 +75,9 @@ def test_property_safety_optional_when_zero():
     assert details["eligible"] is True
 
 
-def test_property_safety_blocks_when_configured():
+def test_property_safety_blocks_when_enabled():
     cfg = IntentAutomationConfig(
+        require_min_properties=True,
         min_verified_for_index=5,
         min_dimensions_for_index=2,
         min_quality_for_index=50.0,
@@ -85,6 +87,31 @@ def test_property_safety_blocks_when_configured():
     assert details["eligible"] is False
     failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
     assert any("propert" in c["label"].lower() for c in failed)
+
+
+def test_intent_optional_when_disabled():
+    cfg = IntentAutomationConfig(
+        require_min_intent=False,
+        min_intent_for_index=100.0,
+        min_dimensions_for_index=2,
+        min_quality_for_index=50.0,
+    )
+    intent = _intent(opportunity_score=5.0, query={"location": "kigali", "furnished": True})
+    assert build_eligibility_checks(intent, cfg)["eligible"] is True
+
+
+def test_intent_blocks_when_enabled():
+    cfg = IntentAutomationConfig(
+        require_min_intent=True,
+        min_intent_for_index=80.0,
+        min_dimensions_for_index=2,
+        min_quality_for_index=50.0,
+    )
+    intent = _intent(opportunity_score=5.0, query={"location": "kigali", "furnished": True})
+    details = build_eligibility_checks(intent, cfg)
+    assert details["eligible"] is False
+    failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
+    assert any("intent" in c["label"].lower() for c in failed)
 
 
 def test_sitemap_cap_prioritizes_more_filters():

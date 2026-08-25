@@ -54,6 +54,9 @@ class SeoSettingsUpdate(BaseModel):
     min_verified_for_index: Optional[int] = None
     min_quality_for_index: Optional[float] = None
     max_sitemap_urls: Optional[int] = None
+    require_min_intent: Optional[bool] = None
+    min_intent_for_index: Optional[float] = None
+    require_min_properties: Optional[bool] = None
     allow_auto_index: Optional[bool] = None
     allow_sitemap_inclusion: Optional[bool] = None
 

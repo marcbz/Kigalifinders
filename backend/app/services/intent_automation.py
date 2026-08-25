@@ -612,8 +612,14 @@ def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConf
         return f"Below search-filter threshold ({dims} < {cfg.min_dimensions_for_index})"
     if float(intent.quality_score or 0) < cfg.min_quality_for_index:
         return f"Below quality threshold ({float(intent.quality_score or 0):.0f} < {cfg.min_quality_for_index:.0f})"
-    if cfg.min_verified_for_index > 0 and intent.match_count < cfg.min_verified_for_index:
-        return f"Below property safety threshold ({intent.match_count} < {cfg.min_verified_for_index})"
+    if cfg.require_min_intent:
+        from app.services.seo_landing import compute_intent_score
+
+        score = compute_intent_score(intent)
+        if score < cfg.min_intent_for_index:
+            return f"Below Intent threshold ({score:.0f} < {cfg.min_intent_for_index:.0f})"
+    if cfg.require_min_properties and intent.match_count < cfg.min_verified_for_index:
+        return f"Below properties threshold ({intent.match_count} < {cfg.min_verified_for_index})"
     if intent.status_reason and "duplicate" in (intent.status_reason or "").lower():
         return intent.status_reason
     if intent.index_status == SearchIndexStatus.NOINDEX.value:

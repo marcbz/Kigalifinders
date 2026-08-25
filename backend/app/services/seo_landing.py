@@ -46,6 +46,14 @@ def is_manual_override(intent: SearchIntent) -> bool:
     return intent.seo_control == SeoControl.MANUAL.value or bool(intent.locked_by_admin)
 
 
+def compute_intent_score(intent: SearchIntent) -> float:
+    """Intent strength from filter specificity (primary) and opportunity (secondary)."""
+    q = normalize_query(intent.query or {})
+    dims = count_seo_dimensions(q)
+    opp = float(intent.opportunity_score or 0)
+    return round(dims * 15 + min(opp, 100) * 0.35, 1)
+
+
 def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) -> dict[str, Any]:
     """Eligibility: PRIMARY = meaningful search-filter count, then quality.
 
@@ -77,25 +85,48 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
         }
     )
 
-    # Optional secondary safety (0 = disabled)
-    if cfg.min_verified_for_index > 0:
+    # Optional: minimum Intent score
+    intent_score = compute_intent_score(intent)
+    if cfg.require_min_intent:
         checks.append(
             {
-                "label": f"Matching properties safety ({cfg.min_verified_for_index})",
-                "passed": intent.match_count >= cfg.min_verified_for_index,
-                "detail": f"{intent.match_count} matching propert{'y' if intent.match_count == 1 else 'ies'}",
+                "label": f"Minimum Intent ({cfg.min_intent_for_index:.0f})",
+                "passed": intent_score >= cfg.min_intent_for_index,
+                "detail": f"Intent {intent_score:.0f}",
                 "hard": True,
-                "secondary": True,
+                "optional": True,
             }
         )
     else:
         checks.append(
             {
-                "label": "Matching properties safety",
+                "label": "Minimum Intent",
                 "passed": True,
-                "detail": "Disabled (optional)",
+                "detail": f"Intent {intent_score:.0f} (optional — disabled)",
                 "hard": False,
-                "secondary": True,
+                "optional": True,
+            }
+        )
+
+    # Optional: minimum matching properties
+    if cfg.require_min_properties:
+        checks.append(
+            {
+                "label": f"Minimum properties ({cfg.min_verified_for_index})",
+                "passed": intent.match_count >= cfg.min_verified_for_index,
+                "detail": f"{intent.match_count} matching propert{'y' if intent.match_count == 1 else 'ies'}",
+                "hard": True,
+                "optional": True,
+            }
+        )
+    else:
+        checks.append(
+            {
+                "label": "Minimum properties",
+                "passed": True,
+                "detail": f"{intent.match_count} matching (optional — disabled)",
+                "hard": False,
+                "optional": True,
             }
         )
 
@@ -149,6 +180,7 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
         "dimensions": dims,
         "filter_count": dims,
         "failed_count": len(failed),
+        "intent_score": intent_score,
         "summary": (
             "Eligible for SEO indexing"
             if eligible
@@ -469,9 +501,7 @@ def enrich_intent_admin_row(intent: SearchIntent) -> dict[str, Any]:
     q = intent.query or {}
     filters = key_attributes_from_query(q)
     dims = count_seo_dimensions(normalize_query(q))
-    opp = float(intent.opportunity_score or 0)
-    # Intent strength: filter specificity (primary) blended with opportunity (secondary)
-    intent_score = round(dims * 15 + min(opp, 100) * 0.35, 1)
+    intent_score = compute_intent_score(intent)
     return {
         "filter_count": dims,
         "filters_label": filters_label_from_query(q) or "—",

@@ -17,10 +17,13 @@ SETTINGS_KEY = "search_intent_thresholds"
 class IntentAutomationConfig:
     # Primary SEO gate: meaningful search-filter count (admin: "Minimum search filters")
     min_dimensions_for_index: int = 2
-    # Secondary safety only — not the primary SEO criterion (0 = disabled)
-    min_verified_for_index: int = 1
     min_quality_for_index: float = 50.0
     max_sitemap_urls: int = 100
+    # Optional eligibility criteria (disabled by default — enable in admin when needed)
+    require_min_intent: bool = False
+    min_intent_for_index: float = 30.0
+    require_min_properties: bool = False
+    min_verified_for_index: int = 1
     allow_auto_index: bool = True
     allow_sitemap_inclusion: bool = True
     require_unique_content: bool = True
@@ -48,6 +51,9 @@ SEO_SETTING_FIELDS = (
     "min_dimensions_for_index",
     "min_quality_for_index",
     "max_sitemap_urls",
+    "require_min_intent",
+    "min_intent_for_index",
+    "require_min_properties",
     "min_verified_for_index",
     "allow_auto_index",
     "allow_sitemap_inclusion",
@@ -57,27 +63,31 @@ SEO_SETTING_HELP = {
     "min_dimensions_for_index": (
         "PRIMARY: Minimum meaningful search filters required for eligibility. "
         "Each of location, bedrooms, property type, budget, furnished, bathrooms, "
-        "and allowed amenities counts as one filter. "
-        "Example: Kigali + 2 bedrooms + Apartment + Under $1,200 = 4 filters."
+        "and allowed amenities counts as one filter."
     ),
     "min_quality_for_index": (
         "Minimum quality score (0–100) required for automatic eligibility."
     ),
     "max_sitemap_urls": (
-        "Maximum search URLs included in sitemap-rentals.xml (default 100). "
-        "Pages with more filters, higher quality, and stronger opportunity are kept first."
+        "Maximum search URLs included in sitemap-rentals.xml (default 100)."
+    ),
+    "require_min_intent": (
+        "When enabled, pages must meet the minimum Intent score to be automatically eligible."
+    ),
+    "min_intent_for_index": (
+        "Minimum Intent score (filter specificity + opportunity) when Intent criterion is enabled."
+    ),
+    "require_min_properties": (
+        "When enabled, pages must meet the minimum matching verified properties count."
     ),
     "min_verified_for_index": (
-        "Optional secondary safety: minimum matching verified properties. "
-        "Not the primary SEO criterion. Set to 0 to disable."
+        "Minimum matching verified properties when the Properties criterion is enabled."
     ),
     "allow_auto_index": (
-        "When on, eligible pages may automatically become indexable. "
-        "When off, pages stay unpublished until an admin publishes them."
+        "When on, eligible pages may automatically become indexable."
     ),
     "allow_sitemap_inclusion": (
-        "When on, the strongest eligible rental landings are added to the XML sitemap "
-        "(up to the max URLs setting). When off, all are sitemap-excluded."
+        "When on, the strongest eligible rental landings are added to the XML sitemap."
     ),
 }
 
@@ -91,17 +101,17 @@ async def load_automation_config(db: AsyncSession) -> IntentAutomationConfig:
         return DEFAULT_CONFIG
     base = asdict(DEFAULT_CONFIG)
     data = {**base, **row.value}
-    # First deploy of SEO dimension gates: adopt new SEO defaults if missing from stored JSON
     if "min_dimensions_for_index" not in row.value:
         for k in SEO_SETTING_FIELDS:
-            data[k] = getattr(DEFAULT_CONFIG, k)
-    # Adopt max sitemap + quality=50 when upgrading from legacy stored settings
+            if k in base:
+                data[k] = getattr(DEFAULT_CONFIG, k)
     if "max_sitemap_urls" not in row.value:
         data["max_sitemap_urls"] = DEFAULT_CONFIG.max_sitemap_urls
         if row.value.get("min_quality_for_index") in (None, 40, 40.0):
             data["min_quality_for_index"] = DEFAULT_CONFIG.min_quality_for_index
-    # One-time: if stored settings still use the old "properties-first" stack (min props >= 5
-    # with no filter-primary migration flag), keep operator values but ensure filters stay primary in UI.
+    # Legacy: min_verified > 0 without explicit toggle meant properties gate was on
+    if "require_min_properties" not in row.value and int(row.value.get("min_verified_for_index") or 0) > 0:
+        data["require_min_properties"] = True
     if isinstance(data.get("bedroom_levels"), list):
         data["bedroom_levels"] = tuple(int(x) for x in data["bedroom_levels"])
     if isinstance(data.get("bathroom_levels"), list):
@@ -120,9 +130,9 @@ async def save_automation_config(
         if isinstance(merged.get("bathroom_levels"), list):
             merged["bathroom_levels"] = tuple(float(x) for x in merged["bathroom_levels"])
         cfg = IntentAutomationConfig(**{k: merged[k] for k in base.keys()})
-    # Clamp sensible ranges
     cfg.min_dimensions_for_index = max(1, min(10, int(cfg.min_dimensions_for_index)))
     cfg.min_verified_for_index = max(0, min(100, int(cfg.min_verified_for_index)))
+    cfg.min_intent_for_index = max(0.0, min(200.0, float(cfg.min_intent_for_index)))
     cfg.min_unique_content_chars = max(0, min(2000, int(cfg.min_unique_content_chars)))
     cfg.min_quality_for_index = max(0.0, min(100.0, float(cfg.min_quality_for_index)))
     cfg.max_sitemap_urls = max(1, min(5000, int(cfg.max_sitemap_urls)))
@@ -155,7 +165,10 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
             "min_dimensions_for_index": "Minimum search filters",
             "min_quality_for_index": "Minimum quality score",
             "max_sitemap_urls": "Maximum rental sitemap URLs",
-            "min_verified_for_index": "Minimum matching properties (optional safety)",
+            "require_min_intent": "Require minimum Intent",
+            "min_intent_for_index": "Minimum Intent score",
+            "require_min_properties": "Require minimum Properties",
+            "min_verified_for_index": "Minimum matching properties",
         },
         "allowed_attributes": [
             "furnished / unfurnished",
@@ -169,10 +182,8 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
         ],
         "removed_attributes": ["internet", "staff quarters", "security", "balcony"],
         "notes": (
-            "PRIMARY eligibility: meaningful search-filter count. "
-            "Also requires minimum quality and valid content. "
-            "Matching properties are an optional secondary safety check only. "
-            "Failing pages are noindex and sitemap-excluded. "
+            "PRIMARY eligibility: meaningful search-filter count plus minimum quality. "
+            "Intent and Properties are optional — enable only when needed. "
             "Manual overrides remain possible and are labeled."
         ),
     }
