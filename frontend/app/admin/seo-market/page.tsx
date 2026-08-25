@@ -3,24 +3,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
-import { adminService, propertyService } from "@/services/api";
+import { adminService } from "@/services/api";
 import type { SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
-type SimpleStatus = "all" | "ready" | "published" | "noindex" | "not_ready";
 type SortMode =
   | "best"
   | "filters_desc"
   | "filters_asc"
   | "quality_desc"
   | "quality_asc"
-  | "properties";
-type Section = "search" | "properties" | "attributes" | "market";
+  | "properties_desc"
+  | "properties_asc";
 
 type SeoControls = {
   min_dimensions_for_index: number;
   min_quality_for_index: number;
   max_sitemap_urls: number;
-  min_verified_for_index: number;
 };
 
 type ObservationRow = {
@@ -41,8 +39,6 @@ type SourceSummary = {
   observation_count: number;
   is_enabled?: boolean;
   is_archived?: boolean;
-  base_url?: string | null;
-  policy_notes?: string | null;
 };
 
 type MarketSummary = {
@@ -53,60 +49,8 @@ type MarketSummary = {
   sources: SourceSummary[];
 };
 
-type AttributeRow = {
-  key: string;
-  label: string;
-  matching_properties: number;
-  eligible_pages: number;
-  search_pages: number;
-};
-
-const SECTIONS: { id: Section; label: string }[] = [
-  { id: "search", label: "Search Pages" },
-  { id: "properties", label: "Properties" },
-  { id: "attributes", label: "Attributes" },
-  { id: "market", label: "Market Data" },
-];
-
-const TABS: { id: SimpleStatus; label: string }[] = [
-  { id: "all", label: "All" },
-  { id: "ready", label: "Ready" },
-  { id: "published", label: "Published" },
-  { id: "noindex", label: "Noindex" },
-  { id: "not_ready", label: "Not ready" },
-];
-
 function pageName(row: SearchIntentAdmin) {
   return row.h1 || row.title || row.path;
-}
-
-function simpleStatus(row: SearchIntentAdmin): Exclude<SimpleStatus, "all"> {
-  if (row.index_status === "indexable") return "published";
-  if (row.index_status === "noindex") return "noindex";
-  if (row.automatic_eligibility === "eligible") return "ready";
-  return "not_ready";
-}
-
-function statusLabel(s: Exclude<SimpleStatus, "all">) {
-  if (s === "published") return "Published";
-  if (s === "ready") return "Ready";
-  if (s === "noindex") return "Noindex";
-  return "Not ready";
-}
-
-function StatusDot({ status }: { status: Exclude<SimpleStatus, "all"> }) {
-  const color =
-    status === "published" || status === "ready"
-      ? "bg-green-500"
-      : status === "noindex"
-        ? "bg-amber-400"
-        : "bg-red-500";
-  return (
-    <span className="inline-flex items-center gap-2">
-      <span className={`inline-block w-2 h-2 rounded-full ${color}`} aria-hidden />
-      {statusLabel(status)}
-    </span>
-  );
 }
 
 function fmtDate(v?: string | null) {
@@ -122,98 +66,65 @@ function friendlyStatus(s: string) {
   return s.replace(/_/g, " ");
 }
 
-function sitemapDestination(path: string): string {
-  const p = (path || "").replace(/\/$/, "") || "/";
-  if (p === "/rentals") return "Rentals";
-  const parts = p.split("/").filter(Boolean);
-  if (parts.length === 2 && parts[0] === "rentals") return "Rentals / Areas";
-  if (parts.length >= 3 && parts[0] === "rentals") return "Rentals / Search";
-  return "Rentals";
+function errMsg(err: unknown, fallback: string) {
+  const ax = err as { response?: { data?: { detail?: string } }; message?: string };
+  const detail = ax?.response?.data?.detail;
+  if (typeof detail === "string") return detail;
+  if (ax?.message) return ax.message;
+  return fallback;
 }
 
-function sitemapCell(row: SearchIntentAdmin) {
-  const dest = sitemapDestination(row.path);
-  if (row.index_status !== "indexable") {
-    return `${dest} · excluded (not published)`;
-  }
-  if (row.sitemap_status === "included") {
-    return `${dest} · included`;
-  }
-  return `${dest} · excluded`;
+function eligibilityLabel(row: SearchIntentAdmin) {
+  if (row.automatic_eligibility === "eligible") return "Eligible";
+  return "Excluded";
+}
+
+function indexLabel(row: SearchIntentAdmin) {
+  if (row.index_status === "indexable") return "Indexable";
+  if (row.index_status === "noindex") return "Noindex";
+  return row.index_status;
 }
 
 export default function SeoMarketAdminPage() {
   const qc = useQueryClient();
 
-  const [section, setSection] = useState<Section>("search");
-
-  // --- Search pages state ---
-  const [tab, setTab] = useState<SimpleStatus>("all");
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("best");
   const [searchPage, setSearchPage] = useState(1);
   const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
-  const [attributeFilter, setAttributeFilter] = useState<string | null>(null);
-  const [attrSort, setAttrSort] = useState<"label" | "properties" | "pages">("properties");
   const [message, setMessage] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [seoForm, setSeoForm] = useState<SeoControls | null>(null);
+  const [recalcLabel, setRecalcLabel] = useState<string | null>(null);
 
-  // --- Market data state ---
   const [obsPage, setObsPage] = useState(1);
   const [obsStatus, setObsStatus] = useState("");
   const [obsSource, setObsSource] = useState("");
-  const [selectedObs, setSelectedObs] = useState<Set<string>>(new Set());
-  const [manageSources, setManageSources] = useState(false);
-  const [newSourceName, setNewSourceName] = useState("");
 
   const sortParams = useMemo(() => {
     if (sort === "filters_desc") return { sort_by: "filter_count", sort_dir: "desc" as const };
     if (sort === "filters_asc") return { sort_by: "filter_count", sort_dir: "asc" as const };
     if (sort === "quality_desc") return { sort_by: "quality_score", sort_dir: "desc" as const };
     if (sort === "quality_asc") return { sort_by: "quality_score", sort_dir: "asc" as const };
-    if (sort === "properties") return { sort_by: "match_count", sort_dir: "desc" as const };
+    if (sort === "properties_desc") return { sort_by: "match_count", sort_dir: "desc" as const };
+    if (sort === "properties_asc") return { sort_by: "match_count", sort_dir: "asc" as const };
     return { sort_by: "best", sort_dir: "desc" as const };
   }, [sort]);
 
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const status = params.get("status") as SimpleStatus | null;
-    if (status && TABS.some((t) => t.id === status)) {
-      setTab(status);
-      setSection("search");
-    }
-    const sec = params.get("section") as Section | null;
-    if (sec && SECTIONS.some((s) => s.id === sec)) {
-      setSection(sec);
-    }
-    const attr = params.get("attribute");
-    if (attr) {
-      setAttributeFilter(attr);
-      setSection("search");
-    }
-    if (window.location.hash === "#market-data") {
-      setSection("market");
-    }
-  }, []);
-
   const searchQuery = useQuery({
-    queryKey: ["admin-search-intents", tab, search, sort, searchPage, attributeFilter],
+    queryKey: ["admin-search-intents", search, sort, searchPage],
     queryFn: () =>
       adminService.searchIntents({
         search: search || undefined,
-        simple_status: tab === "all" ? undefined : tab,
-        attribute: attributeFilter || undefined,
         page: searchPage,
         page_size: 40,
         ...sortParams,
       }) as Promise<SearchIntentListResponse>,
-    enabled: section === "search",
   });
 
   const seoSettingsQuery = useQuery({
     queryKey: ["admin-seo-settings"],
     queryFn: () => adminService.getSeoSettings(),
-    enabled: section === "search",
   });
 
   useEffect(() => {
@@ -223,32 +134,15 @@ export default function SeoMarketAdminPage() {
         min_dimensions_for_index: s.min_dimensions_for_index ?? 2,
         min_quality_for_index: s.min_quality_for_index ?? 50,
         max_sitemap_urls: s.max_sitemap_urls ?? 100,
-        min_verified_for_index: s.min_verified_for_index ?? 1,
       });
     }
+    const summary = seoSettingsQuery.data?.summary;
+    if (summary?.recalc_label) setRecalcLabel(summary.recalc_label);
   }, [seoSettingsQuery.data]);
-
-  const attributesQuery = useQuery({
-    queryKey: ["admin-seo-attributes"],
-    queryFn: () => adminService.getSeoAttributes() as Promise<{ items: AttributeRow[] }>,
-    enabled: section === "attributes",
-  });
-
-  const propertiesQuery = useQuery({
-    queryKey: ["admin-seo-properties"],
-    queryFn: () =>
-      propertyService.listAdmin({
-        page: 1,
-        page_size: 40,
-        listing_type: "rent",
-      }),
-    enabled: section === "properties",
-  });
 
   const marketSummary = useQuery({
     queryKey: ["admin-market-summary"],
     queryFn: () => adminService.marketDataSummary() as Promise<MarketSummary>,
-    enabled: section === "market",
   });
 
   const observations = useQuery({
@@ -256,69 +150,69 @@ export default function SeoMarketAdminPage() {
     queryFn: () =>
       adminService.listObservations({
         page: obsPage,
-        page_size: 30,
+        page_size: 15,
         status: obsStatus || undefined,
         source: obsSource || undefined,
       }) as Promise<{ items: ObservationRow[]; total: number; page_size: number }>,
-    enabled: section === "market",
   });
 
   const searchItems = searchQuery.data?.items ?? [];
   const searchTotalPages = Math.max(1, Math.ceil((searchQuery.data?.total ?? 0) / (searchQuery.data?.page_size ?? 40)));
   const obsItems = observations.data?.items ?? [];
-  const obsTotalPages = Math.max(1, Math.ceil((observations.data?.total ?? 0) / (observations.data?.page_size ?? 30)));
+  const obsTotalPages = Math.max(1, Math.ceil((observations.data?.total ?? 0) / (observations.data?.page_size ?? 15)));
   const summary = marketSummary.data;
-  const attributeItems = useMemo(() => {
-    const items = attributesQuery.data?.items ?? [];
-    const sorted = [...items];
-    if (attrSort === "label") sorted.sort((a, b) => a.label.localeCompare(b.label));
-    else if (attrSort === "pages") sorted.sort((a, b) => b.eligible_pages - a.eligible_pages);
-    else sorted.sort((a, b) => b.matching_properties - a.matching_properties);
-    return sorted;
-  }, [attributesQuery.data?.items, attrSort]);
-  const propertyItems = propertiesQuery.data?.items ?? [];
+  const pageVisibleIds = searchItems.map((r) => r.id);
+  const maxSitemap = seoForm?.max_sitemap_urls ?? 100;
 
   const flash = (text: string) => {
+    setErrorMsg(null);
     setMessage(text);
-    setTimeout(() => setMessage(null), 4000);
+    setTimeout(() => setMessage(null), 5000);
+  };
+  const flashErr = (text: string) => {
+    setMessage(null);
+    setErrorMsg(text);
+    setTimeout(() => setErrorMsg(null), 7000);
   };
 
-  const openAttributePages = (key: string) => {
-    setAttributeFilter(key);
-    setTab("all");
-    setSearchPage(1);
-    setSection("search");
+  const invalidateSearch = () => {
+    qc.invalidateQueries({ queryKey: ["admin-search-intents"] });
+    qc.invalidateQueries({ queryKey: ["admin-seo-settings"] });
   };
-
-  const invalidateSearch = () => qc.invalidateQueries({ queryKey: ["admin-search-intents"] });
   const invalidateMarket = () => {
     qc.invalidateQueries({ queryKey: ["admin-market-summary"] });
     qc.invalidateQueries({ queryKey: ["admin-observations"] });
   };
 
+  const applySummary = (res?: { summary?: { recalc_label?: string }; recalculation?: unknown }) => {
+    if (res?.summary?.recalc_label) setRecalcLabel(res.summary.recalc_label);
+  };
+
   const publish = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "indexable"),
     onSuccess: () => {
-      flash("Page published.");
+      flash("Page set to indexable (manual override).");
       invalidateSearch();
     },
+    onError: (e) => flashErr(errMsg(e, "Failed to index page.")),
   });
 
   const noindex = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "noindex"),
     onSuccess: () => {
-      flash("Page set to noindex.");
+      flash("Page set to noindex; sitemap excluded.");
       invalidateSearch();
     },
+    onError: (e) => flashErr(errMsg(e, "Failed to noindex page.")),
   });
 
   const includeSitemap = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentSitemap(id, "included"),
     onSuccess: () => {
-      flash("Page included in sitemap.");
+      flash("Page included in sitemap (manual override).");
       invalidateSearch();
     },
-    onError: () => flash("Could not include in sitemap — page must be published first."),
+    onError: (e) => flashErr(errMsg(e, "Could not include in sitemap — page must be indexable first.")),
   });
 
   const excludeSitemap = useMutation({
@@ -327,15 +221,43 @@ export default function SeoMarketAdminPage() {
       flash("Page excluded from sitemap.");
       invalidateSearch();
     },
+    onError: (e) => flashErr(errMsg(e, "Failed to exclude from sitemap.")),
   });
 
   const bulkPages = useMutation({
     mutationFn: (action: string) => adminService.bulkSearchIntents(Array.from(selectedPages), action),
     onSuccess: (res: { updated?: number; errors?: string[] }) => {
-      flash(res.errors?.length ? res.errors[0] : `Updated ${res.updated ?? 0} page(s).`);
+      if (res.errors?.length) flashErr(res.errors[0]);
+      else flash(`Updated ${res.updated ?? 0} page(s).`);
       setSelectedPages(new Set());
       invalidateSearch();
     },
+    onError: (e) => flashErr(errMsg(e, "Bulk action failed.")),
+  });
+
+  const saveSeo = useMutation({
+    mutationFn: () =>
+      adminService.updateSeoSettings({
+        min_dimensions_for_index: seoForm!.min_dimensions_for_index,
+        min_quality_for_index: seoForm!.min_quality_for_index,
+        max_sitemap_urls: seoForm!.max_sitemap_urls,
+      }),
+    onSuccess: (res: { summary?: { recalc_label?: string } }) => {
+      applySummary(res);
+      flash(res?.summary?.recalc_label || "SEO controls saved and recalculated.");
+      invalidateSearch();
+    },
+    onError: (e) => flashErr(errMsg(e, "Failed to save SEO controls.")),
+  });
+
+  const refreshSeo = useMutation({
+    mutationFn: () => adminService.recalculateSeoLandings(),
+    onSuccess: (res: { summary?: { recalc_label?: string } }) => {
+      applySummary(res);
+      flash(res?.summary?.recalc_label || "Recalculated.");
+      invalidateSearch();
+    },
+    onError: (e) => flashErr(errMsg(e, "Recalculate failed.")),
   });
 
   const importCsv = useMutation({
@@ -348,316 +270,353 @@ export default function SeoMarketAdminPage() {
       );
       invalidateMarket();
     },
+    onError: (e) => flashErr(errMsg(e, "CSV import failed.")),
   });
-
-  const bulkObs = useMutation({
-    mutationFn: (action: string) => adminService.bulkObservations(Array.from(selectedObs), action),
-    onSuccess: () => {
-      flash("Observations updated.");
-      setSelectedObs(new Set());
-      invalidateMarket();
-    },
-  });
-
-  const createSource = useMutation({
-    mutationFn: (name: string) => adminService.createMarketSource({ name }),
-    onSuccess: () => {
-      setNewSourceName("");
-      invalidateMarket();
-      flash("Source added.");
-    },
-  });
-
-  const saveSeo = useMutation({
-    mutationFn: () =>
-      adminService.updateSeoSettings({
-        min_dimensions_for_index: seoForm!.min_dimensions_for_index,
-        min_quality_for_index: seoForm!.min_quality_for_index,
-        max_sitemap_urls: seoForm!.max_sitemap_urls,
-        min_verified_for_index: seoForm!.min_verified_for_index,
-      }),
-    onSuccess: () => {
-      flash("SEO controls saved. Eligibility and sitemap were recalculated.");
-      qc.invalidateQueries({ queryKey: ["admin-seo-settings"] });
-      invalidateSearch();
-    },
-  });
-
-  const recalculateSeo = useMutation({
-    mutationFn: () => adminService.recalculateSeoLandings(),
-    onSuccess: () => {
-      flash("Recalculated eligibility, index status, and sitemap inclusion.");
-      qc.invalidateQueries({ queryKey: ["admin-seo-settings"] });
-      invalidateSearch();
-    },
-  });
-
-  const pageVisibleIds = searchItems.map((r) => r.id);
-  const obsVisibleIds = obsItems.map((r) => r.id);
-  const seoSummary = seoSettingsQuery.data?.summary;
-  const configuredFilters = seoForm?.min_dimensions_for_index ?? seoSettingsQuery.data?.settings?.min_dimensions_for_index;
-  const configuredQuality = seoForm?.min_quality_for_index ?? seoSettingsQuery.data?.settings?.min_quality_for_index;
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-4 max-w-[1400px]">
       <div>
         <h2 className="text-xl font-semibold text-navy-800 dark:text-white">SEO &amp; Market Data</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Search-filter count is the primary SEO criterion. Eligible pages may be indexed and enter the rental sitemap
-          (max {seoForm?.max_sitemap_urls ?? 100} URLs).
+          Search-filter specificity is the primary SEO signal. Quality remains mandatory. Manual overrides are labeled.
         </p>
       </div>
 
-      <div className="flex flex-wrap gap-2 border-b pb-3">
-        {SECTIONS.map((s) => (
-          <button
-            key={s.id}
-            type="button"
-            onClick={() => setSection(s.id)}
-            className={`px-3 py-1.5 text-sm rounded-lg border ${
-              section === s.id ? "bg-navy-800 text-white border-navy-800" : "bg-white"
-            }`}
-          >
-            {s.label}
-          </button>
-        ))}
-      </div>
+      {message && (
+        <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">{message}</p>
+      )}
+      {errorMsg && (
+        <p className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{errorMsg}</p>
+      )}
 
-      {message && <p className="text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-4 py-2">{message}</p>}
-
-      {/* --- Search Pages --- */}
-      {section === "search" && (
-      <section className="space-y-4">
-        <div id="seo-controls" className="border rounded-xl p-5 bg-white dark:bg-navy-800 space-y-4">
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-navy-800 dark:text-white">SEO controls</h3>
-              <p className="text-sm text-gray-500 mt-1">
-                Primary: minimum meaningful search filters. Quality is required. Matching properties are optional
-                safety only.
+      <div className="grid lg:grid-cols-[320px_1fr] gap-6 items-start">
+        {/* LEFT */}
+        <aside className="space-y-4 sticky top-4">
+          <div id="seo-controls" className="border rounded-xl p-4 bg-white dark:bg-navy-800 space-y-3">
+            <h3 className="font-semibold text-navy-800 dark:text-white">SEO controls</h3>
+            <p className="text-xs text-gray-500">
+              Filters: location, bedrooms, property type, budget, furnished, bathrooms, kitchen, parking, garden,
+              pool, compound.
+            </p>
+            {recalcLabel && (
+              <p className="text-xs font-medium text-navy-800 dark:text-white border rounded-lg px-3 py-2 bg-gray-50 dark:bg-navy-900">
+                {recalcLabel}
               </p>
+            )}
+            {seoForm && (
+              <form
+                className="space-y-3"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  saveSeo.mutate();
+                }}
+              >
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium">Minimum meaningful search filters</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={10}
+                    className="border rounded px-2 py-1.5 w-full text-sm"
+                    value={seoForm.min_dimensions_for_index}
+                    onChange={(e) =>
+                      setSeoForm({ ...seoForm, min_dimensions_for_index: Number(e.target.value) })
+                    }
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium">Minimum quality (%)</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    className="border rounded px-2 py-1.5 w-full text-sm"
+                    value={seoForm.min_quality_for_index}
+                    onChange={(e) =>
+                      setSeoForm({ ...seoForm, min_quality_for_index: Number(e.target.value) })
+                    }
+                  />
+                </label>
+                <label className="block space-y-1">
+                  <span className="text-xs font-medium">Maximum rental sitemap URLs</span>
+                  <input
+                    type="number"
+                    min={1}
+                    max={5000}
+                    className="border rounded px-2 py-1.5 w-full text-sm"
+                    value={seoForm.max_sitemap_urls}
+                    onChange={(e) => setSeoForm({ ...seoForm, max_sitemap_urls: Number(e.target.value) })}
+                  />
+                </label>
+                <button
+                  type="submit"
+                  className="w-full px-3 py-2 text-sm rounded-lg bg-navy-800 text-white"
+                  disabled={saveSeo.isPending}
+                >
+                  {saveSeo.isPending ? "Saving…" : "Save & Recalculate"}
+                </button>
+              </form>
+            )}
+          </div>
+
+          <div className="border rounded-xl p-4 bg-white dark:bg-navy-800 space-y-3">
+            <h3 className="font-semibold text-navy-800 dark:text-white">External market data</h3>
+            <dl className="grid grid-cols-2 gap-2 text-xs">
+              <div>
+                <dt className="text-gray-500">Observations</dt>
+                <dd className="text-lg font-serif">{summary?.total_observations ?? "—"}</dd>
+              </div>
+              <div>
+                <dt className="text-gray-500">Last import</dt>
+                <dd>{fmtDate(summary?.last_import_at)}</dd>
+              </div>
+            </dl>
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className="px-2 py-1.5 text-xs rounded-lg border"
+                onClick={() =>
+                  adminService.downloadObservationsCsvTemplate().then((blob: Blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url;
+                    a.download = "external-observations-template.csv";
+                    a.click();
+                    URL.revokeObjectURL(url);
+                  })
+                }
+              >
+                Download CSV template
+              </button>
+              <label className="px-2 py-1.5 text-xs rounded-lg bg-navy-800 text-white cursor-pointer">
+                {importCsv.isPending ? "Importing…" : "Import CSV"}
+                <input
+                  type="file"
+                  accept=".csv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) importCsv.mutate(f);
+                    e.target.value = "";
+                  }}
+                />
+              </label>
             </div>
+            {summary && (
+              <ul className="text-xs space-y-1 max-h-40 overflow-y-auto">
+                {summary.top_sources.map((s) => (
+                  <li key={s.source_id}>
+                    <button
+                      type="button"
+                      className="underline text-left"
+                      onClick={() => {
+                        setObsSource(s.source_id);
+                        setObsPage(1);
+                      }}
+                    >
+                      {s.name}
+                    </button>
+                    {" — "}
+                    {s.observation_count}
+                  </li>
+                ))}
+                {summary.other_sources_count > 0 && (
+                  <li className="text-gray-600">Other — {summary.other_sources_count}</li>
+                )}
+                {!summary.top_sources.length && !summary.other_sources_count && (
+                  <li className="text-gray-500">No observations yet.</li>
+                )}
+              </ul>
+            )}
+            <div className="flex flex-wrap gap-2 text-xs">
+              <select
+                className="border rounded px-1 py-1"
+                value={obsSource}
+                onChange={(e) => {
+                  setObsSource(e.target.value);
+                  setObsPage(1);
+                }}
+              >
+                <option value="">All sources</option>
+                {(summary?.sources || []).map((s) => (
+                  <option key={s.source_id} value={s.source_id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <select
+                className="border rounded px-1 py-1"
+                value={obsStatus}
+                onChange={(e) => {
+                  setObsStatus(e.target.value);
+                  setObsPage(1);
+                }}
+              >
+                <option value="">All statuses</option>
+                <option value="active_observed">Active</option>
+                <option value="not_found">Not found</option>
+                <option value="unknown">Unknown</option>
+                <option value="invalid">Invalid</option>
+              </select>
+            </div>
+            <ul className="text-xs space-y-1 max-h-48 overflow-y-auto border-t pt-2">
+              {obsItems.map((row) => (
+                <li key={row.id} className="border-b pb-1">
+                  <span className="font-medium">{row.source}</span>
+                  {" · "}
+                  {row.neighborhood || "—"}
+                  {" · "}
+                  {friendlyStatus(row.observation_status)}
+                </li>
+              ))}
+              {!observations.isLoading && !obsItems.length && (
+                <li className="text-gray-500">No observations match.</li>
+              )}
+            </ul>
+            {obsTotalPages > 1 && (
+              <div className="flex gap-2 text-xs items-center">
+                <button
+                  type="button"
+                  className="border rounded px-2 py-0.5 disabled:opacity-40"
+                  disabled={obsPage <= 1}
+                  onClick={() => setObsPage((p) => p - 1)}
+                >
+                  Prev
+                </button>
+                <span>
+                  {obsPage}/{obsTotalPages}
+                </span>
+                <button
+                  type="button"
+                  className="border rounded px-2 py-0.5 disabled:opacity-40"
+                  disabled={obsPage >= obsTotalPages}
+                  onClick={() => setObsPage((p) => p + 1)}
+                >
+                  Next
+                </button>
+              </div>
+            )}
+          </div>
+        </aside>
+
+        {/* RIGHT */}
+        <section className="space-y-3 min-w-0">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Search pages</h3>
             <button
               type="button"
               className="px-3 py-1.5 text-sm rounded-lg border"
-              disabled={recalculateSeo.isPending}
-              onClick={() => recalculateSeo.mutate()}
+              disabled={refreshSeo.isPending}
+              onClick={() => refreshSeo.mutate()}
             >
-              {recalculateSeo.isPending ? "Recalculating…" : "Refresh / Recalculate"}
+              {refreshSeo.isPending ? "Refreshing…" : "Refresh"}
             </button>
           </div>
 
-          {(configuredFilters != null || configuredQuality != null) && (
-            <p className="text-sm text-navy-800 dark:text-white">
-              Active thresholds:{" "}
-              <span className="font-medium">≥ {configuredFilters ?? "—"} filters</span>
-              {" · "}
-              <span className="font-medium">≥ {configuredQuality ?? "—"}% quality</span>
-              {" · "}
-              sitemap max {seoForm?.max_sitemap_urls ?? 100}
-              {seoSummary?.rental_sitemap?.label ? ` · ${seoSummary.rental_sitemap.label}` : null}
-            </p>
-          )}
-
-          {seoForm && (
-            <form
-              className="grid sm:grid-cols-2 gap-4"
-              onSubmit={(e) => {
-                e.preventDefault();
-                saveSeo.mutate();
-              }}
-            >
-              <label className="block space-y-1">
-                <span className="text-sm font-medium">Minimum search filters (primary)</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={10}
-                  className="border rounded px-3 py-2 w-full text-sm"
-                  value={seoForm.min_dimensions_for_index}
-                  onChange={(e) =>
-                    setSeoForm({ ...seoForm, min_dimensions_for_index: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium">Minimum quality score</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  className="border rounded px-3 py-2 w-full text-sm"
-                  value={seoForm.min_quality_for_index}
-                  onChange={(e) =>
-                    setSeoForm({ ...seoForm, min_quality_for_index: Number(e.target.value) })
-                  }
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium">Maximum rental sitemap URLs</span>
-                <input
-                  type="number"
-                  min={1}
-                  max={5000}
-                  className="border rounded px-3 py-2 w-full text-sm"
-                  value={seoForm.max_sitemap_urls}
-                  onChange={(e) => setSeoForm({ ...seoForm, max_sitemap_urls: Number(e.target.value) })}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="text-sm font-medium">Min matching properties (optional safety)</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={100}
-                  className="border rounded px-3 py-2 w-full text-sm"
-                  value={seoForm.min_verified_for_index}
-                  onChange={(e) =>
-                    setSeoForm({ ...seoForm, min_verified_for_index: Number(e.target.value) })
-                  }
-                />
-                <span className="text-xs text-gray-500">Set 0 to disable. Not the primary SEO criterion.</span>
-              </label>
-              <div className="sm:col-span-2">
-                <button
-                  type="submit"
-                  className="px-4 py-2 text-sm rounded-lg bg-navy-800 text-white"
-                  disabled={saveSeo.isPending || !seoForm}
-                >
-                  {saveSeo.isPending ? "Saving & recalculating…" : "Save SEO controls"}
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-
-        <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Search pages</h3>
-        {attributeFilter && (
-          <p className="text-sm text-gray-600">
-            Filtered by attribute: <span className="font-medium">{attributeFilter.replace(/_/g, " ")}</span>{" "}
-            <button type="button" className="underline ml-2" onClick={() => setAttributeFilter(null)}>
-              Clear
-            </button>
-          </p>
-        )}
-
-        <div className="flex flex-wrap gap-2 items-center">
-          <input
-            className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[180px]"
-            placeholder="Search…"
-            value={search}
-            onChange={(e) => {
-              setSearch(e.target.value);
-              setSearchPage(1);
-            }}
-          />
-          <select className="border rounded-lg px-3 py-2 text-sm" value={sort} onChange={(e) => setSort(e.target.value as SortMode)}>
-            <option value="best">Best first</option>
-            <option value="filters_desc">Most filters</option>
-            <option value="filters_asc">Fewest filters</option>
-            <option value="quality_desc">Highest quality</option>
-            <option value="quality_asc">Lowest quality</option>
-            <option value="properties">Most properties</option>
-          </select>
-        </div>
-
-        <div className="flex flex-wrap gap-2">
-          {TABS.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              onClick={() => {
-                setTab(t.id);
+          <div className="flex flex-wrap gap-2 items-center">
+            <input
+              className="border rounded-lg px-3 py-2 text-sm flex-1 min-w-[160px]"
+              placeholder="Search…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
                 setSearchPage(1);
               }}
-              className={`px-3 py-1.5 text-sm rounded-full border ${tab === t.id ? "bg-navy-800 text-white border-navy-800" : "bg-white"}`}
+            />
+            <select
+              className="border rounded-lg px-3 py-2 text-sm"
+              value={sort}
+              onChange={(e) => setSort(e.target.value as SortMode)}
             >
-              {t.label}
+              <option value="best">Best first</option>
+              <option value="properties_desc">Most properties</option>
+              <option value="properties_asc">Fewest properties</option>
+              <option value="quality_desc">Highest quality</option>
+              <option value="quality_asc">Lowest quality</option>
+              <option value="filters_desc">Most filters</option>
+              <option value="filters_asc">Fewest filters</option>
+            </select>
+          </div>
+
+          <div className="flex flex-wrap gap-3 text-sm">
+            <button type="button" className="underline" onClick={() => setSelectedPages(new Set(pageVisibleIds))}>
+              Select visible
             </button>
-          ))}
-        </div>
+            <button type="button" className="underline" onClick={() => setSelectedPages(new Set())}>
+              Unselect all
+            </button>
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                if (!selectedPages.size || !window.confirm(`Index ${selectedPages.size} page(s)?`)) return;
+                bulkPages.mutate("set_indexable");
+              }}
+            >
+              Publish/Index selected
+            </button>
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                if (!selectedPages.size || !window.confirm(`Noindex ${selectedPages.size} page(s)?`)) return;
+                bulkPages.mutate("set_noindex");
+              }}
+            >
+              Noindex selected
+            </button>
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                if (
+                  !selectedPages.size ||
+                  !window.confirm(`Include ${selectedPages.size} page(s) in sitemap? Must be indexable.`)
+                )
+                  return;
+                bulkPages.mutate("sitemap_include");
+              }}
+            >
+              Include in sitemap
+            </button>
+            <button
+              type="button"
+              className="underline"
+              onClick={() => {
+                if (!selectedPages.size || !window.confirm(`Exclude ${selectedPages.size} page(s) from sitemap?`))
+                  return;
+                bulkPages.mutate("sitemap_exclude");
+              }}
+            >
+              Exclude from sitemap
+            </button>
+          </div>
 
-        <div className="flex flex-wrap gap-3 text-sm">
-          <button type="button" className="underline" onClick={() => setSelectedPages(new Set(pageVisibleIds))}>
-            Select visible
-          </button>
-          <button type="button" className="underline" onClick={() => setSelectedPages(new Set())}>
-            Unselect all
-          </button>
-          <button
-            type="button"
-            className="underline"
-            onClick={() => {
-              if (!selectedPages.size || !window.confirm(`Publish ${selectedPages.size} page(s)?`)) return;
-              bulkPages.mutate("set_indexable");
-            }}
-          >
-            Publish selected
-          </button>
-          <button
-            type="button"
-            className="underline"
-            onClick={() => {
-              if (!selectedPages.size || !window.confirm(`Noindex ${selectedPages.size} page(s)?`)) return;
-              bulkPages.mutate("set_noindex");
-            }}
-          >
-            Noindex selected
-          </button>
-          <button
-            type="button"
-            className="underline"
-            onClick={() => {
-              if (!selectedPages.size || !window.confirm(`Include ${selectedPages.size} page(s) in sitemap? Only published pages will be included.`)) return;
-              bulkPages.mutate("sitemap_include");
-            }}
-          >
-            Include in sitemap
-          </button>
-          <button
-            type="button"
-            className="underline"
-            onClick={() => {
-              if (!selectedPages.size || !window.confirm(`Exclude ${selectedPages.size} page(s) from sitemap?`)) return;
-              bulkPages.mutate("sitemap_exclude");
-            }}
-          >
-            Exclude from sitemap
-          </button>
-        </div>
-
-        <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
-          <table className="w-full text-sm min-w-[920px]">
-            <thead className="bg-gray-50 dark:bg-navy-900 text-left">
-              <tr>
-                <th className="p-3 w-8" />
-                <th className="p-3">Page</th>
-                <th className="p-3">Filters</th>
-                <th className="p-3">Properties</th>
-                <th className="p-3">Quality</th>
-                <th className="p-3">Eligibility</th>
-                <th className="p-3">Sitemap</th>
-                <th className="p-3">Action</th>
-              </tr>
-            </thead>
-            <tbody>
-              {searchQuery.isLoading && (
+          <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
+            <table className="w-full text-sm min-w-[980px]">
+              <thead className="bg-gray-50 dark:bg-navy-900 text-left">
                 <tr>
-                  <td colSpan={8} className="p-6 text-gray-500">
-                    Loading…
-                  </td>
+                  <th className="p-3 w-8" />
+                  <th className="p-3">Page</th>
+                  <th className="p-3">Filters</th>
+                  <th className="p-3">Properties</th>
+                  <th className="p-3">Quality</th>
+                  <th className="p-3">Intent</th>
+                  <th className="p-3">Eligibility</th>
+                  <th className="p-3">Sitemap</th>
+                  <th className="p-3">Actions</th>
                 </tr>
-              )}
-              {searchItems.map((row) => {
-                const status = simpleStatus(row);
-                const eligibility =
-                  row.automatic_eligibility === "eligible"
-                    ? "Eligible"
-                    : status === "published"
-                      ? "Eligible (live)"
-                      : "Not eligible";
-                return (
-                  <tr key={row.id} className="border-t">
+              </thead>
+              <tbody>
+                {searchQuery.isLoading && (
+                  <tr>
+                    <td colSpan={9} className="p-6 text-gray-500">
+                      Loading…
+                    </td>
+                  </tr>
+                )}
+                {searchItems.map((row) => (
+                  <tr key={row.id} className="border-t align-top">
                     <td className="p-3">
                       <input
                         type="checkbox"
@@ -672,38 +631,35 @@ export default function SeoMarketAdminPage() {
                         }}
                       />
                     </td>
-                    <td className="p-3 font-medium">
+                    <td className="p-3 font-medium max-w-[200px]">
                       <Link href={row.path} target="_blank" rel="noreferrer" className="text-gold-600 hover:underline">
                         {pageName(row)}
                       </Link>
-                      <div className="text-[11px] text-gray-500 mt-0.5">
-                        <StatusDot status={status} />
-                      </div>
+                      <p className="text-[11px] text-gray-500 mt-0.5 break-all">{row.path}</p>
+                      <p className="text-[11px] mt-0.5">{indexLabel(row)}</p>
+                      {(row.seo_control === "manual" || row.locked_by_admin) && (
+                        <span className="text-[11px] text-amber-700 font-medium">Manual override</span>
+                      )}
                     </td>
-                    <td className="p-3 text-xs text-gray-700 dark:text-gray-300 max-w-[220px]">
-                      <span className="font-medium text-navy-800 dark:text-white">
-                        {row.filter_count ?? row.dimensions ?? "—"}
-                      </span>
-                      <p className="mt-0.5 leading-snug">{row.filters_label || "—"}</p>
+                    <td className="p-3 text-xs max-w-[200px]">
+                      <span className="font-medium">{row.filter_count ?? "—"}</span>
+                      <p className="mt-0.5 leading-snug text-gray-600">{row.filters_label || "—"}</p>
                     </td>
                     <td className="p-3">{row.match_count}</td>
                     <td className="p-3">{Math.round(row.quality_score)}%</td>
-                    <td className="p-3">
-                      <div className="flex flex-col gap-0.5">
-                        <span>{eligibility}</span>
-                        {(row.seo_control === "manual" || row.locked_by_admin) && (
-                          <span className="text-[11px] text-amber-700 font-medium">Manual override</span>
-                        )}
-                      </div>
+                    <td className="p-3">{row.intent_score != null ? Math.round(row.intent_score) : "—"}</td>
+                    <td className="p-3 text-xs">{eligibilityLabel(row)}</td>
+                    <td className="p-3 text-xs">
+                      {row.sitemap_status === "included" ? "Included" : "Excluded"}
+                      {row.index_status !== "indexable" && row.sitemap_status !== "included" ? " (not indexable)" : ""}
                     </td>
-                    <td className="p-3 text-xs text-gray-600">{sitemapCell(row)}</td>
                     <td className="p-3 space-x-2 whitespace-nowrap text-xs">
-                      {row.automatic_eligibility === "eligible" && row.index_status !== "indexable" && (
+                      {row.index_status !== "indexable" && (
                         <button type="button" className="underline" onClick={() => publish.mutate(row.id)}>
-                          Publish
+                          Index
                         </button>
                       )}
-                      {status === "published" && (
+                      {row.index_status === "indexable" && (
                         <button type="button" className="underline" onClick={() => noindex.mutate(row.id)}>
                           Noindex
                         </button>
@@ -723,414 +679,52 @@ export default function SeoMarketAdminPage() {
                       </Link>
                     </td>
                   </tr>
-                );
-              })}
-              {!searchQuery.isLoading && !searchItems.length && (
-                <tr>
-                  <td colSpan={8} className="p-6 text-gray-500">
-                    No pages match.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {searchTotalPages > 1 && (
-          <div className="flex gap-2 text-sm items-center">
-            <button type="button" className="border rounded px-3 py-1 disabled:opacity-40" disabled={searchPage <= 1} onClick={() => setSearchPage((p) => p - 1)}>
-              Previous
-            </button>
-            <span>
-              Page {searchPage} of {searchTotalPages}
-            </span>
-            <button type="button" className="border rounded px-3 py-1 disabled:opacity-40" disabled={searchPage >= searchTotalPages} onClick={() => setSearchPage((p) => p + 1)}>
-              Next
-            </button>
-          </div>
-        )}
-      </section>
-      )}
-
-      {/* --- Properties --- */}
-      {section === "properties" && (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Properties</h3>
-              <p className="text-sm text-gray-500">Published rentals that power search landing pages.</p>
-            </div>
-            <Link href="/admin/properties" className="text-sm underline">
-              Open full property admin
-            </Link>
-          </div>
-          <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
-            <table className="w-full text-sm min-w-[640px]">
-              <thead className="bg-gray-50 dark:bg-navy-900 text-left">
-                <tr>
-                  <th className="p-3">Property</th>
-                  <th className="p-3">Area</th>
-                  <th className="p-3">Beds</th>
-                  <th className="p-3">Furnished</th>
-                  <th className="p-3">Price</th>
-                </tr>
-              </thead>
-              <tbody>
-                {propertiesQuery.isLoading && (
-                  <tr>
-                    <td colSpan={5} className="p-6 text-gray-500">
-                      Loading…
-                    </td>
-                  </tr>
-                )}
-                {propertyItems.map((p: {
-                  id: string;
-                  title?: string;
-                  slug?: string;
-                  neighborhood_name?: string;
-                  bedrooms?: number | null;
-                  is_furnished?: boolean;
-                  price?: number;
-                  currency?: string;
-                }) => (
-                  <tr key={p.id} className="border-t">
-                    <td className="p-3 font-medium">
-                      <Link href={`/admin/properties`} className="hover:underline">
-                        {p.title || p.slug || p.id}
-                      </Link>
-                    </td>
-                    <td className="p-3">{p.neighborhood_name || "—"}</td>
-                    <td className="p-3">{p.bedrooms ?? "—"}</td>
-                    <td className="p-3">{p.is_furnished ? "Yes" : "No"}</td>
-                    <td className="p-3">
-                      {p.price != null ? `${p.currency || "USD"} ${Number(p.price).toLocaleString()}` : "—"}
-                    </td>
-                  </tr>
                 ))}
-                {!propertiesQuery.isLoading && !propertyItems.length && (
+                {!searchQuery.isLoading && !searchItems.length && (
                   <tr>
-                    <td colSpan={5} className="p-6 text-gray-500">
-                      No published rentals found.
+                    <td colSpan={9} className="p-6 text-gray-500">
+                      No pages match.
                     </td>
                   </tr>
                 )}
               </tbody>
             </table>
           </div>
-        </section>
-      )}
 
-      {/* --- Attributes --- */}
-      {section === "attributes" && (
-        <section className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Attributes</h3>
-              <p className="text-sm text-gray-500">Rental attributes used to build and match search landing pages.</p>
-            </div>
-            <select
-              className="border rounded-lg px-3 py-2 text-sm"
-              value={attrSort}
-              onChange={(e) => setAttrSort(e.target.value as typeof attrSort)}
-            >
-              <option value="properties">Most properties</option>
-              <option value="pages">Most eligible pages</option>
-              <option value="label">Name A–Z</option>
-            </select>
-          </div>
-          <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
-            <table className="w-full text-sm min-w-[520px]">
-              <thead className="bg-gray-50 dark:bg-navy-900 text-left">
-                <tr>
-                  <th className="p-3">Attribute</th>
-                  <th className="p-3">Matching Properties</th>
-                  <th className="p-3">Eligible Pages</th>
-                </tr>
-              </thead>
-              <tbody>
-                {attributesQuery.isLoading && (
-                  <tr>
-                    <td colSpan={3} className="p-6 text-gray-500">
-                      Loading…
-                    </td>
-                  </tr>
-                )}
-                {attributeItems.map((row) => (
-                  <tr key={row.key} className="border-t">
-                    <td className="p-3">
-                      <button type="button" className="font-medium underline text-left" onClick={() => openAttributePages(row.key)}>
-                        {row.label}
-                      </button>
-                    </td>
-                    <td className="p-3">{row.matching_properties}</td>
-                    <td className="p-3">{row.eligible_pages}</td>
-                  </tr>
-                ))}
-                {!attributesQuery.isLoading && !attributeItems.length && (
-                  <tr>
-                    <td colSpan={3} className="p-6 text-gray-500">
-                      No attributes found.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      )}
-
-      {/* --- External Market Data --- */}
-      {section === "market" && (
-      <section id="market-data" className="space-y-4">
-        <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Market Data</h3>
-        <p className="text-xs text-gray-500">Separate from KigaliRent Verified inventory. Disappeared listings are never assumed rented.</p>
-
-        <dl className="grid sm:grid-cols-2 gap-4 text-sm border rounded-xl p-4 bg-white dark:bg-navy-800">
-          <div>
-            <dt className="text-gray-500">Total observations</dt>
-            <dd className="text-2xl font-serif">{summary?.total_observations ?? "—"}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Last import</dt>
-            <dd>{fmtDate(summary?.last_import_at)}</dd>
-          </div>
-        </dl>
-
-        <div className="flex flex-wrap gap-2">
-          <button type="button" className="px-4 py-2 text-sm rounded-lg border" onClick={() => adminService.downloadObservationsCsvTemplate().then((blob: Blob) => {
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = "external-observations-template.csv";
-            a.click();
-            URL.revokeObjectURL(url);
-          })}>
-            Download CSV template
-          </button>
-          <label className="px-4 py-2 text-sm rounded-lg bg-navy-800 text-white cursor-pointer">
-            {importCsv.isPending ? "Importing…" : "Import CSV"}
-            <input
-              type="file"
-              accept=".csv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) importCsv.mutate(f);
-                e.target.value = "";
-              }}
-            />
-          </label>
-        </div>
-
-        {summary && (
-          <ul className="text-sm space-y-1 border rounded-xl p-4 bg-white dark:bg-navy-800">
-            {summary.top_sources.map((s) => (
-              <li key={s.source_id}>
-                <button type="button" className="underline text-left" onClick={() => { setObsSource(s.source_id); setObsPage(1); }}>
-                  {s.name}
-                </button>
-                {" — "}
-                {s.observation_count}
-              </li>
-            ))}
-            {summary.other_sources_count > 0 && (
-              <li className="text-gray-600">
-                Other sources — {summary.other_sources_count}
-              </li>
-            )}
-            {!summary.top_sources.length && !summary.other_sources_count && (
-              <li className="text-gray-500">No observations imported yet.</li>
-            )}
-          </ul>
-        )}
-
-        <button type="button" className="text-sm underline" onClick={() => setManageSources((v) => !v)}>
-          {manageSources ? "Hide source settings" : "Manage sources"}
-        </button>
-
-        {manageSources && summary && (
-          <div className="border rounded-xl p-4 bg-white dark:bg-navy-800 space-y-3 text-sm">
-            <div className="flex flex-wrap gap-2">
-              <input
-                className="border rounded px-2 py-1 flex-1 min-w-[160px]"
-                placeholder="New source name"
-                value={newSourceName}
-                onChange={(e) => setNewSourceName(e.target.value)}
-              />
+          {searchTotalPages > 1 && (
+            <div className="flex gap-2 text-sm items-center">
               <button
                 type="button"
-                className="px-3 py-1 rounded bg-navy-800 text-white text-xs"
-                disabled={!newSourceName.trim() || createSource.isPending}
-                onClick={() => createSource.mutate(newSourceName.trim())}
+                className="border rounded px-3 py-1 disabled:opacity-40"
+                disabled={searchPage <= 1}
+                onClick={() => setSearchPage((p) => p - 1)}
               >
-                Add source
+                Previous
+              </button>
+              <span>
+                Page {searchPage} of {searchTotalPages}
+              </span>
+              <button
+                type="button"
+                className="border rounded px-3 py-1 disabled:opacity-40"
+                disabled={searchPage >= searchTotalPages}
+                onClick={() => setSearchPage((p) => p + 1)}
+              >
+                Next
               </button>
             </div>
-            <ul className="space-y-2 text-xs">
-              {summary.sources.map((s) => (
-                <li key={s.source_id} className="flex flex-wrap items-center gap-2 justify-between border-b pb-2">
-                  <span>
-                    {s.name} <span className="text-gray-400">({s.observation_count})</span>
-                  </span>
-                  <span className="space-x-2">
-                    {!s.is_archived && (
-                      <button
-                        type="button"
-                        className="underline"
-                        onClick={() => adminService.updateMarketSource(s.source_id, { enabled: !s.is_enabled }).then(() => { invalidateMarket(); flash(s.is_enabled ? "Source disabled." : "Source enabled."); })}
-                      >
-                        {s.is_enabled === false ? "Enable" : "Disable"}
-                      </button>
-                    )}
-                    <button
-                      type="button"
-                      className="underline text-red-600"
-                      onClick={() => {
-                        if (window.confirm(`Archive source "${s.name}"?`)) {
-                          adminService.updateMarketSource(s.source_id, { archived: true }).then(() => { invalidateMarket(); flash("Source archived."); });
-                        }
-                      }}
-                    >
-                      Archive
-                    </button>
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+          )}
 
-        <div className="flex flex-wrap gap-2 items-center text-sm">
-          <select className="border rounded px-2 py-1" value={obsSource} onChange={(e) => { setObsSource(e.target.value); setObsPage(1); }}>
-            <option value="">All sources</option>
-            {(summary?.sources || []).map((s) => (
-              <option key={s.source_id} value={s.source_id}>
-                {s.name}
-              </option>
-            ))}
-          </select>
-          <select className="border rounded px-2 py-1" value={obsStatus} onChange={(e) => { setObsStatus(e.target.value); setObsPage(1); }}>
-            <option value="">All statuses</option>
-            <option value="active_observed">Active</option>
-            <option value="not_found">Not found</option>
-            <option value="unknown">Unknown</option>
-            <option value="invalid">Invalid</option>
-          </select>
-        </div>
-
-        <div className="flex flex-wrap gap-3 text-sm">
-          <button type="button" className="underline" onClick={() => setSelectedObs(new Set(obsVisibleIds))}>
-            Select visible
-          </button>
-          <button type="button" className="underline" onClick={() => setSelectedObs(new Set())}>
-            Unselect all
-          </button>
-          <button type="button" className="underline" onClick={() => selectedObs.size && bulkObs.mutate("mark_active")}>
-            Mark Active
-          </button>
-          <button
-            type="button"
-            className="underline"
-            onClick={() => selectedObs.size && window.confirm(`Mark ${selectedObs.size} as not found?`) && bulkObs.mutate("mark_not_found")}
-          >
-            Mark Not Found
-          </button>
-          <button type="button" className="underline" onClick={() => selectedObs.size && bulkObs.mutate("mark_unknown")}>
-            Mark Unknown
-          </button>
-          <button
-            type="button"
-            className="underline"
-            onClick={() => window.confirm("Reprocess research from current observations?") && bulkObs.mutate("reprocess")}
-          >
-            Reprocess
-          </button>
-        </div>
-
-        <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
-          <table className="w-full text-sm min-w-[720px]">
-            <thead className="bg-gray-50 dark:bg-navy-900 text-left">
-              <tr>
-                <th className="p-3 w-8" />
-                <th className="p-3">Source</th>
-                <th className="p-3">Area</th>
-                <th className="p-3">Type/Beds</th>
-                <th className="p-3">USD</th>
-                <th className="p-3">Status</th>
-                <th className="p-3">Observed</th>
-              </tr>
-            </thead>
-            <tbody>
-              {observations.isLoading && (
-                <tr>
-                  <td colSpan={7} className="p-6 text-gray-500">
-                    Loading…
-                  </td>
-                </tr>
-              )}
-              {obsItems.map((row) => (
-                <tr key={row.id} className="border-t">
-                  <td className="p-3">
-                    <input
-                      type="checkbox"
-                      checked={selectedObs.has(row.id)}
-                      onChange={() => {
-                        setSelectedObs((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(row.id)) next.delete(row.id);
-                          else next.add(row.id);
-                          return next;
-                        });
-                      }}
-                    />
-                  </td>
-                  <td className="p-3">
-                    {row.source}
-                    {row.source_url && (
-                      <>
-                        {" · "}
-                        <a href={row.source_url} target="_blank" rel="noreferrer" className="text-gold-600 underline text-xs">
-                          original
-                        </a>
-                      </>
-                    )}
-                  </td>
-                  <td className="p-3">{row.neighborhood || "—"}</td>
-                  <td className="p-3">
-                    {row.property_type || "—"}
-                    {row.bedrooms != null ? ` · ${row.bedrooms} bed` : ""}
-                  </td>
-                  <td className="p-3">{row.usd_price != null ? `$${row.usd_price.toLocaleString()}` : "—"}</td>
-                  <td className="p-3 text-xs">{friendlyStatus(row.observation_status)}</td>
-                  <td className="p-3 text-xs">{row.observed_at ? new Date(row.observed_at).toLocaleDateString() : "—"}</td>
-                </tr>
-              ))}
-              {!observations.isLoading && !obsItems.length && (
-                <tr>
-                  <td colSpan={7} className="p-6 text-gray-500">
-                    No observations match.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {obsTotalPages > 1 && (
-          <div className="flex gap-2 text-sm items-center">
-            <button type="button" className="border rounded px-3 py-1 disabled:opacity-40" disabled={obsPage <= 1} onClick={() => setObsPage((p) => p - 1)}>
-              Previous
-            </button>
-            <span>
-              Page {obsPage} of {obsTotalPages}
-            </span>
-            <button type="button" className="border rounded px-3 py-1 disabled:opacity-40" disabled={obsPage >= obsTotalPages} onClick={() => setObsPage((p) => p + 1)}>
-              Next
-            </button>
-          </div>
-        )}
-      </section>
-      )}
+          <p className="text-xs text-gray-500">
+            Sitemap cap: {maxSitemap} search URLs. After Index/Include, DB{" "}
+            <code className="text-[10px]">sitemap_status</code> drives{" "}
+            <Link href="/sitemap-rentals.xml" target="_blank" className="underline">
+              /sitemap-rentals.xml
+            </Link>
+            .
+          </p>
+        </section>
+      </div>
     </div>
   );
 }

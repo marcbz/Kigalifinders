@@ -296,12 +296,18 @@ def apply_sitemap_cap(intents: list[SearchIntent], cfg: IntentAutomationConfig) 
             continue
         eligible_pool.append(intent)
 
-    # Manual includes always keep their slots (may briefly exceed cap if many manuals)
-    for intent in manual_included:
+    # Manual includes keep slots first, but still respect the hard max — drop weakest if over.
+    manual_included.sort(key=sitemap_priority_key, reverse=True)
+    keep_manual = manual_included[: int(cfg.max_sitemap_urls)]
+    drop_manual = manual_included[int(cfg.max_sitemap_urls) :]
+    for intent in keep_manual:
         intent.sitemap_status = SitemapStatus.INCLUDED.value
         included += 1
+    for intent in drop_manual:
+        intent.sitemap_status = SitemapStatus.EXCLUDED.value
+        excluded += 1
 
-    slots = max(0, int(cfg.max_sitemap_urls) - len(manual_included))
+    slots = max(0, int(cfg.max_sitemap_urls) - len(keep_manual))
     eligible_pool.sort(key=sitemap_priority_key, reverse=True)
     for intent in eligible_pool[:slots]:
         intent.sitemap_status = SitemapStatus.INCLUDED.value
@@ -315,7 +321,7 @@ def apply_sitemap_cap(intents: list[SearchIntent], cfg: IntentAutomationConfig) 
         "sitemap_excluded": excluded,
         "max_sitemap_urls": cfg.max_sitemap_urls,
         "auto_selected": min(slots, len(eligible_pool)),
-        "manual_included": len(manual_included),
+        "manual_included": len(keep_manual),
     }
 
 
@@ -388,6 +394,23 @@ async def landing_page_stats(db: AsyncSession) -> dict[str, int]:
     return stats
 
 
+async def finalize_seo_pipeline(db: AsyncSession) -> dict[str, Any]:
+    """After manual index/sitemap changes: refresh eligibility labels and apply global sitemap cap."""
+    from app.services.intent_automation import seo_eligibility_summary
+    from app.services.intent_config import load_automation_config
+
+    cfg = await load_automation_config(db)
+    intents = list((await db.execute(select(SearchIntent))).scalars().all())
+    for intent in intents:
+        intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
+        intent.last_evaluated_at = _now()
+        sync_sitemap_with_index(intent)
+    sitemap_stats = apply_sitemap_cap(intents, cfg)
+    await db.flush()
+    summary = await seo_eligibility_summary(db)
+    return {"sitemap": sitemap_stats, "summary": summary}
+
+
 async def recalculate_all_landings(db: AsyncSession, cfg: IntentAutomationConfig) -> dict[str, Any]:
     from app.services.intent_automation import apply_index_rules, recalculate_all_intent_metrics
 
@@ -446,11 +469,15 @@ def enrich_intent_admin_row(intent: SearchIntent) -> dict[str, Any]:
     q = intent.query or {}
     filters = key_attributes_from_query(q)
     dims = count_seo_dimensions(normalize_query(q))
+    opp = float(intent.opportunity_score or 0)
+    # Intent strength: filter specificity (primary) blended with opportunity (secondary)
+    intent_score = round(dims * 15 + min(opp, 100) * 0.35, 1)
     return {
         "filter_count": dims,
         "filters_label": filters_label_from_query(q) or "—",
         "filters": filters,
         "dimensions": dims,
+        "intent_score": intent_score,
     }
 
 

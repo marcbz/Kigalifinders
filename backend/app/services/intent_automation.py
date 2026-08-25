@@ -21,6 +21,7 @@ from app.models import (
     SearchIndexStatus,
     SearchIntent,
     SearchLandingRelation,
+    SitemapStatus,
 )
 from app.services.fx import effective_usd_price
 from app.services.intent_config import IntentAutomationConfig, load_automation_config
@@ -640,18 +641,39 @@ async def seo_eligibility_summary(db: AsyncSession) -> dict[str, Any]:
     from app.services.landing_pages import publishing_rule_counts
 
     rule_counts = publishing_rule_counts(intents)
+    search_sitemap_included = sum(
+        1
+        for i in intents
+        if i.sitemap_status == SitemapStatus.INCLUDED.value
+        and i.index_status == SearchIndexStatus.INDEXABLE.value
+        and (i.path or "").startswith("/rentals/")
+        and (i.path or "").count("/") >= 3
+    )
+    evaluated = stats["total"]
+    eligible = stats["eligible"]
+    excluded = stats["excluded"]
+    sitemap_max = int(cfg.max_sitemap_urls)
+    recalc_label = (
+        f"{evaluated} evaluated · {eligible} eligible · {excluded} excluded · "
+        f"{search_sitemap_included} / {sitemap_max} in sitemap"
+    )
     return {
+        "evaluated": evaluated,
+        "eligible": eligible,
+        "excluded": excluded,
         "eligible_landing_pages": stats["indexable"],
-        "excluded_pages": stats["excluded"],
+        "excluded_pages": excluded,
         "pages_ready": rule_counts["pages_ready"],
         "pages_not_ready": rule_counts["pages_not_ready"],
         "total_pages": stats["total"],
         "indexable": stats["indexable"],
         "noindex": stats["noindex"],
         "sitemap_included": stats["sitemap_included"],
+        "search_sitemap_included": search_sitemap_included,
         "sitemap_excluded": stats["sitemap_excluded"],
         "manual_overrides": stats["manual"],
         "automatic": stats["automatic"],
+        "recalc_label": recalc_label,
         "exclusion_reasons": [{"reason": r, "count": c} for r, c in top_reasons],
         "thresholds": {
             "min_dimensions_for_index": cfg.min_dimensions_for_index,
@@ -662,9 +684,9 @@ async def seo_eligibility_summary(db: AsyncSession) -> dict[str, Any]:
             "allow_sitemap_inclusion": cfg.allow_sitemap_inclusion,
         },
         "rental_sitemap": {
-            "included": stats["sitemap_included"],
+            "included": search_sitemap_included,
             "max": cfg.max_sitemap_urls,
-            "label": f"Rental sitemap: {stats['sitemap_included']} / {cfg.max_sitemap_urls} URLs",
+            "label": f"Rental sitemap: {search_sitemap_included} / {cfg.max_sitemap_urls} URLs",
         },
         "allowed_attributes": [
             "furnished / unfurnished",

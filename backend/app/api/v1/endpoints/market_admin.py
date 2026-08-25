@@ -216,7 +216,7 @@ async def approve_intent(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.services.seo_landing import SeoValidationError, set_index_status_manual
+    from app.services.seo_landing import SeoValidationError, finalize_seo_pipeline, set_index_status_manual
 
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
@@ -224,6 +224,7 @@ async def approve_intent(
     await rebuild_intent_metrics(db, intent)
     try:
         set_index_status_manual(intent, SearchIndexStatus.INDEXABLE.value)
+        await finalize_seo_pipeline(db)
     except SeoValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
@@ -238,7 +239,7 @@ async def set_intent_index_status(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.services.seo_landing import SeoValidationError, set_index_status_manual
+    from app.services.seo_landing import SeoValidationError, finalize_seo_pipeline, set_index_status_manual
 
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
@@ -247,7 +248,9 @@ async def set_intent_index_status(
     if status not in {SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value}:
         raise HTTPException(status_code=400, detail="Status must be indexable or noindex")
     try:
+        await rebuild_intent_metrics(db, intent)
         set_index_status_manual(intent, status)
+        await finalize_seo_pipeline(db)
     except SeoValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
@@ -262,7 +265,7 @@ async def set_intent_sitemap_status(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    from app.services.seo_landing import SeoValidationError, set_sitemap_status_manual
+    from app.services.seo_landing import SeoValidationError, finalize_seo_pipeline, set_sitemap_status_manual
 
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
@@ -272,6 +275,7 @@ async def set_intent_sitemap_status(
         raise HTTPException(status_code=400, detail="Status must be included or excluded")
     try:
         set_sitemap_status_manual(intent, status)
+        await finalize_seo_pipeline(db)
     except SeoValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
@@ -286,7 +290,12 @@ async def reset_intent_automatic(
     _: User = Depends(require_admin),
 ):
     from app.services.intent_config import load_automation_config
-    from app.services.seo_landing import apply_automatic_statuses, evaluate_automatic_eligibility, reset_to_automatic
+    from app.services.seo_landing import (
+        apply_automatic_statuses,
+        evaluate_automatic_eligibility,
+        finalize_seo_pipeline,
+        reset_to_automatic,
+    )
 
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
@@ -296,6 +305,7 @@ async def reset_intent_automatic(
     cfg = await load_automation_config(db)
     intent.automatic_eligibility = evaluate_automatic_eligibility(intent, cfg)
     apply_automatic_statuses(intent, cfg)
+    await finalize_seo_pipeline(db)
     await db.commit()
     await db.refresh(intent)
     return intent
@@ -436,15 +446,16 @@ async def recalculate_seo_landings(
 async def noindex_intent(
     intent_id: UUID,
     db: AsyncSession = Depends(get_db),
-    _: User = Depends(require_staff),
+    _: User = Depends(require_admin),
 ):
-    from app.services.seo_landing import SeoValidationError, set_index_status_manual
+    from app.services.seo_landing import SeoValidationError, finalize_seo_pipeline, set_index_status_manual
 
     intent = await db.get(SearchIntent, intent_id)
     if not intent:
         raise HTTPException(status_code=404, detail="Not found")
     try:
         set_index_status_manual(intent, SearchIndexStatus.NOINDEX.value)
+        await finalize_seo_pipeline(db)
     except SeoValidationError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
@@ -701,6 +712,7 @@ async def admin_bulk_intents(
         SeoValidationError,
         apply_automatic_statuses,
         evaluate_automatic_eligibility,
+        finalize_seo_pipeline,
         reset_to_automatic,
         set_index_status_manual,
         set_sitemap_status_manual,
@@ -762,6 +774,7 @@ async def admin_bulk_intents(
         except HTTPException:
             raise
 
+    await finalize_seo_pipeline(db)
     await db.commit()
     return {"updated": updated, "action": payload.action, "ok": not errors, "errors": errors}
 

@@ -141,6 +141,7 @@ export type SearchIntentAdmin = {
   filters_label?: string;
   filters?: string[];
   dimensions?: number;
+  intent_score?: number;
   last_built_at?: string;
   last_calculated_at?: string;
   last_evaluated_at?: string;

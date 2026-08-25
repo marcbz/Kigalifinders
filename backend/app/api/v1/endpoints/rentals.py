@@ -167,9 +167,9 @@ async def rentals_sitemap(
     from app.services.seo_landing import sitemap_priority_key
 
     cfg = await load_automation_config(db)
-    intent_items.sort(key=lambda row: sitemap_priority_key(row["_intent"]), reverse=True)
     max_urls = int(cfg.max_sitemap_urls or 100)
-    intent_items = intent_items[:max_urls]
+    intent_items.sort(key=lambda row: sitemap_priority_key(row["_intent"]), reverse=True)
+    # DB sitemap_status is authoritative — apply_sitemap_cap already enforces max_urls
     for row in intent_items:
         row.pop("_intent", None)
 

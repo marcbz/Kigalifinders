@@ -86,7 +86,7 @@ class SearchIntentListItem(BaseModel):
     filter_count: Optional[int] = None
     filters_label: Optional[str] = None
     filters: Optional[List[str]] = None
-    dimensions: Optional[int] = None
+    intent_score: Optional[float] = None
 
 
 class SearchIntentListResponse(BaseModel):
