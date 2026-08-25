@@ -47,15 +47,57 @@ def is_manual_override(intent: SearchIntent) -> bool:
 
 
 def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) -> dict[str, Any]:
-    """READY gates: min properties + min attributes + min quality (all required).
+    """Eligibility: PRIMARY = meaningful search-filter count, then quality.
 
-    Opportunity / observations / copy remain ranking signals for sitemap selection,
-    not hard READY thresholds.
+    Matching properties are an optional secondary safety check only.
+    Opportunity / observations remain ranking signals for sitemap selection.
     """
     q = normalize_query(intent.query or {})
     dims = count_seo_dimensions(q)
     blocked = query_has_blocked_seo_attributes(intent.query or {})
     checks: list[dict[str, Any]] = []
+
+    # PRIMARY criterion
+    checks.append(
+        {
+            "label": f"Minimum search filters ({cfg.min_dimensions_for_index})",
+            "passed": dims >= cfg.min_dimensions_for_index,
+            "detail": f"{dims} meaningful filter{'s' if dims != 1 else ''}",
+            "hard": True,
+            "primary": True,
+        }
+    )
+
+    checks.append(
+        {
+            "label": f"Minimum quality ({cfg.min_quality_for_index:.0f}%)",
+            "passed": float(intent.quality_score or 0) >= cfg.min_quality_for_index,
+            "detail": f"Quality {float(intent.quality_score or 0):.0f}%",
+            "hard": True,
+        }
+    )
+
+    # Optional secondary safety (0 = disabled)
+    if cfg.min_verified_for_index > 0:
+        checks.append(
+            {
+                "label": f"Matching properties safety ({cfg.min_verified_for_index})",
+                "passed": intent.match_count >= cfg.min_verified_for_index,
+                "detail": f"{intent.match_count} matching propert{'y' if intent.match_count == 1 else 'ies'}",
+                "hard": True,
+                "secondary": True,
+            }
+        )
+    else:
+        checks.append(
+            {
+                "label": "Matching properties safety",
+                "passed": True,
+                "detail": "Disabled (optional)",
+                "hard": False,
+                "secondary": True,
+            }
+        )
 
     if blocked:
         checks.append(
@@ -63,37 +105,23 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
                 "label": "Allowed SEO attributes only",
                 "passed": False,
                 "detail": f"Disallowed: {', '.join(blocked)}",
+                "hard": True,
             }
         )
     else:
-        checks.append({"label": "Allowed SEO attributes only", "passed": True, "detail": "No blocked attributes"})
+        checks.append({"label": "Allowed SEO attributes only", "passed": True, "detail": "No blocked attributes", "hard": True})
 
+    has_title = bool((intent.h1 or intent.title or "").strip())
     checks.append(
         {
-            "label": f"Minimum attributes ({cfg.min_dimensions_for_index})",
-            "passed": dims >= cfg.min_dimensions_for_index,
-            "detail": f"{dims} attribute(s)",
-            "hard": True,
-        }
-    )
-    checks.append(
-        {
-            "label": f"Minimum matching properties ({cfg.min_verified_for_index})",
-            "passed": intent.match_count >= cfg.min_verified_for_index,
-            "detail": f"{intent.match_count} matching propert{'y' if intent.match_count == 1 else 'ies'}",
-            "hard": True,
-        }
-    )
-    checks.append(
-        {
-            "label": f"Minimum quality ({cfg.min_quality_for_index:.0f})",
-            "passed": float(intent.quality_score or 0) >= cfg.min_quality_for_index,
-            "detail": f"Quality {float(intent.quality_score or 0):.0f}%",
+            "label": "Useful page content",
+            "passed": has_title,
+            "detail": "Has title" if has_title else "Missing title",
             "hard": True,
         }
     )
 
-    # Ranking signals (informational — do not block READY)
+    # Ranking signals (informational — do not block eligibility)
     checks.append(
         {
             "label": "Search opportunity (ranking)",
@@ -119,8 +147,13 @@ def build_eligibility_checks(intent: SearchIntent, cfg: IntentAutomationConfig) 
         "eligible": eligible,
         "checks": checks,
         "dimensions": dims,
+        "filter_count": dims,
         "failed_count": len(failed),
-        "summary": "Eligible for SEO indexing" if eligible else f"Excluded — {failed[0]['detail'] if failed else 'rules not met'}",
+        "summary": (
+            "Eligible for SEO indexing"
+            if eligible
+            else f"Excluded — {failed[0]['detail'] if failed else 'rules not met'}"
+        ),
     }
 
 
@@ -166,8 +199,13 @@ def apply_automatic_statuses(intent: SearchIntent, cfg: IntentAutomationConfig) 
     if intent.automatic_eligibility == AutomaticEligibility.ELIGIBLE.value:
         intent.index_status = SearchIndexStatus.INDEXABLE.value
         intent.status_reason = (
-            f"Auto-indexable: {build_eligibility_checks(intent, cfg)['dimensions']} attributes, "
-            f"{intent.match_count} matching properties, quality {float(intent.quality_score or 0):.0f}%"
+            f"Auto-indexable: {build_eligibility_checks(intent, cfg)['filter_count']} search filters, "
+            f"quality {float(intent.quality_score or 0):.0f}%"
+            + (
+                f", {intent.match_count} matching properties"
+                if cfg.min_verified_for_index > 0
+                else ""
+            )
         )
         # Provisional include — apply_sitemap_cap keeps only the strongest max_sitemap_urls
         if cfg.allow_sitemap_inclusion:
@@ -188,7 +226,8 @@ def apply_automatic_statuses(intent: SearchIntent, cfg: IntentAutomationConfig) 
 def sitemap_priority_key(intent: SearchIntent) -> tuple:
     """Higher tuple = stronger sitemap candidate.
 
-    Order: quality → matching properties → opportunity → data completeness → freshness.
+    Order: more meaningful search filters → quality → opportunity →
+    supporting data completeness → matching properties → freshness.
     """
     q = normalize_query(intent.query or {})
     dims = count_seo_dimensions(q)
@@ -201,10 +240,11 @@ def sitemap_priority_key(intent: SearchIntent) -> tuple:
     ts = intent.last_calculated_at or intent.last_evaluated_at or intent.updated_at or intent.last_built_at
     freshness = float(ts.timestamp()) if ts is not None else 0.0
     return (
+        dims,
         float(intent.quality_score or 0),
-        int(intent.match_count or 0),
         float(intent.opportunity_score or 0),
         completeness,
+        int(intent.match_count or 0),
         freshness,
     )
 
@@ -387,6 +427,32 @@ SORT_COLUMNS = {
     "location_slug": SearchIntent.location_slug,
 }
 
+# Sort modes that require in-memory ranking (not a DB column)
+MEMORY_SORTS = frozenset({"filter_count", "filters", "best"})
+
+
+def _intent_sort_key(intent: SearchIntent, sort_by: str):
+    if sort_by in {"filter_count", "filters"}:
+        return count_seo_dimensions(normalize_query(intent.query or {}))
+    if sort_by == "best":
+        return sitemap_priority_key(intent)
+    return getattr(intent, sort_by, None) or 0
+
+
+def enrich_intent_admin_row(intent: SearchIntent) -> dict[str, Any]:
+    """Add plain-English filter display for admin Search Pages table."""
+    from app.services.landing_pages import filters_label_from_query, key_attributes_from_query
+
+    q = intent.query or {}
+    filters = key_attributes_from_query(q)
+    dims = count_seo_dimensions(normalize_query(q))
+    return {
+        "filter_count": dims,
+        "filters_label": filters_label_from_query(q) or "—",
+        "filters": filters,
+        "dimensions": dims,
+    }
+
 
 async def list_search_intents_admin(
     db: AsyncSession,
@@ -453,12 +519,16 @@ async def list_search_intents_admin(
             return False
         return True
 
-    # Attribute filter needs JSON inspection — use in-memory path when set
-    if attribute:
+    needs_memory = bool(attribute) or sort_by in MEMORY_SORTS or sort_by == "filter_count"
+
+    if needs_memory:
         all_rows = list((await db.execute(select(SearchIntent))).scalars().all())
         filtered = [i for i in all_rows if _matches_row_filters(i)]
-        reverse = sort_dir.lower() == "desc"
-        filtered.sort(key=lambda i: getattr(i, sort_by, None) or 0, reverse=reverse)
+        reverse = sort_dir.lower() != "asc"
+        if sort_by == "best":
+            filtered.sort(key=lambda i: _intent_sort_key(i, "best"), reverse=True)
+        else:
+            filtered.sort(key=lambda i: _intent_sort_key(i, sort_by), reverse=reverse)
         total = len(filtered)
         rows = filtered[(page - 1) * page_size : page * page_size]
         return {"total": total, "page": page, "page_size": page_size, "items": rows}

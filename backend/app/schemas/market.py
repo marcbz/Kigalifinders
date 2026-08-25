@@ -83,6 +83,10 @@ class SearchIntentListItem(BaseModel):
     is_enabled: bool
     updated_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
+    filter_count: Optional[int] = None
+    filters_label: Optional[str] = None
+    filters: Optional[List[str]] = None
+    dimensions: Optional[int] = None
 
 
 class SearchIntentListResponse(BaseModel):
@@ -103,6 +107,7 @@ class SearchIntentEligibilityDetails(BaseModel):
     summary: str
     checks: List[EligibilityCheckItem]
     dimensions: int
+    filter_count: Optional[int] = None
     index_status: str
     sitemap_status: str
     seo_control: str

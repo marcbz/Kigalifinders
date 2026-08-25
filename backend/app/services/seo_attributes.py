@@ -1,14 +1,13 @@
-"""SEO landing-page attribute rules and dimension counting.
+"""SEO landing-page search-filter rules and dimension counting.
 
-Allowed SEO attributes (only these):
-furnished / unfurnished, bedrooms, bathrooms, kitchen, parking,
-garden, swimming pool, compound.
+Meaningful search filters (each counts as 1):
+location, property type, bedrooms, bathrooms, furnished/unfurnished,
+kitchen, parking, garden, swimming pool, compound, price band.
 
 Blocked from SEO/filter landing generation:
 internet, staff quarters, security, balcony.
 
-Location counts as one dimension. Example: Kibagabaga + furnished = 2.
-Property type is a structural facet (apartment/house) and also counts as one dimension.
+Example: Kigali + 2 bedrooms + Apartment + Under $1,200 = 4 filters.
 """
 
 from __future__ import annotations
@@ -76,7 +75,7 @@ def sanitize_seo_amenities(amenities: list[Any] | None) -> tuple[list[str], list
 
 
 def count_seo_dimensions(query: dict[str, Any]) -> int:
-    """Count SEO dimensions. Location always counts as 1 when present."""
+    """Count meaningful search filters. Location counts as 1 when present."""
     dims = 0
     if query.get("location") or query.get("location_slug"):
         dims += 1
@@ -90,7 +89,7 @@ def count_seo_dimensions(query: dict[str, Any]) -> int:
         dims += 1
     allowed, _ = sanitize_seo_amenities(query.get("amenities") or [])
     dims += len(allowed)
-    # Price band is meaningful search intent (counts as one dimension max)
+    # Price band is meaningful search intent (counts as one filter max)
     if query.get("max_price_usd") is not None or query.get("min_price_usd") is not None:
         dims += 1
     return dims

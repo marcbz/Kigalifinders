@@ -26,19 +26,27 @@ def sitemap_destination(path: str) -> str:
 
 
 def key_attributes_from_query(query: dict[str, Any]) -> list[str]:
+    """Plain-English meaningful search filters (location, beds, type, budget, amenities, …)."""
+    from app.services.seo_attributes import sanitize_seo_amenities
+
     q = normalize_query(query)
     attrs: list[str] = []
     loc = q.get("location", "kigali")
     if loc and loc != "kigali":
         attrs.append(loc.replace("-", " ").title())
-    elif loc == "kigali":
-        attrs.append("Kigali-wide")
+    elif loc == "kigali" or q.get("location_slug") == "kigali":
+        attrs.append("Kigali")
+    elif q.get("location") or q.get("location_slug"):
+        attrs.append(str(loc).replace("-", " ").title())
+
     if q.get("bedrooms") is not None:
-        attrs.append(f"{q['bedrooms']} bedroom")
+        n = int(q["bedrooms"])
+        attrs.append(f"{n} bedroom" if n == 1 else f"{n} bedrooms")
     if q.get("bathrooms") is not None:
         baths = q["bathrooms"]
         label = str(int(baths)) if float(baths).is_integer() else str(baths)
-        attrs.append(f"{label} bathroom")
+        n = float(baths)
+        attrs.append(f"{label} bathroom" if n == 1 else f"{label} bathrooms")
     if q.get("furnished") is True:
         attrs.append("Furnished")
     elif q.get("furnished") is False:
@@ -46,13 +54,18 @@ def key_attributes_from_query(query: dict[str, Any]) -> list[str]:
     ptype = q.get("property_type")
     if ptype:
         attrs.append(ptype.replace("-", " ").title())
-    for a in q.get("amenities") or []:
-        attrs.append(a.replace("_", " ").title())
+    allowed, _ = sanitize_seo_amenities(q.get("amenities") or [])
+    for a in allowed:
+        attrs.append(str(a).replace("_", " ").capitalize())
     if q.get("max_price_usd") is not None:
         attrs.append(f"Under ${int(q['max_price_usd']):,}/month")
     if q.get("min_price_usd") is not None and q.get("max_price_usd") is None:
         attrs.append(f"From ${int(q['min_price_usd']):,}/month")
     return attrs
+
+
+def filters_label_from_query(query: dict[str, Any]) -> str:
+    return " · ".join(key_attributes_from_query(query))
 
 
 def generate_intro_text(

@@ -137,6 +137,10 @@ export type SearchIntentAdmin = {
   automatic_eligibility?: string;
   match_count: number;
   matching_observation_count?: number;
+  filter_count?: number;
+  filters_label?: string;
+  filters?: string[];
+  dimensions?: number;
   last_built_at?: string;
   last_calculated_at?: string;
   last_evaluated_at?: string;

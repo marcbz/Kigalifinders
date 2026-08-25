@@ -15,15 +15,16 @@ SETTINGS_KEY = "search_intent_thresholds"
 
 @dataclass
 class IntentAutomationConfig:
-    # SEO landing gates (admin-editable publishing rules)
+    # Primary SEO gate: meaningful search-filter count (admin: "Minimum search filters")
     min_dimensions_for_index: int = 2
-    min_verified_for_index: int = 5
+    # Secondary safety only — not the primary SEO criterion (0 = disabled)
+    min_verified_for_index: int = 1
     min_quality_for_index: float = 50.0
     max_sitemap_urls: int = 100
-    allow_auto_index: bool = True  # automatic SEO landing-page generation / promotion
+    allow_auto_index: bool = True
     allow_sitemap_inclusion: bool = True
     require_unique_content: bool = True
-    min_unique_content_chars: int = 40  # used for ranking completeness, not a hard READY gate
+    min_unique_content_chars: int = 40  # ranking completeness, not a hard READY gate
 
     # Discovery / draft (keep conservative — do not invent thousands of thin pages)
     min_verified_for_discover: int = 3
@@ -45,35 +46,38 @@ DEFAULT_CONFIG = IntentAutomationConfig()
 
 SEO_SETTING_FIELDS = (
     "min_dimensions_for_index",
-    "min_verified_for_index",
     "min_quality_for_index",
     "max_sitemap_urls",
+    "min_verified_for_index",
     "allow_auto_index",
     "allow_sitemap_inclusion",
 )
 
 SEO_SETTING_HELP = {
     "min_dimensions_for_index": (
-        "Minimum attributes (dimensions) a page needs to be READY. "
-        "Location counts as 1. Example: Kibagabaga + furnished = 2."
-    ),
-    "min_verified_for_index": (
-        "Minimum number of real published KigaliRent properties that must match the page."
+        "PRIMARY: Minimum meaningful search filters required for eligibility. "
+        "Each of location, bedrooms, property type, budget, furnished, bathrooms, "
+        "and allowed amenities counts as one filter. "
+        "Example: Kigali + 2 bedrooms + Apartment + Under $1,200 = 4 filters."
     ),
     "min_quality_for_index": (
-        "Minimum quality score (0–100) required for READY / automatic publishing."
+        "Minimum quality score (0–100) required for automatic eligibility."
     ),
     "max_sitemap_urls": (
-        "Maximum search URLs included in sitemap-rentals.xml. "
-        "Strongest eligible pages are kept (by quality, matches, opportunity, completeness, freshness)."
+        "Maximum search URLs included in sitemap-rentals.xml (default 100). "
+        "Pages with more filters, higher quality, and stronger opportunity are kept first."
+    ),
+    "min_verified_for_index": (
+        "Optional secondary safety: minimum matching verified properties. "
+        "Not the primary SEO criterion. Set to 0 to disable."
     ),
     "allow_auto_index": (
-        "When on, READY pages may automatically become published (indexable). "
+        "When on, eligible pages may automatically become indexable. "
         "When off, pages stay unpublished until an admin publishes them."
     ),
     "allow_sitemap_inclusion": (
-        "When on, the strongest published rental landings are added to the XML sitemap "
-        f"(up to the max URLs setting). When off, all are sitemap-excluded."
+        "When on, the strongest eligible rental landings are added to the XML sitemap "
+        "(up to the max URLs setting). When off, all are sitemap-excluded."
     ),
 }
 
@@ -96,6 +100,8 @@ async def load_automation_config(db: AsyncSession) -> IntentAutomationConfig:
         data["max_sitemap_urls"] = DEFAULT_CONFIG.max_sitemap_urls
         if row.value.get("min_quality_for_index") in (None, 40, 40.0):
             data["min_quality_for_index"] = DEFAULT_CONFIG.min_quality_for_index
+    # One-time: if stored settings still use the old "properties-first" stack (min props >= 5
+    # with no filter-primary migration flag), keep operator values but ensure filters stay primary in UI.
     if isinstance(data.get("bedroom_levels"), list):
         data["bedroom_levels"] = tuple(int(x) for x in data["bedroom_levels"])
     if isinstance(data.get("bathroom_levels"), list):
@@ -116,7 +122,7 @@ async def save_automation_config(
         cfg = IntentAutomationConfig(**{k: merged[k] for k in base.keys()})
     # Clamp sensible ranges
     cfg.min_dimensions_for_index = max(1, min(10, int(cfg.min_dimensions_for_index)))
-    cfg.min_verified_for_index = max(1, min(100, int(cfg.min_verified_for_index)))
+    cfg.min_verified_for_index = max(0, min(100, int(cfg.min_verified_for_index)))
     cfg.min_unique_content_chars = max(0, min(2000, int(cfg.min_unique_content_chars)))
     cfg.min_quality_for_index = max(0.0, min(100.0, float(cfg.min_quality_for_index)))
     cfg.max_sitemap_urls = max(1, min(5000, int(cfg.max_sitemap_urls)))
@@ -144,6 +150,13 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
         "settings": {k: getattr(cfg, k) for k in SEO_SETTING_FIELDS},
         "defaults": {k: getattr(DEFAULT_CONFIG, k) for k in SEO_SETTING_FIELDS},
         "help": SEO_SETTING_HELP,
+        "primary_criterion": "search_filters",
+        "labels": {
+            "min_dimensions_for_index": "Minimum search filters",
+            "min_quality_for_index": "Minimum quality score",
+            "max_sitemap_urls": "Maximum rental sitemap URLs",
+            "min_verified_for_index": "Minimum matching properties (optional safety)",
+        },
         "allowed_attributes": [
             "furnished / unfurnished",
             "bedrooms",
@@ -156,9 +169,10 @@ def seo_settings_public(cfg: IntentAutomationConfig) -> dict[str, Any]:
         ],
         "removed_attributes": ["internet", "staff quarters", "security", "balcony"],
         "notes": (
-            "A page is READY only when minimum properties, attributes, and quality are all met. "
-            "Below any threshold → not ready, noindex, sitemap excluded. "
-            "Manual overrides remain possible and are labeled. "
-            "Never fabricates properties or market data."
+            "PRIMARY eligibility: meaningful search-filter count. "
+            "Also requires minimum quality and valid content. "
+            "Matching properties are an optional secondary safety check only. "
+            "Failing pages are noindex and sitemap-excluded. "
+            "Manual overrides remain possible and are labeled."
         ),
     }

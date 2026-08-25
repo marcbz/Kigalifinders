@@ -7,8 +7,21 @@ import { adminService, propertyService } from "@/services/api";
 import type { SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
 type SimpleStatus = "all" | "ready" | "published" | "noindex" | "not_ready";
-type SortMode = "best" | "properties" | "quality";
+type SortMode =
+  | "best"
+  | "filters_desc"
+  | "filters_asc"
+  | "quality_desc"
+  | "quality_asc"
+  | "properties";
 type Section = "search" | "properties" | "attributes" | "market";
+
+type SeoControls = {
+  min_dimensions_for_index: number;
+  min_quality_for_index: number;
+  max_sitemap_urls: number;
+  min_verified_for_index: number;
+};
 
 type ObservationRow = {
   id: string;
@@ -143,6 +156,7 @@ export default function SeoMarketAdminPage() {
   const [attributeFilter, setAttributeFilter] = useState<string | null>(null);
   const [attrSort, setAttrSort] = useState<"label" | "properties" | "pages">("properties");
   const [message, setMessage] = useState<string | null>(null);
+  const [seoForm, setSeoForm] = useState<SeoControls | null>(null);
 
   // --- Market data state ---
   const [obsPage, setObsPage] = useState(1);
@@ -153,9 +167,12 @@ export default function SeoMarketAdminPage() {
   const [newSourceName, setNewSourceName] = useState("");
 
   const sortParams = useMemo(() => {
+    if (sort === "filters_desc") return { sort_by: "filter_count", sort_dir: "desc" as const };
+    if (sort === "filters_asc") return { sort_by: "filter_count", sort_dir: "asc" as const };
+    if (sort === "quality_desc") return { sort_by: "quality_score", sort_dir: "desc" as const };
+    if (sort === "quality_asc") return { sort_by: "quality_score", sort_dir: "asc" as const };
     if (sort === "properties") return { sort_by: "match_count", sort_dir: "desc" as const };
-    if (sort === "quality") return { sort_by: "quality_score", sort_dir: "desc" as const };
-    return { sort_by: "opportunity_score", sort_dir: "desc" as const };
+    return { sort_by: "best", sort_dir: "desc" as const };
   }, [sort]);
 
   useEffect(() => {
@@ -192,6 +209,24 @@ export default function SeoMarketAdminPage() {
       }) as Promise<SearchIntentListResponse>,
     enabled: section === "search",
   });
+
+  const seoSettingsQuery = useQuery({
+    queryKey: ["admin-seo-settings"],
+    queryFn: () => adminService.getSeoSettings(),
+    enabled: section === "search",
+  });
+
+  useEffect(() => {
+    if (seoSettingsQuery.data?.settings) {
+      const s = seoSettingsQuery.data.settings;
+      setSeoForm({
+        min_dimensions_for_index: s.min_dimensions_for_index ?? 2,
+        min_quality_for_index: s.min_quality_for_index ?? 50,
+        max_sitemap_urls: s.max_sitemap_urls ?? 100,
+        min_verified_for_index: s.min_verified_for_index ?? 1,
+      });
+    }
+  }, [seoSettingsQuery.data]);
 
   const attributesQuery = useQuery({
     queryKey: ["admin-seo-attributes"],
@@ -333,18 +368,43 @@ export default function SeoMarketAdminPage() {
     },
   });
 
+  const saveSeo = useMutation({
+    mutationFn: () =>
+      adminService.updateSeoSettings({
+        min_dimensions_for_index: seoForm!.min_dimensions_for_index,
+        min_quality_for_index: seoForm!.min_quality_for_index,
+        max_sitemap_urls: seoForm!.max_sitemap_urls,
+        min_verified_for_index: seoForm!.min_verified_for_index,
+      }),
+    onSuccess: () => {
+      flash("SEO controls saved. Eligibility and sitemap were recalculated.");
+      qc.invalidateQueries({ queryKey: ["admin-seo-settings"] });
+      invalidateSearch();
+    },
+  });
+
+  const recalculateSeo = useMutation({
+    mutationFn: () => adminService.recalculateSeoLandings(),
+    onSuccess: () => {
+      flash("Recalculated eligibility, index status, and sitemap inclusion.");
+      qc.invalidateQueries({ queryKey: ["admin-seo-settings"] });
+      invalidateSearch();
+    },
+  });
+
   const pageVisibleIds = searchItems.map((r) => r.id);
   const obsVisibleIds = obsItems.map((r) => r.id);
+  const seoSummary = seoSettingsQuery.data?.summary;
+  const configuredFilters = seoForm?.min_dimensions_for_index ?? seoSettingsQuery.data?.settings?.min_dimensions_for_index;
+  const configuredQuality = seoForm?.min_quality_for_index ?? seoSettingsQuery.data?.settings?.min_quality_for_index;
 
   return (
     <div className="space-y-6 max-w-5xl">
       <div>
         <h2 className="text-xl font-semibold text-navy-800 dark:text-white">SEO &amp; Market Data</h2>
         <p className="text-sm text-gray-500 mt-1">
-          Publish search pages, review attributes, and manage external market observations.{" "}
-          <Link href="/admin/seo-settings" className="underline">
-            Publishing rules
-          </Link>
+          Search-filter count is the primary SEO criterion. Eligible pages may be indexed and enter the rental sitemap
+          (max {seoForm?.max_sitemap_urls ?? 100} URLs).
         </p>
       </div>
 
@@ -368,6 +428,109 @@ export default function SeoMarketAdminPage() {
       {/* --- Search Pages --- */}
       {section === "search" && (
       <section className="space-y-4">
+        <div id="seo-controls" className="border rounded-xl p-5 bg-white dark:bg-navy-800 space-y-4">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-lg font-semibold text-navy-800 dark:text-white">SEO controls</h3>
+              <p className="text-sm text-gray-500 mt-1">
+                Primary: minimum meaningful search filters. Quality is required. Matching properties are optional
+                safety only.
+              </p>
+            </div>
+            <button
+              type="button"
+              className="px-3 py-1.5 text-sm rounded-lg border"
+              disabled={recalculateSeo.isPending}
+              onClick={() => recalculateSeo.mutate()}
+            >
+              {recalculateSeo.isPending ? "Recalculating…" : "Refresh / Recalculate"}
+            </button>
+          </div>
+
+          {(configuredFilters != null || configuredQuality != null) && (
+            <p className="text-sm text-navy-800 dark:text-white">
+              Active thresholds:{" "}
+              <span className="font-medium">≥ {configuredFilters ?? "—"} filters</span>
+              {" · "}
+              <span className="font-medium">≥ {configuredQuality ?? "—"}% quality</span>
+              {" · "}
+              sitemap max {seoForm?.max_sitemap_urls ?? 100}
+              {seoSummary?.rental_sitemap?.label ? ` · ${seoSummary.rental_sitemap.label}` : null}
+            </p>
+          )}
+
+          {seoForm && (
+            <form
+              className="grid sm:grid-cols-2 gap-4"
+              onSubmit={(e) => {
+                e.preventDefault();
+                saveSeo.mutate();
+              }}
+            >
+              <label className="block space-y-1">
+                <span className="text-sm font-medium">Minimum search filters (primary)</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={10}
+                  className="border rounded px-3 py-2 w-full text-sm"
+                  value={seoForm.min_dimensions_for_index}
+                  onChange={(e) =>
+                    setSeoForm({ ...seoForm, min_dimensions_for_index: Number(e.target.value) })
+                  }
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium">Minimum quality score</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className="border rounded px-3 py-2 w-full text-sm"
+                  value={seoForm.min_quality_for_index}
+                  onChange={(e) =>
+                    setSeoForm({ ...seoForm, min_quality_for_index: Number(e.target.value) })
+                  }
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium">Maximum rental sitemap URLs</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={5000}
+                  className="border rounded px-3 py-2 w-full text-sm"
+                  value={seoForm.max_sitemap_urls}
+                  onChange={(e) => setSeoForm({ ...seoForm, max_sitemap_urls: Number(e.target.value) })}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="text-sm font-medium">Min matching properties (optional safety)</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  className="border rounded px-3 py-2 w-full text-sm"
+                  value={seoForm.min_verified_for_index}
+                  onChange={(e) =>
+                    setSeoForm({ ...seoForm, min_verified_for_index: Number(e.target.value) })
+                  }
+                />
+                <span className="text-xs text-gray-500">Set 0 to disable. Not the primary SEO criterion.</span>
+              </label>
+              <div className="sm:col-span-2">
+                <button
+                  type="submit"
+                  className="px-4 py-2 text-sm rounded-lg bg-navy-800 text-white"
+                  disabled={saveSeo.isPending || !seoForm}
+                >
+                  {saveSeo.isPending ? "Saving & recalculating…" : "Save SEO controls"}
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+
         <h3 className="text-lg font-semibold text-navy-800 dark:text-white">Search pages</h3>
         {attributeFilter && (
           <p className="text-sm text-gray-600">
@@ -390,8 +553,11 @@ export default function SeoMarketAdminPage() {
           />
           <select className="border rounded-lg px-3 py-2 text-sm" value={sort} onChange={(e) => setSort(e.target.value as SortMode)}>
             <option value="best">Best first</option>
+            <option value="filters_desc">Most filters</option>
+            <option value="filters_asc">Fewest filters</option>
+            <option value="quality_desc">Highest quality</option>
+            <option value="quality_asc">Lowest quality</option>
             <option value="properties">Most properties</option>
-            <option value="quality">Highest quality</option>
           </select>
         </div>
 
@@ -461,14 +627,15 @@ export default function SeoMarketAdminPage() {
         </div>
 
         <div className="border rounded-xl bg-white dark:bg-navy-800 overflow-x-auto">
-          <table className="w-full text-sm min-w-[780px]">
+          <table className="w-full text-sm min-w-[920px]">
             <thead className="bg-gray-50 dark:bg-navy-900 text-left">
               <tr>
                 <th className="p-3 w-8" />
                 <th className="p-3">Page</th>
+                <th className="p-3">Filters</th>
                 <th className="p-3">Properties</th>
                 <th className="p-3">Quality</th>
-                <th className="p-3">Status</th>
+                <th className="p-3">Eligibility</th>
                 <th className="p-3">Sitemap</th>
                 <th className="p-3">Action</th>
               </tr>
@@ -476,13 +643,19 @@ export default function SeoMarketAdminPage() {
             <tbody>
               {searchQuery.isLoading && (
                 <tr>
-                  <td colSpan={7} className="p-6 text-gray-500">
+                  <td colSpan={8} className="p-6 text-gray-500">
                     Loading…
                   </td>
                 </tr>
               )}
               {searchItems.map((row) => {
                 const status = simpleStatus(row);
+                const eligibility =
+                  row.automatic_eligibility === "eligible"
+                    ? "Eligible"
+                    : status === "published"
+                      ? "Eligible (live)"
+                      : "Not eligible";
                 return (
                   <tr key={row.id} className="border-t">
                     <td className="p-3">
@@ -503,12 +676,21 @@ export default function SeoMarketAdminPage() {
                       <Link href={row.path} target="_blank" rel="noreferrer" className="text-gold-600 hover:underline">
                         {pageName(row)}
                       </Link>
+                      <div className="text-[11px] text-gray-500 mt-0.5">
+                        <StatusDot status={status} />
+                      </div>
+                    </td>
+                    <td className="p-3 text-xs text-gray-700 dark:text-gray-300 max-w-[220px]">
+                      <span className="font-medium text-navy-800 dark:text-white">
+                        {row.filter_count ?? row.dimensions ?? "—"}
+                      </span>
+                      <p className="mt-0.5 leading-snug">{row.filters_label || "—"}</p>
                     </td>
                     <td className="p-3">{row.match_count}</td>
                     <td className="p-3">{Math.round(row.quality_score)}%</td>
                     <td className="p-3">
                       <div className="flex flex-col gap-0.5">
-                        <StatusDot status={status} />
+                        <span>{eligibility}</span>
                         {(row.seo_control === "manual" || row.locked_by_admin) && (
                           <span className="text-[11px] text-amber-700 font-medium">Manual override</span>
                         )}
@@ -545,7 +727,7 @@ export default function SeoMarketAdminPage() {
               })}
               {!searchQuery.isLoading && !searchItems.length && (
                 <tr>
-                  <td colSpan={7} className="p-6 text-gray-500">
+                  <td colSpan={8} className="p-6 text-gray-500">
                     No pages match.
                   </td>
                 </tr>

@@ -608,11 +608,11 @@ def _exclusion_reason_for_intent(intent: SearchIntent, cfg: IntentAutomationConf
     if blocked:
         return f"Disallowed attributes: {', '.join(blocked)}"
     if dims < cfg.min_dimensions_for_index:
-        return f"Below attribute threshold ({dims} < {cfg.min_dimensions_for_index})"
-    if intent.match_count < cfg.min_verified_for_index:
-        return f"Below match threshold ({intent.match_count} < {cfg.min_verified_for_index})"
+        return f"Below search-filter threshold ({dims} < {cfg.min_dimensions_for_index})"
     if float(intent.quality_score or 0) < cfg.min_quality_for_index:
         return f"Below quality threshold ({float(intent.quality_score or 0):.0f} < {cfg.min_quality_for_index:.0f})"
+    if cfg.min_verified_for_index > 0 and intent.match_count < cfg.min_verified_for_index:
+        return f"Below property safety threshold ({intent.match_count} < {cfg.min_verified_for_index})"
     if intent.status_reason and "duplicate" in (intent.status_reason or "").lower():
         return intent.status_reason
     if intent.index_status == SearchIndexStatus.NOINDEX.value:

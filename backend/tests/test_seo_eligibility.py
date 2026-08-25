@@ -1,4 +1,4 @@
-"""Unit tests for SEO publishing-rule READY gates."""
+"""Unit tests for SEO eligibility — search filters are the primary criterion."""
 
 from types import SimpleNamespace
 
@@ -24,7 +24,57 @@ def _intent(**kwargs):
     return SimpleNamespace(**base)
 
 
-def test_three_properties_high_quality_not_ready():
+def test_filter_count_is_primary_gate():
+    """Weak filters fail even with many properties and high quality."""
+    cfg = IntentAutomationConfig(
+        min_verified_for_index=1,
+        min_dimensions_for_index=3,
+        min_quality_for_index=50.0,
+    )
+    # Only Kigali + furnished = 2 filters
+    intent = _intent(match_count=20, quality_score=96.0, query={"location": "kigali", "furnished": True})
+    details = build_eligibility_checks(intent, cfg)
+    assert details["filter_count"] == 2
+    assert details["eligible"] is False
+    assert evaluate_automatic_eligibility(intent, cfg) == "excluded"
+    failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
+    assert any("filter" in c["label"].lower() for c in failed)
+
+
+def test_strong_filters_pass_with_quality():
+    cfg = IntentAutomationConfig(
+        min_verified_for_index=1,
+        min_dimensions_for_index=3,
+        min_quality_for_index=50.0,
+    )
+    intent = _intent(
+        match_count=2,
+        quality_score=55.0,
+        query={
+            "location": "kigali",
+            "bedrooms": 2,
+            "property_type": "apartment",
+            "max_price_usd": 1200,
+        },
+    )
+    details = build_eligibility_checks(intent, cfg)
+    assert details["filter_count"] == 4
+    assert details["eligible"] is True
+    assert evaluate_automatic_eligibility(intent, cfg) == "eligible"
+
+
+def test_property_safety_optional_when_zero():
+    cfg = IntentAutomationConfig(
+        min_verified_for_index=0,
+        min_dimensions_for_index=2,
+        min_quality_for_index=50.0,
+    )
+    intent = _intent(match_count=0, quality_score=60.0, query={"location": "kibagabaga", "furnished": True})
+    details = build_eligibility_checks(intent, cfg)
+    assert details["eligible"] is True
+
+
+def test_property_safety_blocks_when_configured():
     cfg = IntentAutomationConfig(
         min_verified_for_index=5,
         min_dimensions_for_index=2,
@@ -33,30 +83,16 @@ def test_three_properties_high_quality_not_ready():
     intent = _intent(match_count=3, quality_score=96.0)
     details = build_eligibility_checks(intent, cfg)
     assert details["eligible"] is False
-    assert evaluate_automatic_eligibility(intent, cfg) == "excluded"
     failed = [c for c in details["checks"] if not c["passed"] and c.get("hard", True)]
-    assert any("matching" in c["label"].lower() for c in failed)
+    assert any("propert" in c["label"].lower() for c in failed)
 
 
-def test_meets_all_three_thresholds_is_ready():
-    cfg = IntentAutomationConfig(
-        min_verified_for_index=5,
-        min_dimensions_for_index=2,
-        min_quality_for_index=50.0,
-    )
-    intent = _intent(match_count=5, quality_score=50.0, query={"location": "kibagabaga", "furnished": True})
-    details = build_eligibility_checks(intent, cfg)
-    assert details["dimensions"] >= 2
-    assert details["eligible"] is True
-    assert evaluate_automatic_eligibility(intent, cfg) == "eligible"
-
-
-def test_sitemap_cap_keeps_strongest():
+def test_sitemap_cap_prioritizes_more_filters():
     from app.services.seo_landing import apply_sitemap_cap
 
     cfg = IntentAutomationConfig(max_sitemap_urls=2, allow_sitemap_inclusion=True)
 
-    def make(id_, quality, matches, opp):
+    def make(id_, filters_query, quality=70, matches=5, opp=40):
         return SimpleNamespace(
             id=id_,
             index_status="indexable",
@@ -71,18 +107,28 @@ def test_sitemap_cap_keeps_strongest():
             matching_observation_count=0,
             intro_html="x" * 50,
             meta_description="meta",
-            query={"location": "kigali", "furnished": True},
+            query=filters_query,
             last_calculated_at=None,
             last_evaluated_at=None,
             updated_at=None,
             last_built_at=None,
         )
 
-    a = make(1, 90, 10, 50)
-    b = make(2, 80, 20, 40)
-    c = make(3, 70, 5, 90)
-    stats = apply_sitemap_cap([a, b, c], cfg)
+    weak = make(1, {"location": "kigali", "furnished": True}, quality=99, matches=50)
+    strong_a = make(
+        2,
+        {"location": "kigali", "bedrooms": 2, "property_type": "apartment", "max_price_usd": 1200},
+        quality=60,
+        matches=3,
+    )
+    strong_b = make(
+        3,
+        {"location": "kigali", "bedrooms": 3, "property_type": "house", "furnished": True},
+        quality=55,
+        matches=4,
+    )
+    stats = apply_sitemap_cap([weak, strong_a, strong_b], cfg)
     assert stats["sitemap_included"] == 2
-    assert a.sitemap_status == "included"  # highest quality
-    assert b.sitemap_status == "included"  # next
-    assert c.sitemap_status == "excluded"
+    assert strong_a.sitemap_status == "included"
+    assert strong_b.sitemap_status == "included"
+    assert weak.sitemap_status == "excluded"  # fewer filters despite higher quality

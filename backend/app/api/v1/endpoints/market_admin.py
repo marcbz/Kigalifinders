@@ -102,7 +102,7 @@ async def list_search_intents(
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_staff),
 ):
-    from app.services.seo_landing import list_search_intents_admin
+    from app.services.seo_landing import enrich_intent_admin_row, list_search_intents_admin
 
     data = await list_search_intents_admin(
         db,
@@ -120,11 +120,16 @@ async def list_search_intents(
         page=page,
         page_size=page_size,
     )
+    items = []
+    for intent in data["items"]:
+        base = SearchIntentListItem.model_validate(intent).model_dump()
+        base.update(enrich_intent_admin_row(intent))
+        items.append(base)
     return {
         "total": data["total"],
         "page": data["page"],
         "page_size": data["page_size"],
-        "items": data["items"],
+        "items": items,
     }
 
 
