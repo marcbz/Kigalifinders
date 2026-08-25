@@ -186,7 +186,7 @@ class SearchLandingPageResponse(BaseModel):
     data_insights: List[str] = []
     by_bedroom_verified: List[dict[str, Any]] = []
     by_bedroom_external: List[dict[str, Any]] = []
-    furnished_breakdown: Optional[dict[str, int]] = None
+    furnished_breakdown: Optional[dict[str, Any]] = None
     trend_verified: List[TrendPoint] = []
     trend_external: List[TrendPoint] = []
     related: List[RelatedIntentLink] = []

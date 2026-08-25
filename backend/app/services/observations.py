@@ -280,22 +280,30 @@ async def import_observations_csv(db: AsyncSession, content: bytes | str) -> dic
 
 
 async def refresh_research_after_import(db: AsyncSession) -> dict:
-    """CSV → snapshots → charts inputs → search intents. Does not touch verified inventory rebuild unless needed."""
+    """CSV → normalize/dedupe already done → rebuild snapshots + intents + SEO metrics.
+
+    Public research answers are computed live from the combined eligible dataset, so
+    observation snapshot rebuild keeps charts/admin in sync while intent metrics refresh
+    landing-page quality and eligibility.
+    """
     from app.services.intent_automation import apply_index_rules, discover_intents, recalculate_all_intent_metrics
     from app.services.intent_config import load_automation_config
     from app.services.market_sources import refresh_observation_counts
-    from app.services.research import rebuild_observation_snapshots
+    from app.services.research import rebuild_observation_snapshots, rebuild_verified_snapshots
 
+    verified_snaps = await rebuild_verified_snapshots(db)
     snaps = await rebuild_observation_snapshots(db)
     disc = await discover_intents(db, deep=False)
     recalculated = await recalculate_all_intent_metrics(db)
     index_stats = await apply_index_rules(db, await load_automation_config(db))
     await refresh_observation_counts(db)
     return {
+        "verified_snapshots": verified_snaps,
         "observation_snapshots": snaps,
         "discovery": disc,
         "recalculated": recalculated,
         "index_rules": index_stats,
+        "combined_market": "live",
     }
 
 

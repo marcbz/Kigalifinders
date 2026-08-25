@@ -6,7 +6,6 @@ import { ResearchChart } from "@/components/research/research-charts";
 import {
   DataInsights,
   KeyAttributes,
-  MarketBlock,
   RelatedNeighborhoods,
   TrendCharts,
 } from "@/components/rentals/rental-landing-sections";
@@ -169,6 +168,7 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
 
         {data.market_answer?.has_enough_data && (
           <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800 space-y-2">
+            <p className="text-xs uppercase tracking-wider text-gray-500">Market data</p>
             <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white">
               {data.market_answer.question || "Typical asking rent"}
             </h2>
@@ -188,23 +188,24 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           </section>
         )}
 
-        {!data.market_answer?.has_enough_data && (data.verified_market || data.observation_market) && (
-          <div className="grid lg:grid-cols-2 gap-6">
-            <MarketBlock snap={data.verified_market} title="KigaliRent Verified" />
-            {data.observation_market && (
-              <MarketBlock snap={data.observation_market} title="External Market Observations" />
-            )}
-          </div>
+        {!data.market_answer?.has_enough_data && (
+          <section className="rounded-2xl border border-dashed p-6 bg-white dark:bg-navy-800">
+            <h2 className="font-serif text-xl font-bold mb-2">Market data</h2>
+            <p className="text-sm text-gray-500">
+              {data.market_answer?.summary || "Not enough data to provide a reliable estimate yet."}
+            </p>
+          </section>
         )}
 
         {!!data.key_attributes?.length && <KeyAttributes attrs={data.key_attributes} />}
 
         <DataInsights insights={data.data_insights || []} />
 
-        <TrendCharts verified={data.trend_verified} external={data.trend_external} />
+        <TrendCharts verified={data.trend_verified} external={[]} />
 
         {listings.length > 0 && (
           <section>
+            <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Available verified rentals</p>
             <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">Verified listings</h2>
             <ul className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
               {listings.map((p) => (
@@ -234,15 +235,16 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           <section className="rounded-xl border border-dashed p-8 bg-white dark:bg-navy-800">
             <p className="text-navy-800 dark:text-white font-medium">No verified listings in this area right now.</p>
             <p className="text-sm text-gray-500 mt-2">
-              <Link href="/properties" className="text-gold-600 underline">Browse all rentals</Link> or try a related search below.
+              Market estimates above still use the combined eligible observation set when sample size allows.{" "}
+              <Link href="/properties" className="text-gold-600 underline">Browse all rentals</Link>
             </p>
           </section>
         )}
 
         {(data.by_bedroom_verified?.length || 0) > 0 && (
           <ResearchChart
-            title="Verified rent by bedroom"
-            subtitle="KigaliRent Verified listings only"
+            title="Asking rent by bedroom"
+            subtitle="Combined eligible observations"
             points={(data.by_bedroom_verified || []).map((r) => ({
               label: r.bedrooms === 4 ? "4+" : String(r.bedrooms),
               value: r.median_usd || 0,
@@ -254,25 +256,12 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           />
         )}
 
-        {(data.by_bedroom_external?.length || 0) > 0 && (
-          <ResearchChart
-            title="External observations by bedroom"
-            subtitle="Observed on external sources — not confirmed vacancies"
-            points={(data.by_bedroom_external || []).map((r) => ({
-              label: r.bedrooms === 4 ? "4+" : String(r.bedrooms),
-              value: r.median_usd || 0,
-              sample_size: r.sample_size,
-            }))}
-            emptyText="Not enough external observation data yet."
-          />
-        )}
-
         {data.furnished_breakdown && data.furnished_breakdown.total > 0 && (
           <section className="rounded-2xl border p-6 bg-white dark:bg-navy-800">
             <h2 className="font-serif text-xl font-bold mb-3">Furnished vs unfurnished</h2>
             <p className="text-sm text-gray-600">
               {data.furnished_breakdown.furnished} furnished · {data.furnished_breakdown.unfurnished} unfurnished
-              (from {data.furnished_breakdown.total} verified listings)
+              (from {data.furnished_breakdown.total} observations / listings in this view)
             </p>
           </section>
         )}

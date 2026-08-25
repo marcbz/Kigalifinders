@@ -60,41 +60,40 @@ def generate_intro_text(
     *,
     match_count: int,
     observation_count: int,
-    verified_snap: dict[str, Any] | None,
-    observation_snap: dict[str, Any] | None,
+    verified_snap: dict[str, Any] | None = None,
+    observation_snap: dict[str, Any] | None = None,
     location_name: str | None = None,
+    market_answer: dict[str, Any] | None = None,
 ) -> str:
     q = normalize_query(query)
     loc = location_name or (q["location"].replace("-", " ").title() if q["location"] != "kigali" else "Kigali")
     parts: list[str] = []
 
+    if market_answer and market_answer.get("has_enough_data"):
+        typical = market_answer.get("typical_usd")
+        n = market_answer.get("sample_size") or 0
+        if typical is not None:
+            parts.append(
+                f"Typical asking rent for this search in {loc} is about ${typical:,.0f}/month, "
+                f"based on {n} eligible market observations."
+            )
+        if market_answer.get("range_text"):
+            parts.append(market_answer["range_text"])
+    elif verified_snap and verified_snap.get("median_usd"):
+        parts.append(
+            f"Eligible market observations for this search typically ask around "
+            f"${verified_snap['median_usd']:,.0f}/month (n={verified_snap.get('sample_size', 0)})."
+        )
+
     if match_count:
         parts.append(
-            f"KigaliRent currently lists {match_count} verified rental "
-            f"{'property' if match_count == 1 else 'properties'} matching this search in {loc}."
-        )
-    elif observation_count:
-        parts.append(
-            f"We do not have verified KigaliRent listings for this exact search in {loc} right now, "
-            f"but we track {observation_count} external market observation{'s' if observation_count != 1 else ''} "
-            "that may help with price context."
+            f"{match_count} verified rental {'property is' if match_count == 1 else 'properties are'} "
+            f"currently available on KigaliRent matching this search."
         )
     else:
         parts.append(
-            f"This page tracks rentals in {loc} matching your filters. "
-            "We add verified listings and external observations as they become available."
-        )
-
-    if verified_snap and verified_snap.get("median_usd"):
-        parts.append(
-            f"Verified listings in our sample typically ask around ${verified_snap['median_usd']:,.0f}/month "
-            f"(n={verified_snap.get('sample_size', 0)})."
-        )
-    elif observation_snap and observation_snap.get("median_usd"):
-        parts.append(
-            f"External market observations in this area suggest typical asking rents around "
-            f"${observation_snap['median_usd']:,.0f}/month (n={observation_snap.get('sample_size', 0)}). "
-            "These are not confirmed vacancies."
+            f"There are no verified KigaliRent listings matching this exact search in {loc} right now, "
+            "but market estimates below still use the combined eligible observation set when sample size allows."
         )
 
     return " ".join(parts)
@@ -103,51 +102,43 @@ def generate_intro_text(
 def build_data_insights(
     *,
     match_count: int,
-    observation_count: int,
-    verified_snap: dict[str, Any] | None,
-    observation_snap: dict[str, Any] | None,
-    furnished: dict[str, int] | None,
-    by_bedroom_verified: list[dict[str, Any]],
-    by_bedroom_external: list[dict[str, Any]],
+    observation_count: int = 0,
+    verified_snap: dict[str, Any] | None = None,
+    observation_snap: dict[str, Any] | None = None,
+    furnished: dict[str, int] | None = None,
+    by_bedroom_verified: list[dict[str, Any]] | None = None,
+    by_bedroom_external: list[dict[str, Any]] | None = None,
+    market_insights: list[str] | None = None,
 ) -> list[str]:
-    insights: list[str] = []
+    """Prefer combined market insights; fall back lightly for inventory context."""
+    insights: list[str] = list(market_insights or [])
     if match_count:
-        insights.append(f"{match_count} KigaliRent Verified {'listing matches' if match_count != 1 else 'listing matches'} this search today.")
-    if observation_count:
         insights.append(
-            f"{observation_count} external market observation{'s' if observation_count != 1 else ''} "
-            "inform price context — not verified availability."
+            f"{match_count} verified KigaliRent {'listing matches' if match_count != 1 else 'listing matches'} "
+            "this search today (inventory, separate from market statistics)."
         )
-    if verified_snap and verified_snap.get("p25_usd") and verified_snap.get("p75_usd"):
-        insights.append(
-            f"Verified asking rents in this sample usually fall between "
-            f"${verified_snap['p25_usd']:,.0f} and ${verified_snap['p75_usd']:,.0f}/month."
-        )
-    if observation_snap and observation_snap.get("p25_usd") and observation_snap.get("p75_usd"):
-        insights.append(
-            f"External observations suggest a wider market range of "
-            f"${observation_snap['p25_usd']:,.0f}–${observation_snap['p75_usd']:,.0f}/month."
-        )
-    if furnished and furnished.get("total", 0) >= 3:
-        insights.append(
-            f"Among verified matches: {furnished['furnished']} furnished, {furnished['unfurnished']} unfurnished."
-        )
-    if len(by_bedroom_verified) >= 2:
-        cheapest = min(by_bedroom_verified, key=lambda r: r.get("median_usd") or 999999)
-        priciest = max(by_bedroom_verified, key=lambda r: r.get("median_usd") or 0)
-        if cheapest.get("median_usd") and priciest.get("median_usd"):
+    # Legacy dual-track fields ignored for public conclusions when market_insights provided
+    if not market_insights:
+        if verified_snap and verified_snap.get("p25_usd") and verified_snap.get("p75_usd"):
             insights.append(
-                f"Verified medians range from ${cheapest['median_usd']:,.0f}/month "
-                f"({cheapest['bedrooms']} bed) to ${priciest['median_usd']:,.0f}/month ({priciest['bedrooms']} bed)."
+                f"Middle 50% of observed asking rents: "
+                f"${verified_snap['p25_usd']:,.0f}–${verified_snap['p75_usd']:,.0f}/month."
             )
-    if len(by_bedroom_external) >= 2 and not by_bedroom_verified:
-        cheapest = min(by_bedroom_external, key=lambda r: r.get("median_usd") or 999999)
-        priciest = max(by_bedroom_external, key=lambda r: r.get("median_usd") or 0)
-        if cheapest.get("median_usd") and priciest.get("median_usd"):
+        if furnished and furnished.get("total", 0) >= 3:
             insights.append(
-                f"External observations by bedroom span ${cheapest['median_usd']:,.0f}–${priciest['median_usd']:,.0f}/month."
+                f"Among verified matches: {furnished['furnished']} furnished, {furnished['unfurnished']} unfurnished."
             )
-    return insights[:6]
+        beds = by_bedroom_verified or []
+        if len(beds) >= 2:
+            cheapest = min(beds, key=lambda r: r.get("median_usd") or 999999)
+            priciest = max(beds, key=lambda r: r.get("median_usd") or 0)
+            if cheapest.get("median_usd") and priciest.get("median_usd"):
+                insights.append(
+                    f"By bedrooms, typical asking rents range from ${cheapest['median_usd']:,.0f}/month "
+                    f"({cheapest.get('label') or cheapest.get('bedrooms')} bed) to "
+                    f"${priciest['median_usd']:,.0f}/month ({priciest.get('label') or priciest.get('bedrooms')} bed)."
+                )
+    return insights[:8]
 
 
 async def trend_series_for_location(

@@ -58,11 +58,17 @@ export type SearchLandingPage = {
   data_insights?: string[];
   by_bedroom_verified?: { bedrooms: number; median_usd?: number; p25_usd?: number; p75_usd?: number; sample_size: number }[];
   by_bedroom_external?: { bedrooms: number; median_usd?: number; p25_usd?: number; p75_usd?: number; sample_size: number }[];
-  furnished_breakdown?: { furnished: number; unfurnished: number; total: number };
-  trend_verified?: { label: string; median_usd?: number; sample_size?: number }[];
+  furnished_breakdown?: {
+    furnished: number;
+    unfurnished: number;
+    total: number;
+    furnished_median_usd?: number | null;
+    unfurnished_median_usd?: number | null;
+  };
+  trend_verified?: { label: string; median_usd?: number; sample_size?: number; pct_change?: number | null }[];
   trend_external?: { label: string; median_usd?: number; sample_size?: number }[];
   related: { path: string; title: string; h1: string; location_slug: string; intent_slug: string }[];
-  related_neighborhoods?: { slug: string; name: string; path: string; listing_count: number }[];
+  related_neighborhoods?: { slug: string; name: string; path: string; listing_count: number; median_usd?: number }[];
   methodology_note: string;
   market_answer?: {
     question?: string;
@@ -70,9 +76,15 @@ export type SearchLandingPage = {
     has_enough_data?: boolean;
     summary?: string;
     range_text?: string | null;
+    plain_english?: string | null;
     sample_size?: number;
     last_updated_display?: string | null;
+    period_start?: string | null;
+    period_end?: string | null;
     asking_rent_note?: string;
+    typical_usd?: number | null;
+    p25_usd?: number | null;
+    p75_usd?: number | null;
   } | null;
 };
 

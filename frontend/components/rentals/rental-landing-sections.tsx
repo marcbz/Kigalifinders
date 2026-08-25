@@ -91,38 +91,20 @@ export function TrendCharts({
   verified?: TrendPoint[];
   external?: TrendPoint[];
 }) {
-  const hasVerified = (verified?.length || 0) >= 2;
-  const hasExternal = (external?.length || 0) >= 2;
-  if (!hasVerified && !hasExternal) return null;
+  const series = (verified?.length || 0) >= 2 ? verified : (external?.length || 0) >= 2 ? external : null;
+  if (!series) return null;
   return (
-    <div className="grid lg:grid-cols-2 gap-6">
-      {hasVerified && (
-        <ResearchChart
-          kind="line"
-          title="Verified rent trend"
-          subtitle="KigaliRent Verified — monthly median when enough history exists"
-          points={(verified || []).map((p) => ({
-            label: p.label,
-            value: p.median_usd || 0,
-            sample_size: p.sample_size,
-          }))}
-          emptyText="Not enough verified history yet."
-        />
-      )}
-      {hasExternal && (
-        <ResearchChart
-          kind="line"
-          title="External observation trend"
-          subtitle="Observed asking rents — not confirmed vacancies"
-          points={(external || []).map((p) => ({
-            label: p.label,
-            value: p.median_usd || 0,
-            sample_size: p.sample_size,
-          }))}
-          emptyText="Not enough external history yet."
-        />
-      )}
-    </div>
+    <ResearchChart
+      kind="line"
+      title="Asking rent over time"
+      subtitle="Combined eligible observations · USD/month"
+      points={(series || []).map((p) => ({
+        label: p.label,
+        value: p.median_usd || 0,
+        sample_size: p.sample_size,
+      }))}
+      emptyText="Not enough historical data yet."
+    />
   );
 }
 

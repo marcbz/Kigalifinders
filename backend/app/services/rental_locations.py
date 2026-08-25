@@ -302,40 +302,35 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
 
 
 async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
-    from app.services.landing_pages import build_data_insights, trend_series_for_location
+    from app.services.combined_market import combined_slice_context
+    from app.services.landing_pages import build_data_insights
 
-    verified = await _latest_snapshot(db, location_slug="kigali", data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value)
-    observed = await _latest_snapshot(
-        db, location_slug="kigali", data_kind=MarketDataKind.MARKET_OBSERVATION.value, min_sample=1
-    )
-    by_bedroom_verified = await _snapshots_by_bedroom(db, "kigali", MarketDataKind.VERIFIED_KIGALI_RENT.value)
-    by_bedroom_external = await _snapshots_by_bedroom(db, "kigali", MarketDataKind.MARKET_OBSERVATION.value)
-    furnished = await _furnished_counts(db, "kigali")
     neighborhoods = await _neighborhoods_with_counts(db)
     neighborhoods.sort(key=lambda n: (-(n["median_usd"] or 0), -n["listing_count"]))
     matches = await match_verified_properties(db, {"location": "kigali"}, limit=12)
     matches_sorted = sorted(matches, key=lambda p: score_property(p, {"location": "kigali"}), reverse=True)
-    obs_count = await count_observations(db, {"location": "kigali"})
-    verified_dict = _snap_dict(verified, "KigaliRent Verified")
-    observed_dict = _snap_dict(observed, "External Market Observations")
-    trend_verified = await trend_series_for_location(
-        db, location_slug="kigali", data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value
-    )
-    trend_external = await trend_series_for_location(
-        db, location_slug="kigali", data_kind=MarketDataKind.MARKET_OBSERVATION.value
-    )
+
+    market_ctx = await combined_slice_context(db, location_slug="kigali")
+    market_answer = market_ctx["market_answer"]
+    furnished_market = market_ctx.get("furnished_breakdown") or {}
+    furnished_payload = {
+        "furnished": (furnished_market.get("furnished") or {}).get("sample_size", 0),
+        "unfurnished": (furnished_market.get("unfurnished") or {}).get("sample_size", 0),
+        "total": (
+            (furnished_market.get("furnished") or {}).get("sample_size", 0)
+            + (furnished_market.get("unfurnished") or {}).get("sample_size", 0)
+        ),
+    }
 
     intro = (
-        f"Overview of the Kigali rental market using {len(matches)} verified KigaliRent listings"
-        + (f" and {obs_count} external market observations" if obs_count else "")
-        + "."
+        "Overview of the Kigali rental market using combined eligible observations"
+        + (
+            f" (typical asking rent ${market_answer['typical_usd']:,.0f}/month based on {market_answer.get('sample_size')} observations)."
+            if market_answer.get("has_enough_data") and market_answer.get("typical_usd") is not None
+            else "."
+        )
+        + f" {len(matches)} verified KigaliRent listings are available separately below."
     )
-    if verified and verified.median_usd:
-        intro += f" Verified listings in this sample typically ask around ${verified.median_usd:,.0f}/month."
-
-    from app.services.combined_market import combined_market_answer
-
-    market_answer = await combined_market_answer(db, location_slug="kigali")
 
     return {
         "page_type": "city",
@@ -350,26 +345,21 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "intro": intro,
         "last_updated": _now().isoformat(),
         "listing_count": len(matches),
-        "observation_count": obs_count,
+        "observation_count": market_answer.get("sample_size") or 0,
         "market_answer": market_answer,
-        "verified_market": verified_dict,
+        "verified_market": None,
         "observation_market": None,
-        "by_bedroom_verified": by_bedroom_verified,
-        "by_bedroom_external": by_bedroom_external,
-        "furnished_breakdown": furnished,
+        "by_bedroom_verified": market_ctx.get("by_bedroom") or [],
+        "by_bedroom_external": [],
+        "furnished_breakdown": furnished_payload if furnished_payload["total"] else None,
         "property_types": await _property_type_breakdown(db, "kigali"),
         "key_attributes": ["Kigali-wide", "All property types"],
         "data_insights": build_data_insights(
             match_count=len(matches),
-            observation_count=obs_count,
-            verified_snap=verified_dict,
-            observation_snap=observed_dict,
-            furnished=furnished,
-            by_bedroom_verified=by_bedroom_verified,
-            by_bedroom_external=by_bedroom_external,
+            market_insights=market_ctx.get("data_insights") or [],
         ),
-        "trend_verified": trend_verified,
-        "trend_external": trend_external,
+        "trend_verified": market_ctx.get("trend") or [],
+        "trend_external": [],
         "neighborhoods": [n for n in neighborhoods if n["listing_count"] > 0][:20],
         "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in matches_sorted],
         "related_searches": await _related_intents_for_location(db, "kigali", limit=10),
@@ -380,19 +370,21 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         ],
         "faqs": [
             {
-                "q": "What does KigaliRent Verified mean?",
-                "a": "These are published listings reviewed by KigaliRent — not scraped or assumed available.",
+                "q": "How much does renting in Kigali typically cost?",
+                "a": market_answer.get("summary")
+                or "Not enough data to provide a reliable estimate yet.",
             },
             {
-                "q": "What are External Market Observations?",
-                "a": "Public listings we observed or imported separately. They inform price context but are not confirmed vacancies.",
+                "q": "Are these confirmed lease prices?",
+                "a": "No. Figures are asking rents from eligible observations, not confirmed transactions. Verified listings below are current inventory.",
             },
         ],
     }
 
 
 async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any] | None:
-    from app.services.landing_pages import build_data_insights, key_attributes_from_query, trend_series_for_location
+    from app.services.combined_market import combined_slice_context
+    from app.services.landing_pages import build_data_insights, key_attributes_from_query
 
     result = await db.execute(
         select(Neighborhood, District.name)
@@ -406,42 +398,39 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
     query = {"location": hood.slug}
     matches = await match_verified_properties(db, query, limit=24)
     matches_sorted = sorted(matches, key=lambda p: score_property(p, query), reverse=True)
-    verified = await _latest_snapshot(
-        db, location_slug=hood.slug, data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value
-    )
-    observed = await _latest_snapshot(
-        db, location_slug=hood.slug, data_kind=MarketDataKind.MARKET_OBSERVATION.value, min_sample=1
-    )
-    by_bedroom_verified = await _snapshots_by_bedroom(db, hood.slug, MarketDataKind.VERIFIED_KIGALI_RENT.value)
-    by_bedroom_external = await _snapshots_by_bedroom(db, hood.slug, MarketDataKind.MARKET_OBSERVATION.value)
-    furnished = await _furnished_counts(db, hood.slug)
-    obs_count = await count_observations(db, query)
     all_hoods = await _neighborhoods_with_counts(db)
 
+    market_ctx = await combined_slice_context(db, location_slug=hood.slug)
+    market_answer = market_ctx["market_answer"]
+    furnished_market = market_ctx.get("furnished_breakdown") or {}
+    furnished_payload = {
+        "furnished": (furnished_market.get("furnished") or {}).get("sample_size", 0),
+        "unfurnished": (furnished_market.get("unfurnished") or {}).get("sample_size", 0),
+        "total": (
+            (furnished_market.get("furnished") or {}).get("sample_size", 0)
+            + (furnished_market.get("unfurnished") or {}).get("sample_size", 0)
+        ),
+    }
+
+    listing_word = "listings" if len(matches) != 1 else "listing"
+    verb = "are" if len(matches) != 1 else "is"
+    if market_answer.get("has_enough_data") and market_answer.get("typical_usd") is not None:
+        market_bit = (
+            f" (typical asking rent ${market_answer['typical_usd']:,.0f}/month, "
+            f"n={market_answer.get('sample_size')})."
+        )
+    else:
+        market_bit = "."
     intro = (
-        f"{hood.name} currently has {len(matches)} verified rental listing{'s' if len(matches) != 1 else ''} on KigaliRent"
-        + (f" and {obs_count} external market observation{'s' if obs_count != 1 else ''}" if obs_count else "")
-        + f" in {district_name}."
+        f"{hood.name} market context uses combined eligible observations{market_bit} "
+        f"{len(matches)} verified rental {listing_word} {verb} currently available on KigaliRent "
+        f"in {district_name}."
     )
-    if verified and verified.median_usd:
-        intro += f" Verified asking rents in this area typically centre around ${verified.median_usd:,.0f}/month (n={verified.sample_size})."
-
-    verified_dict = _snap_dict(verified, "KigaliRent Verified")
-    observed_dict = _snap_dict(observed, "External Market Observations")
-    trend_verified = await trend_series_for_location(
-        db, location_slug=hood.slug, data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value
-    )
-    trend_external = await trend_series_for_location(
-        db, location_slug=hood.slug, data_kind=MarketDataKind.MARKET_OBSERVATION.value
-    )
-
-    from app.services.combined_market import combined_market_answer
-
-    market_answer = await combined_market_answer(db, location_slug=hood.slug)
 
     related = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
     related.sort(key=lambda n: -n["listing_count"])
 
+    property_word = "property" if len(matches) == 1 else "properties"
     return {
         "page_type": "neighborhood",
         "path": f"/rentals/{hood.slug}",
@@ -450,32 +439,34 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "district_name": district_name,
         "title": f"Rentals in {hood.name}, Kigali | KigaliRent",
         "h1": f"Rentals in {hood.name}",
-        "meta_description": f"Verified rentals in {hood.name}, {district_name}. Real listings and market data from KigaliRent.",
+        "meta_description": (
+            f"Verified rentals in {hood.name}, {district_name}. "
+            "Combined market asking-rent estimates and current inventory."
+        ),
         "canonical": f"{SITE}/rentals/{hood.slug}",
-        "robots": "index,follow" if len(matches) >= 1 else "noindex,follow",
+        "robots": (
+            "index,follow"
+            if len(matches) >= 1 or market_answer.get("has_enough_data")
+            else "noindex,follow"
+        ),
         "intro": intro,
         "last_updated": _now().isoformat(),
         "listing_count": len(matches),
-        "observation_count": obs_count,
+        "observation_count": market_answer.get("sample_size") or 0,
         "market_answer": market_answer,
-        "verified_market": verified_dict,
+        "verified_market": None,
         "observation_market": None,
-        "by_bedroom_verified": by_bedroom_verified,
-        "by_bedroom_external": by_bedroom_external,
-        "furnished_breakdown": furnished,
+        "by_bedroom_verified": market_ctx.get("by_bedroom") or [],
+        "by_bedroom_external": [],
+        "furnished_breakdown": furnished_payload if furnished_payload["total"] else None,
         "property_types": await _property_type_breakdown(db, hood.slug),
         "key_attributes": key_attributes_from_query(query),
         "data_insights": build_data_insights(
             match_count=len(matches),
-            observation_count=obs_count,
-            verified_snap=verified_dict,
-            observation_snap=observed_dict,
-            furnished=furnished,
-            by_bedroom_verified=by_bedroom_verified,
-            by_bedroom_external=by_bedroom_external,
+            market_insights=market_ctx.get("data_insights") or [],
         ),
-        "trend_verified": trend_verified,
-        "trend_external": trend_external,
+        "trend_verified": market_ctx.get("trend") or [],
+        "trend_external": [],
         "verified_listings": [_listing_card(p, query) for p in matches_sorted],
         "related_searches": await _related_intents_for_location(db, hood.slug, limit=8),
         "related_neighborhoods": [
@@ -485,7 +476,15 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "faqs": [
             {
                 "q": f"How many verified rentals are in {hood.name}?",
-                "a": f"KigaliRent currently lists {len(matches)} verified rental propert{'y' if len(matches) == 1 else 'ies'} in {hood.name}.",
+                "a": (
+                    f"KigaliRent currently lists {len(matches)} verified rental "
+                    f"{property_word} in {hood.name}."
+                ),
+            },
+            {
+                "q": f"What is the typical asking rent in {hood.name}?",
+                "a": market_answer.get("summary")
+                or "Not enough data to provide a reliable estimate yet.",
             },
         ],
     }

@@ -89,10 +89,66 @@ export function fetchResearchPricesSafe(location = "kigali") {
       has_enough_data?: boolean;
       summary?: string;
       range_text?: string | null;
+      plain_english?: string | null;
       sample_size?: number;
       last_updated_display?: string | null;
+      period_start?: string | null;
+      period_end?: string | null;
+      asking_rent_note?: string;
+      typical_usd?: number | null;
+      p25_usd?: number | null;
+      p75_usd?: number | null;
     };
-  }>(`/research/kigali-rental-market/prices?location_slug=${encodeURIComponent(location)}`, 600);
+    bedroom_answers?: {
+      question: string;
+      headline?: string | null;
+      plain_english?: string | null;
+      sample_size?: number;
+      period_end?: string | null;
+      has_enough_data?: boolean;
+    }[];
+    property_type_answers?: {
+      question: string;
+      headline?: string | null;
+      sample_size?: number;
+      has_enough_data?: boolean;
+    }[];
+    by_bedroom?: {
+      label?: string;
+      bedrooms?: number;
+      median_usd?: number;
+      p25_usd?: number;
+      p75_usd?: number;
+      sample_size: number;
+    }[];
+    by_neighborhood?: {
+      label: string;
+      median_usd?: number;
+      p25_usd?: number;
+      p75_usd?: number;
+      sample_size: number;
+    }[];
+    by_property_type?: { label: string; median_usd?: number; sample_size: number }[];
+    furnished_breakdown?: {
+      furnished: { median_usd?: number | null; sample_size: number; p25_usd?: number | null; p75_usd?: number | null };
+      unfurnished: { median_usd?: number | null; sample_size: number; p25_usd?: number | null; p75_usd?: number | null };
+    };
+    budget_bands?: { label: string; count: number; share_pct: number; sample_size: number }[];
+    trend?: { label?: string; period_end?: string; median_usd?: number; sample_size?: number; pct_change?: number | null }[];
+    has_trend_history?: boolean;
+    insights?: string[];
+    sections?: {
+      what_the_data_shows?: string[];
+      how_to_interpret?: string[];
+      methodology?: string[];
+      limitations?: string[];
+      last_updated?: string | null;
+      last_updated_display?: string | null;
+      observation_period?: string | null;
+      number_of_observations?: number;
+      sources_url?: string;
+    };
+  }>(`/research/kigali-rental-market/prices?location_slug=${encodeURIComponent(location)}`, 300);
 }
 
 export function fetchResearchNeighborhoodsSafe() {
@@ -205,7 +261,19 @@ export function fetchResearchChartsSafe() {
       furnished: { count: number; median_usd?: number | null; sample_size: number };
       unfurnished: { count: number; median_usd?: number | null; sample_size: number };
     };
-    trend: { period_end?: string; label?: string; median_usd?: number; sample_size: number }[];
+    budget_bands?: { label: string; count: number; share_pct: number; sample_size: number }[];
+    sections?: {
+      what_the_data_shows?: string[];
+      how_to_interpret?: string[];
+      methodology?: string[];
+      limitations?: string[];
+      last_updated?: string | null;
+      last_updated_display?: string | null;
+      observation_period?: string | null;
+      number_of_observations?: number;
+      sources_url?: string;
+    };
+    trend: { period_end?: string; label?: string; median_usd?: number; sample_size: number; pct_change?: number | null }[];
     has_trend_history: boolean;
     last_updated?: string | null;
     transparency?: import("@/components/research/research-transparency").ResearchTransparencyData;

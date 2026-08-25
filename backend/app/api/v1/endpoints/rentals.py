@@ -33,9 +33,11 @@ router = APIRouter(tags=["Rentals & Research"])
 
 SITE = "https://kigalirent.com"
 METHODOLOGY = (
-    "Verified matches are KigaliRent-reviewed listings. "
-    "Market observation statistics, when shown, come from external listings we observed or imported "
-    "and are labeled separately. Disappeared external listings are never assumed rented."
+    "Market data combines eligible KigaliRent Verified listings and approved external market "
+    "observations after normalization, deduplication, and outlier screening. "
+    "Figures are asking rents, not confirmed lease prices. "
+    "Available verified rentals below are current KigaliRent inventory and are shown separately. "
+    "Disappeared external listings are never assumed rented."
 )
 
 
@@ -222,15 +224,12 @@ async def get_rental_landing(
     intent_slug: str,
     db: AsyncSession = Depends(get_db),
 ):
-    from app.services.intent_automation import count_observations
+    from app.services.combined_market import combined_slice_context
     from app.services.landing_pages import (
         build_data_insights,
         generate_intro_text,
         key_attributes_from_query,
-        trend_series_for_location,
     )
-    from app.services.rental_locations import _snap_dict, _snapshots_by_bedroom
-    from app.models import MarketDataKind
 
     path = f"/rentals/{location_slug.lower()}/{intent_slug.lower()}"
     result = await db.execute(
@@ -247,115 +246,82 @@ async def get_rental_landing(
     query = intent.query or {}
     matches = await match_verified_properties(db, query, limit=24)
     matches_sorted = sorted(matches, key=lambda p: score_property(p, query), reverse=True)
-    obs_count = await count_observations(db, query)
 
     loc_slug = intent.location_slug
     bedrooms = query.get("bedrooms")
     ptype = query.get("property_type")
-    verified_snap_obj = await get_market_snapshot_for_query(db, query)
-    # Prefer verified snapshot; also fetch location-level verified + external
-    from sqlalchemy import or_
+    furnished_flag = query.get("furnished") if isinstance(query.get("furnished"), bool) else None
 
-    async def _snap_for_kind(kind: str):
-        from app.models import MarketStatSnapshot
-
-        q = (
-            select(MarketStatSnapshot)
-            .where(
-                MarketStatSnapshot.location_slug == loc_slug,
-                MarketStatSnapshot.data_kind == kind,
-                MarketStatSnapshot.sample_size >= 3,
-            )
-            .order_by(MarketStatSnapshot.period_end.desc())
-        )
-        if bedrooms is not None:
-            q = q.where(or_(MarketStatSnapshot.bedrooms == int(bedrooms), MarketStatSnapshot.bedrooms.is_(None)))
-        if ptype:
-            q = q.where(or_(MarketStatSnapshot.property_type == str(ptype).lower(), MarketStatSnapshot.property_type.is_(None)))
-        else:
-            q = q.where(MarketStatSnapshot.bedrooms.is_(None), MarketStatSnapshot.property_type.is_(None))
-        return (await db.execute(q.limit(1))).scalar_one_or_none()
-
-    verified_row = verified_snap_obj or await _snap_for_kind(MarketDataKind.VERIFIED_KIGALI_RENT.value)
-    observed_row = await _snap_for_kind(MarketDataKind.MARKET_OBSERVATION.value)
-
-    verified_market = _snap_dict(verified_row, "KigaliRent Verified")
-    observation_market = _snap_dict(observed_row, "External Market Observations")
-    by_bed_verified = await _snapshots_by_bedroom(db, loc_slug, MarketDataKind.VERIFIED_KIGALI_RENT.value)
-    by_bed_external = await _snapshots_by_bedroom(db, loc_slug, MarketDataKind.MARKET_OBSERVATION.value)
-    furnished = {
-        "furnished": sum(1 for p in matches_sorted if p.is_furnished),
-        "unfurnished": sum(1 for p in matches_sorted if not p.is_furnished),
-        "total": len(matches_sorted),
-    }
-
-    trend_verified = await trend_series_for_location(
+    market_ctx = await combined_slice_context(
         db,
         location_slug=loc_slug,
-        data_kind=MarketDataKind.VERIFIED_KIGALI_RENT.value,
         bedrooms=int(bedrooms) if bedrooms is not None else None,
         property_type=str(ptype).lower() if ptype else None,
+        furnished=furnished_flag,
     )
-    trend_external = await trend_series_for_location(
-        db,
-        location_slug=loc_slug,
-        data_kind=MarketDataKind.MARKET_OBSERVATION.value,
-        bedrooms=int(bedrooms) if bedrooms is not None else None,
-        property_type=str(ptype).lower() if ptype else None,
-    )
+    market_answer = market_ctx["market_answer"]
+    by_bed = market_ctx.get("by_bedroom") or []
+    trend = market_ctx.get("trend") or []
+    furnished_market = market_ctx.get("furnished_breakdown")
 
     location_name = loc_slug.replace("-", " ").title() if loc_slug != "kigali" else "Kigali"
     intro_text = generate_intro_text(
         query,
         match_count=len(matches_sorted),
-        observation_count=obs_count,
-        verified_snap=verified_market,
-        observation_snap=observation_market,
+        observation_count=market_answer.get("sample_size") or 0,
         location_name=location_name,
+        market_answer=market_answer,
     )
     insights = build_data_insights(
         match_count=len(matches_sorted),
-        observation_count=obs_count,
-        verified_snap=verified_market,
-        observation_snap=observation_market,
-        furnished=furnished,
-        by_bedroom_verified=by_bed_verified,
-        by_bedroom_external=by_bed_external,
+        market_insights=market_ctx.get("data_insights") or [],
     )
 
     related = await related_intents(db, intent)
     related_neighborhoods: list[dict] = []
-    if loc_slug == "kigali":
-        from app.services.rental_locations import _neighborhoods_with_counts
+    from app.services.rental_locations import _neighborhoods_with_counts
 
-        hoods = await _neighborhoods_with_counts(db)
+    hoods = await _neighborhoods_with_counts(db)
+    if loc_slug == "kigali":
         related_neighborhoods = [
             {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
             for n in sorted(hoods, key=lambda x: -x["listing_count"])[:8]
             if n["listing_count"] > 0
         ]
     elif loc_slug:
-        from app.services.rental_locations import _neighborhoods_with_counts
-
-        hoods = await _neighborhoods_with_counts(db)
+        # Prefer market neighbourhoods with enough combined data, then inventory
+        market_hoods = {
+            n.get("location_slug"): n for n in (market_ctx.get("by_neighborhood") or []) if n.get("location_slug")
+        }
         related_neighborhoods = [
-            {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
+            {
+                "slug": n["slug"],
+                "name": n["name"],
+                "path": n["path"],
+                "listing_count": n["listing_count"],
+                "median_usd": (market_hoods.get(n["slug"]) or {}).get("median_usd"),
+            }
             for n in sorted(hoods, key=lambda x: -x["listing_count"])[:6]
             if n["slug"] != loc_slug and n["listing_count"] > 0
         ]
 
-    from app.services.combined_market import combined_market_answer
-
-    market_answer = await combined_market_answer(
-        db,
-        location_slug=loc_slug,
-        bedrooms=int(bedrooms) if bedrooms is not None else None,
-        property_type=str(ptype).lower() if ptype else None,
-        furnished=query.get("furnished") if isinstance(query.get("furnished"), bool) else None,
-    )
-
     robots = "index,follow" if intent.index_status == SearchIndexStatus.INDEXABLE.value else "noindex,follow"
-    primary_snap = verified_market or observation_market
+    furnished_payload = None
+    if furnished_market and (
+        (furnished_market.get("furnished") or {}).get("sample_size", 0) >= 5
+        or (furnished_market.get("unfurnished") or {}).get("sample_size", 0) >= 5
+    ):
+        furnished_payload = {
+            "furnished": (furnished_market.get("furnished") or {}).get("sample_size", 0),
+            "unfurnished": (furnished_market.get("unfurnished") or {}).get("sample_size", 0),
+            "total": (
+                (furnished_market.get("furnished") or {}).get("sample_size", 0)
+                + (furnished_market.get("unfurnished") or {}).get("sample_size", 0)
+            ),
+            "furnished_median_usd": (furnished_market.get("furnished") or {}).get("median_usd"),
+            "unfurnished_median_usd": (furnished_market.get("unfurnished") or {}).get("median_usd"),
+        }
+
     return SearchLandingPageResponse(
         path=intent.path or path,
         location_slug=intent.location_slug,
@@ -371,18 +337,18 @@ async def get_rental_landing(
         canonical=f"{SITE}{intent.path}",
         quality_score=intent.quality_score,
         match_count=len(matches_sorted),
-        observation_count=obs_count,
+        observation_count=market_answer.get("sample_size") or 0,
         last_updated=intent.last_built_at or intent.updated_at,
         verified_matches=[_card(p, query) for p in matches_sorted],
-        market_snapshot=_snap_public(verified_row or observed_row, "Market snapshot") if primary_snap else None,
+        market_snapshot=None,
         verified_market=None,
         observation_market=None,
         key_attributes=key_attributes_from_query(query),
         data_insights=insights,
-        by_bedroom_verified=by_bed_verified,
+        by_bedroom_verified=by_bed,
         by_bedroom_external=[],
-        furnished_breakdown=furnished if furnished.get("total", 0) > 0 else None,
-        trend_verified=trend_verified,
+        furnished_breakdown=furnished_payload,
+        trend_verified=trend,
         trend_external=[],
         related=[
             RelatedIntentLink(
@@ -487,9 +453,50 @@ async def research_prices(
     bedrooms: Optional[int] = None,
     db: AsyncSession = Depends(get_db),
 ):
-    from app.services.combined_market import combined_market_answer
+    from app.services.combined_market import combined_research_payload, combined_slice_context
 
-    answer = await combined_market_answer(db, location_slug=location_slug, bedrooms=bedrooms)
+    ctx = await combined_slice_context(
+        db,
+        location_slug=location_slug,
+        bedrooms=bedrooms,
+    )
+    answer = ctx["market_answer"]
+    # Full city comparisons when viewing overall Kigali prices
+    if bedrooms is None and location_slug.lower() in {"kigali", "all"}:
+        hub = await combined_research_payload(db)
+        return {
+            "location_slug": location_slug,
+            "bedrooms": bedrooms,
+            "answer": hub.get("primary_answer") or answer,
+            "bedroom_answers": hub.get("bedroom_answers") or [],
+            "property_type_answers": hub.get("property_type_answers") or [],
+            "items": [
+                {
+                    "data_kind": "combined",
+                    "sample_size": b.get("sample_size"),
+                    "median_usd": b.get("median_usd"),
+                    "p25_usd": b.get("p25_usd"),
+                    "p75_usd": b.get("p75_usd"),
+                    "period_end": b.get("period_end"),
+                    "summary": f"Typical asking rent: ${b['median_usd']:,.0f}/month" if b.get("median_usd") is not None else "Not enough data",
+                    "label": f"{b.get('label')}-bedroom" if str(b.get("label")).isdigit() or b.get("label") == "4+" else b.get("label"),
+                    "bedrooms": b.get("bedrooms"),
+                }
+                for b in (hub.get("by_bedroom") or [])
+            ],
+            "by_bedroom": hub.get("by_bedroom") or [],
+            "by_property_type": hub.get("by_property_type") or [],
+            "by_neighborhood": hub.get("by_neighborhood") or [],
+            "furnished_breakdown": hub.get("furnished_breakdown"),
+            "budget_bands": hub.get("budget_bands") or [],
+            "trend": hub.get("trend") or [],
+            "has_trend_history": hub.get("has_trend_history"),
+            "insights": hub.get("insights") or [],
+            "sections": hub.get("sections") or {},
+            "about": hub.get("about") or {},
+            "note": "Combined asking-rent estimates from eligible observations. Not confirmed lease prices.",
+        }
+
     items = []
     if answer.get("has_enough_data") and answer.get("stats"):
         st = answer["stats"]
@@ -502,33 +509,23 @@ async def research_prices(
                 "p75_usd": st["p75_usd"],
                 "period_end": answer.get("period_end"),
                 "summary": f"{answer.get('headline')} {answer.get('summary')}",
-                "label": "Kigali rental market",
+                "label": "Market estimate",
             }
         )
-    # Bedroom breakdowns when viewing city overall
-    if bedrooms is None and location_slug.lower() == "kigali":
-        for bed in (1, 2, 3, 4):
-            bed_ans = await combined_market_answer(db, location_slug="kigali", bedrooms=bed)
-            if bed_ans.get("has_enough_data") and bed_ans.get("stats"):
-                st = bed_ans["stats"]
-                items.append(
-                    {
-                        "data_kind": "combined",
-                        "sample_size": st["sample_size"],
-                        "median_usd": st["median_usd"],
-                        "p25_usd": st["p25_usd"],
-                        "p75_usd": st["p75_usd"],
-                        "period_end": bed_ans.get("period_end"),
-                        "summary": bed_ans.get("headline"),
-                        "label": f"{bed}-bedroom" if bed < 4 else "4+ bedroom",
-                        "bedrooms": bed,
-                    }
-                )
     return {
         "location_slug": location_slug,
         "bedrooms": bedrooms,
         "answer": answer,
         "items": items,
+        "by_bedroom": ctx.get("by_bedroom") or [],
+        "by_property_type": ctx.get("by_property_type") or [],
+        "by_neighborhood": ctx.get("by_neighborhood") or [],
+        "furnished_breakdown": ctx.get("furnished_breakdown"),
+        "budget_bands": ctx.get("budget_bands") or [],
+        "trend": ctx.get("trend") or [],
+        "has_trend_history": ctx.get("has_trend_history"),
+        "insights": ctx.get("insights") or [],
+        "sections": ctx.get("sections") or {},
         "note": "Combined asking-rent estimates from eligible observations. Not confirmed lease prices.",
     }
 
