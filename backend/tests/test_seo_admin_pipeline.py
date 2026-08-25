@@ -66,6 +66,13 @@ def test_manual_noindex_forces_sitemap_excluded():
     assert intent.sitemap_status == "excluded"
 
 
+def test_manual_index_requests_sitemap_include():
+    intent = _intent(index_status="draft", sitemap_status="excluded")
+    set_index_status_manual(intent, "indexable")
+    assert intent.index_status == "indexable"
+    assert intent.sitemap_status == "included"
+
+
 def test_sitemap_priority_prefers_strong_intent():
     weak = _intent(query={"location": "kigali", "property_type": "apartment"}, quality_score=99)
     strong = _intent(

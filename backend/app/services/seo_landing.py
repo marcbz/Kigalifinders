@@ -382,7 +382,11 @@ def set_index_status_manual(intent: SearchIntent, status: str) -> None:
     intent.locked_by_admin = True
     intent.status_reason = f"Manually set to {status}"
     if status == SearchIndexStatus.NOINDEX.value:
+        # Noindex always removes from sitemap
         intent.sitemap_status = SitemapStatus.EXCLUDED.value
+    elif status == SearchIndexStatus.INDEXABLE.value:
+        # Index also requests sitemap inclusion (hard cap applied in finalize_seo_pipeline)
+        intent.sitemap_status = SitemapStatus.INCLUDED.value
     intent.last_evaluated_at = _now()
     enforce_sitemap_rules(intent.index_status, intent.sitemap_status)
 

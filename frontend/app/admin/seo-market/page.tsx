@@ -6,7 +6,7 @@ import Link from "next/link";
 import { adminService } from "@/services/api";
 import type { SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
 
 type SortMode =
   | "eligible"
@@ -96,6 +96,8 @@ export default function SeoMarketAdminPage() {
   const [search, setSearch] = useState("");
   const [sort, setSort] = useState<SortMode>("eligible");
   const [searchPage, setSearchPage] = useState(1);
+  const [pageJump, setPageJump] = useState("1");
+  const [selectedPages, setSelectedPages] = useState<Set<string>>(new Set());
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [intentFilter, setIntentFilter] = useState<IntentFilter>("all");
   const [message, setMessage] = useState<string | null>(null);
@@ -178,9 +180,26 @@ export default function SeoMarketAdminPage() {
     1,
     Math.ceil((searchQuery.data?.total ?? 0) / (searchQuery.data?.page_size ?? PAGE_SIZE))
   );
+  const pageVisibleIds = searchItems.map((r) => r.id);
   const obsItems = observations.data?.items ?? [];
   const obsTotalPages = Math.max(1, Math.ceil((observations.data?.total ?? 0) / (observations.data?.page_size ?? 15)));
   const summary = marketSummary.data;
+
+  useEffect(() => {
+    setPageJump(String(searchPage));
+  }, [searchPage]);
+
+  useEffect(() => {
+    setSelectedPages(new Set());
+  }, [search, sort, searchPage, statusFilter, intentFilter]);
+
+  const goToSearchPage = (raw: string | number) => {
+    const n = typeof raw === "number" ? raw : Number.parseInt(String(raw), 10);
+    if (!Number.isFinite(n)) return;
+    const next = Math.min(searchTotalPages, Math.max(1, Math.floor(n)));
+    setSearchPage(next);
+    setPageJump(String(next));
+  };
 
   const flash = (text: string) => {
     setErrorMsg(null);
@@ -209,7 +228,7 @@ export default function SeoMarketAdminPage() {
   const publish = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "indexable"),
     onSuccess: () => {
-      flash("Page set to Index.");
+      flash("Page set to Index and requested for sitemap (cap still applies).");
       invalidateSearch();
     },
     onError: (e) => flashErr(errMsg(e, "Failed to index page.")),
@@ -218,7 +237,7 @@ export default function SeoMarketAdminPage() {
   const noindex = useMutation({
     mutationFn: (id: string) => adminService.setSearchIntentIndex(id, "noindex"),
     onSuccess: () => {
-      flash("Page set to Noindex; sitemap excluded.");
+      flash("Page set to Noindex and removed from sitemap.");
       invalidateSearch();
     },
     onError: (e) => flashErr(errMsg(e, "Failed to noindex page.")),
@@ -240,6 +259,17 @@ export default function SeoMarketAdminPage() {
       invalidateSearch();
     },
     onError: (e) => flashErr(errMsg(e, "Failed to exclude from sitemap.")),
+  });
+
+  const bulkPages = useMutation({
+    mutationFn: (action: string) => adminService.bulkSearchIntents(Array.from(selectedPages), action),
+    onSuccess: (res: { updated?: number; errors?: string[] }) => {
+      if (res.errors?.length) flashErr(res.errors[0]);
+      else flash(`Updated ${res.updated ?? 0} page(s).`);
+      setSelectedPages(new Set());
+      invalidateSearch();
+    },
+    onError: (e) => flashErr(errMsg(e, "Bulk action failed.")),
   });
 
   const saveSeo = useMutation({
@@ -578,11 +608,81 @@ export default function SeoMarketAdminPage() {
             </select>
           </div>
 
+          <div className="flex flex-wrap gap-3 text-xs items-center">
+            <button
+              type="button"
+              className="underline"
+              onClick={() => setSelectedPages(new Set(pageVisibleIds))}
+            >
+              Select visible
+            </button>
+            <button type="button" className="underline" onClick={() => setSelectedPages(new Set())}>
+              Unselect all
+            </button>
+            <span className="text-gray-500">{selectedPages.size} selected</span>
+            <button
+              type="button"
+              className="underline disabled:opacity-40"
+              disabled={!selectedPages.size || bulkPages.isPending}
+              onClick={() => {
+                if (!window.confirm(`Index ${selectedPages.size} page(s) and add to sitemap?`)) return;
+                bulkPages.mutate("set_indexable");
+              }}
+            >
+              Index selected
+            </button>
+            <button
+              type="button"
+              className="underline disabled:opacity-40"
+              disabled={!selectedPages.size || bulkPages.isPending}
+              onClick={() => {
+                if (!window.confirm(`Noindex ${selectedPages.size} page(s) and remove from sitemap?`)) return;
+                bulkPages.mutate("set_noindex");
+              }}
+            >
+              Noindex selected
+            </button>
+            <button
+              type="button"
+              className="underline disabled:opacity-40"
+              disabled={!selectedPages.size || bulkPages.isPending}
+              onClick={() => {
+                if (!window.confirm(`Include ${selectedPages.size} page(s) in sitemap? Must be Index.`)) return;
+                bulkPages.mutate("sitemap_include");
+              }}
+            >
+              Sitemap include
+            </button>
+            <button
+              type="button"
+              className="underline disabled:opacity-40"
+              disabled={!selectedPages.size || bulkPages.isPending}
+              onClick={() => {
+                if (!window.confirm(`Exclude ${selectedPages.size} page(s) from sitemap?`)) return;
+                bulkPages.mutate("sitemap_exclude");
+              }}
+            >
+              Sitemap exclude
+            </button>
+          </div>
+
           <div className="border rounded-md overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 dark:bg-navy-900 text-left text-xs">
                 <tr>
+                  <th className="p-2.5 w-8">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all visible"
+                      checked={pageVisibleIds.length > 0 && pageVisibleIds.every((id) => selectedPages.has(id))}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelectedPages(new Set(pageVisibleIds));
+                        else setSelectedPages(new Set());
+                      }}
+                    />
+                  </th>
                   <th className="p-2.5">Page</th>
+                  <th className="p-2.5">Filters</th>
                   <th className="p-2.5">Properties</th>
                   <th className="p-2.5">Quality</th>
                   <th className="p-2.5">Intent</th>
@@ -593,14 +693,28 @@ export default function SeoMarketAdminPage() {
               <tbody>
                 {searchQuery.isLoading && (
                   <tr>
-                    <td colSpan={6} className="p-4 text-gray-500">
+                    <td colSpan={8} className="p-4 text-gray-500">
                       Loading…
                     </td>
                   </tr>
                 )}
                 {searchItems.map((row) => (
                   <tr key={row.id} className="border-t align-top">
-                    <td className="p-2.5 max-w-[220px]">
+                    <td className="p-2.5">
+                      <input
+                        type="checkbox"
+                        checked={selectedPages.has(row.id)}
+                        onChange={() => {
+                          setSelectedPages((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(row.id)) next.delete(row.id);
+                            else next.add(row.id);
+                            return next;
+                          });
+                        }}
+                      />
+                    </td>
+                    <td className="p-2.5 max-w-[200px]">
                       <Link
                         href={row.path}
                         target="_blank"
@@ -613,6 +727,10 @@ export default function SeoMarketAdminPage() {
                       {(row.seo_control === "manual" || row.locked_by_admin) && (
                         <span className="text-[10px] text-amber-700">Manual</span>
                       )}
+                    </td>
+                    <td className="p-2.5 text-xs max-w-[160px]">
+                      <span className="font-medium">{row.filter_count ?? "—"}</span>
+                      <p className="mt-0.5 leading-snug text-gray-600">{row.filters_label || "—"}</p>
                     </td>
                     <td className="p-2.5">{row.match_count}</td>
                     <td className="p-2.5">{Math.round(row.quality_score)}%</td>
@@ -655,7 +773,7 @@ export default function SeoMarketAdminPage() {
                 ))}
                 {!searchQuery.isLoading && !searchItems.length && (
                   <tr>
-                    <td colSpan={6} className="p-4 text-gray-500">
+                    <td colSpan={8} className="p-4 text-gray-500">
                       No pages match.
                     </td>
                   </tr>
@@ -664,29 +782,48 @@ export default function SeoMarketAdminPage() {
             </table>
           </div>
 
-          <div className="flex gap-2 text-sm items-center">
-            <button
-              type="button"
-              className="border rounded px-3 py-1 disabled:opacity-40"
-              disabled={searchPage <= 1}
-              onClick={() => setSearchPage((p) => p - 1)}
-            >
-              Previous
-            </button>
-            <span>
-              Page {searchPage}
-              {searchTotalPages > 1 ? ` / ${searchTotalPages}` : ""}
-            </span>
-            <button
-              type="button"
-              className="border rounded px-3 py-1 disabled:opacity-40"
-              disabled={searchPage >= searchTotalPages}
-              onClick={() => setSearchPage((p) => p + 1)}
-            >
-              Next
-            </button>
-            <span className="text-xs text-gray-500 ml-auto">{searchQuery.data?.total ?? 0} pages</span>
+          <div className="flex justify-center">
+            <div className="flex gap-2 text-sm items-center">
+              <button
+                type="button"
+                className="border rounded px-3 py-1 disabled:opacity-40"
+                disabled={searchPage <= 1}
+                onClick={() => goToSearchPage(searchPage - 1)}
+              >
+                Previous
+              </button>
+              <label className="flex items-center gap-1.5 text-xs text-gray-600">
+                <span>Go to</span>
+                <input
+                  type="number"
+                  min={1}
+                  max={searchTotalPages}
+                  className="border rounded px-2 py-1 w-16 text-sm text-center"
+                  value={pageJump}
+                  onChange={(e) => setPageJump(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") goToSearchPage(pageJump);
+                  }}
+                  onBlur={() => goToSearchPage(pageJump)}
+                  aria-label="Go to page number"
+                />
+                <span>
+                  / {searchTotalPages}
+                </span>
+              </label>
+              <button
+                type="button"
+                className="border rounded px-3 py-1 disabled:opacity-40"
+                disabled={searchPage >= searchTotalPages}
+                onClick={() => goToSearchPage(searchPage + 1)}
+              >
+                Next
+              </button>
+            </div>
           </div>
+          <p className="text-center text-xs text-gray-500">
+            Showing up to {PAGE_SIZE} per page · {searchQuery.data?.total ?? 0} total
+          </p>
         </section>
       </div>
     </div>
