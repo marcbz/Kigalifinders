@@ -99,6 +99,15 @@
     @apply bg-white dark:bg-card shadow-2xl shadow-black/20;
   }
 
+  /* Desktop hero asset only referenced inside min-width media (mobile never fetches it) */
+  @media (min-width: 768px) {
+    .hero-bg-desktop {
+      background-image: url("/images/hero-kigali.webp");
+      background-size: cover;
+      background-position: center;
+    }
+  }
+
   .hero-cta-outline {
     @apply inline-flex items-center justify-center gap-2 border-[1.5px] border-white/60 bg-white/10 text-white font-semibold transition-colors hover:bg-white hover:text-navy-800;
   }
@@ -115,6 +124,12 @@
     content: "";
     @apply absolute inset-0 z-[2];
     background: linear-gradient(180deg, transparent 40%, rgba(6, 19, 43, 0.95) 100%);
+  }
+
+  /* Skip layout/paint work for offscreen homepage blocks (structure unchanged) */
+  .cv-auto {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 480px;
   }
 
   .gold-text {
@@ -150,6 +165,12 @@
     animation: hero-title-sweep 2s ease-out 1 forwards;
   }
 
+  /* Looping sweep without JS state updates (avoids forced reflow on the LCP title) */
+  .hero-title-mark--loop::before {
+    animation: hero-title-sweep 2s ease-out infinite;
+    animation-delay: 1.2s;
+  }
+
   @keyframes hero-title-sweep {
     0% {
       transform: translate3d(45%, 0, 0) skewX(-6deg);
@@ -172,7 +193,8 @@
       will-change: auto;
     }
 
-    .hero-title-mark--sweep::before {
+    .hero-title-mark--sweep::before,
+    .hero-title-mark--loop::before {
       animation: none;
       background: rgba(201, 169, 97, 0.14);
       background-size: 100% 100%;

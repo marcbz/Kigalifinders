@@ -12,8 +12,18 @@ const nextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: ["lucide-react", "@tanstack/react-query"],
+    optimizePackageImports: [
+      "lucide-react",
+      "@tanstack/react-query",
+      "@radix-ui/react-accordion",
+      "@radix-ui/react-dialog",
+      "@radix-ui/react-dropdown-menu",
+      "@radix-ui/react-select",
+      "@radix-ui/react-tabs",
+    ],
   },
+  poweredByHeader: false,
+  compress: true,
   // Next.js injects polyfill-module regardless of browserslist; drop it for our
   // modern targets so PageSpeed stops flagging unused Array.at / Object.hasOwn / etc.
   webpack(config) {

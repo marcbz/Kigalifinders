@@ -52,26 +52,19 @@ export function HeroSection({
     >
       {isLocalHero ? (
         <>
+          {/* Mobile LCP only — already-optimized WebP; skip /_next/image hop */}
           <Image
             src={DEFAULT_HERO_IMAGE_MOBILE}
             alt=""
             fill
             priority
             fetchPriority="high"
+            unoptimized
             sizes="100vw"
-            quality={78}
             className="object-cover object-center md:hidden"
           />
-          <Image
-            src={DEFAULT_HERO_IMAGE}
-            alt=""
-            fill
-            priority
-            fetchPriority="high"
-            sizes="100vw"
-            quality={82}
-            className="object-cover object-center hidden md:block"
-          />
+          {/* Desktop via CSS media background so mobile never downloads this file */}
+          <div className="absolute inset-0 hidden md:block hero-bg-desktop" aria-hidden />
         </>
       ) : (
         <Image
@@ -81,7 +74,7 @@ export function HeroSection({
           priority
           fetchPriority="high"
           sizes="100vw"
-          quality={82}
+          quality={75}
           className="object-cover object-center"
         />
       )}

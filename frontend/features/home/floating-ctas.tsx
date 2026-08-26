@@ -1,7 +1,37 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { Phone } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 
+/** Defer floating CTAs until after first paint / idle to keep homepage TBT low. */
 export function FloatingCTAs({ phone, whatsapp }: { phone?: string; whatsapp?: string }) {
+  const [ready, setReady] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    const show = () => {
+      if (!cancelled) setReady(true);
+    };
+
+    const ric = (window as Window & { requestIdleCallback?: typeof requestIdleCallback }).requestIdleCallback;
+    if (typeof ric === "function") {
+      const id = ric(show, { timeout: 2500 });
+      return () => {
+        cancelled = true;
+        window.cancelIdleCallback?.(id);
+      };
+    }
+
+    const t = window.setTimeout(show, 1200);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(t);
+    };
+  }, []);
+
+  if (!ready) return null;
+
   return (
     <>
       <a

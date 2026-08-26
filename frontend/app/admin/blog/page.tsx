@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
@@ -7,7 +8,6 @@ import { Plus, Pencil, Trash2, ExternalLink } from "lucide-react";
 import { adminService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Shimmer, TableSkeleton } from "@/components/ui/shimmer";
-import { BlogRichTextEditor } from "@/components/admin/blog-rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import type { BlogPost } from "@/types";
 import { formatDateTime } from "@/lib/utils";
@@ -19,6 +19,13 @@ import {
   saveAdminDraft,
 } from "@/lib/admin-drafts";
 
+const BlogRichTextEditor = dynamic(
+  () => import("@/components/admin/blog-rich-text-editor").then((m) => m.BlogRichTextEditor),
+  {
+    ssr: false,
+    loading: () => <div className="min-h-[240px] rounded-lg border bg-gray-50 dark:bg-navy-900 animate-pulse" aria-hidden />,
+  },
+);
 function blogDraftKey(postId?: string | null) {
   return postId ? `blog:${postId}` : "blog:new";
 }

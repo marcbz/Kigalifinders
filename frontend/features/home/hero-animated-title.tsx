@@ -1,111 +1,13 @@
-"use client";
-
-import { useEffect, useState } from "react";
-import { cn } from "@/lib/utils";
-
-const PHRASE = "Dream Home";
-const TYPE_MS = 1500;
-const RETYPE_MS = 7000;
-const SWEEP_MS = 2000;
-const SWEEP_INTERVAL_MS = 4000;
-
-/** Small client island — typing + title highlight; h1 stays server-rendered in hero-section. */
+/**
+ * Server-rendered title mark with CSS-only sweep (no client JS / layout thrashing).
+ * Keeps the gold italic “Dream Home” treatment without typing reflows.
+ */
 export function HeroAnimatedTitleLine() {
-  const [shown, setShown] = useState(PHRASE);
-  const [typingDone, setTypingDone] = useState(true);
-  const [sweeping, setSweeping] = useState(false);
-
-  useEffect(() => {
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
-
-    let cancelled = false;
-    let intervalId = 0;
-    let holdId = 0;
-    const stepMs = Math.max(35, Math.floor(TYPE_MS / PHRASE.length));
-
-    const runCycle = () => {
-      if (cancelled) return;
-      let index = 0;
-      setShown("");
-      setTypingDone(false);
-
-      intervalId = window.setInterval(() => {
-        if (cancelled) return;
-        index += 1;
-        setShown(PHRASE.slice(0, index));
-        if (index >= PHRASE.length) {
-          window.clearInterval(intervalId);
-          setTypingDone(true);
-          holdId = window.setTimeout(runCycle, RETYPE_MS);
-        }
-      }, stepMs);
-    };
-
-    holdId = window.setTimeout(runCycle, RETYPE_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-      window.clearTimeout(holdId);
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!typingDone) {
-      setSweeping(false);
-      return;
-    }
-
-    const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-    if (reduced) return;
-
-    let cancelled = false;
-    let sweepEndId = 0;
-
-    const playSweep = () => {
-      if (cancelled) return;
-      setSweeping(true);
-      sweepEndId = window.setTimeout(() => {
-        if (cancelled) return;
-        setSweeping(false);
-      }, SWEEP_MS);
-    };
-
-    playSweep();
-    const intervalId = window.setInterval(playSweep, SWEEP_INTERVAL_MS);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(intervalId);
-      window.clearTimeout(sweepEndId);
-      setSweeping(false);
-    };
-  }, [typingDone]);
-
   return (
-    <span
-      className={cn(
-        "hero-title-mark relative inline-block whitespace-nowrap",
-        sweeping && "hero-title-mark--sweep",
-      )}
-    >
+    <span className="hero-title-mark hero-title-mark--loop relative inline-block whitespace-nowrap">
       <span className="relative z-[1]">
         Find Your{" "}
-        <span className="gold-text italic inline-grid align-baseline" aria-label={PHRASE}>
-          <span className="invisible col-start-1 row-start-1 whitespace-pre" aria-hidden>
-            {PHRASE}
-          </span>
-          <span className="col-start-1 row-start-1 whitespace-pre">
-            {shown}
-            {!typingDone && (
-              <span
-                className="inline-block w-[0.08em] h-[0.85em] ml-0.5 align-[-0.05em] bg-gold-400 animate-pulse"
-                aria-hidden
-              />
-            )}
-          </span>
-        </span>
+        <span className="gold-text italic">Dream Home</span>
       </span>
     </span>
   );

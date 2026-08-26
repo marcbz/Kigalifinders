@@ -102,28 +102,50 @@ export async function HomePageContent() {
         />
       )}
       {!ok && <ApiErrorBanner />}
-      <StatsSection stats={data.stats} />
+      <div className="cv-auto">
+        <StatsSection stats={data.stats} />
+      </div>
       <RecentlyViewedHomeStrip />
-      <PropertyGridSection
-        title="Featured Properties"
-        subtitle="Hand-picked premium homes available right now across Kigali's most desirable neighborhoods."
-        properties={data.featured_properties}
-      />
-      <FurnishedSection properties={data.featured_furnished || []} />
-      <PlotsSection properties={data.featured_plots} />
-      <WhyUsSection />
-      <TestimonialsSection testimonials={data.testimonials} />
-      <AreasSection neighborhoods={data.neighborhoods.length ? data.neighborhoods : data.districts} />
-      <MapSection
-        address={settings.address}
-        phone={phone}
-        hours={settings.hours}
-        latitude={settings.latitude}
-        longitude={settings.longitude}
-      />
-      <BlogSection posts={data.blog_posts} />
-      <FAQSection faqs={data.faqs} />
-      <CTASection bookingUrl={consultationUrl} whatsapp={whatsapp} />
+      <div className="cv-auto">
+        <PropertyGridSection
+          title="Featured Properties"
+          subtitle="Hand-picked premium homes available right now across Kigali's most desirable neighborhoods."
+          properties={data.featured_properties}
+        />
+      </div>
+      <div className="cv-auto">
+        <FurnishedSection properties={data.featured_furnished || []} />
+      </div>
+      <div className="cv-auto">
+        <PlotsSection properties={data.featured_plots} />
+      </div>
+      <div className="cv-auto">
+        <WhyUsSection />
+      </div>
+      <div className="cv-auto">
+        <TestimonialsSection testimonials={data.testimonials} />
+      </div>
+      <div className="cv-auto">
+        <AreasSection neighborhoods={data.neighborhoods.length ? data.neighborhoods : data.districts} />
+      </div>
+      <div className="cv-auto">
+        <MapSection
+          address={settings.address}
+          phone={phone}
+          hours={settings.hours}
+          latitude={settings.latitude}
+          longitude={settings.longitude}
+        />
+      </div>
+      <div className="cv-auto">
+        <BlogSection posts={data.blog_posts} />
+      </div>
+      <div className="cv-auto">
+        <FAQSection faqs={data.faqs} />
+      </div>
+      <div className="cv-auto">
+        <CTASection bookingUrl={consultationUrl} whatsapp={whatsapp} />
+      </div>
     </>
   );
 }

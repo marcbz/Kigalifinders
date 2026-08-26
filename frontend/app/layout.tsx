@@ -3,13 +3,15 @@ import { Inter, Playfair_Display } from "next/font/google";
 import { SiteChromeWithSettings } from "@/components/layout/site-chrome-wrapper";
 import { OrganizationJsonLd } from "@/components/seo/organization-jsonld";
 import { Providers } from "@/components/providers";
+import { getPublicApiOrigin } from "@/lib/api-origin";
+import { DEFAULT_HERO_IMAGE, DEFAULT_HERO_IMAGE_MOBILE } from "@/lib/hero-image";
 import "./globals.css";
 
+// Variable fonts = one file each (avoids CSS → multi-weight font critical chain).
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
   display: "swap",
-  weight: ["400", "500", "600", "700"],
 });
 const playfair = Playfair_Display({
   subsets: ["latin"],
@@ -17,11 +19,10 @@ const playfair = Playfair_Display({
   display: "optional",
   adjustFontFallback: true,
   preload: false,
-  weight: ["400", "700"],
-  style: ["normal", "italic"],
 });
 
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
+const apiOrigin = getPublicApiOrigin();
 
 export const metadata: Metadata = {
   title: {
@@ -51,6 +52,31 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        {apiOrigin ? (
+          <>
+            <link rel="preconnect" href={apiOrigin} crossOrigin="anonymous" />
+            <link rel="dns-prefetch" href={apiOrigin} />
+          </>
+        ) : null}
+        {/* Mobile LCP: preload the small local WebP only on small viewports */}
+        <link
+          rel="preload"
+          as="image"
+          href={DEFAULT_HERO_IMAGE_MOBILE}
+          type="image/webp"
+          media="(max-width: 767px)"
+          fetchPriority="high"
+        />
+        <link
+          rel="preload"
+          as="image"
+          href={DEFAULT_HERO_IMAGE}
+          type="image/webp"
+          media="(min-width: 768px)"
+          fetchPriority="high"
+        />
+      </head>
       <body className={`${inter.variable} ${playfair.variable} font-sans antialiased`}>
         <OrganizationJsonLd />
         <Providers>
