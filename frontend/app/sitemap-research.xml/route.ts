@@ -8,6 +8,18 @@ export async function GET() {
     return xmlResponse(buildUrlSetXml(getResearchSitemapEntries()));
   } catch (error) {
     console.error("[sitemap-research]", error);
-    return xmlResponse(buildUrlSetXml([]));
+    const now = new Date();
+    const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://kigalirent.com";
+    return xmlResponse(
+      buildUrlSetXml([
+        {
+          loc: `${base}/research/kigali-rental-market`,
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.8,
+        },
+      ]),
+      { cacheControl: "no-store" },
+    );
   }
 }

@@ -5,6 +5,9 @@ import { fetchRentalsSitemapSafe } from "@/lib/market-api";
 
 export const SITEMAP_REVALIDATE_SECONDS = 3600;
 
+/** Paths owned by sitemap-pages.xml — must not appear in other child sitemaps. */
+const PAGES_OWNED_RENTAL_PATHS = new Set(["/rentals", "/rentals/kigali"]);
+
 export function getSiteBaseUrl(): string {
   const raw = (process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com").trim();
   return raw.replace(/\/+$/, "") || "https://kigalirent.com";
@@ -54,6 +57,21 @@ function parseSitemapDate(value?: string | Date | null, fallback?: Date): Date |
   return fallback;
 }
 
+function normalizePath(path: string): string {
+  const trimmed = path.trim();
+  if (!trimmed) return "";
+  try {
+    if (/^https?:\/\//i.test(trimmed)) {
+      return new URL(trimmed).pathname.replace(/\/+$/, "") || "/";
+    }
+  } catch {
+    /* ignore */
+  }
+  const withSlash = trimmed.startsWith("/") ? trimmed : `/${trimmed}`;
+  return withSlash.replace(/\/+$/, "") || "/";
+}
+
+/** Static / marketing pages only — no research, no individual blog/property/area/rental URLs. */
 export function getPagesSitemapEntries(now = new Date()): SitemapUrlEntry[] {
   const base = getSiteBaseUrl();
   return [
@@ -62,13 +80,6 @@ export function getPagesSitemapEntries(now = new Date()): SitemapUrlEntry[] {
     { loc: `${base}/rentals`, lastModified: now, changeFrequency: "weekly", priority: 0.88 },
     { loc: `${base}/rentals/kigali`, lastModified: now, changeFrequency: "weekly", priority: 0.87 },
     { loc: `${base}${getAreaIndexHref()}`, lastModified: now, changeFrequency: "weekly", priority: 0.85 },
-    { loc: `${base}/research/kigali-rental-market`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
-    { loc: `${base}/research/kigali-rental-market/prices`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
-    { loc: `${base}/research/kigali-rental-market/neighborhoods`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
-    { loc: `${base}/research/kigali-rental-market/trends`, lastModified: now, changeFrequency: "weekly", priority: 0.7 },
-    { loc: `${base}/research/kigali-rental-market/methodology`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
-    { loc: `${base}/research/kigali-rental-market/sources`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
-    { loc: `${base}/research/kigali-rental-market/reports`, lastModified: now, changeFrequency: "monthly", priority: 0.5 },
     { loc: `${base}/about`, lastModified: now, changeFrequency: "monthly", priority: 0.7 },
     { loc: `${base}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.8 },
     { loc: `${base}/faq`, lastModified: now, changeFrequency: "monthly", priority: 0.6 },
@@ -80,6 +91,7 @@ export function getPagesSitemapEntries(now = new Date()): SitemapUrlEntry[] {
   ];
 }
 
+/** Individual area pages only (/area/{slug}). Index /area stays in pages. */
 export async function getAreasSitemapEntries(now = new Date()): Promise<SitemapUrlEntry[]> {
   const neighborhoods = await fetchSearchFilterNeighborhoodsSafe();
   return neighborhoods
@@ -95,6 +107,7 @@ export async function getAreasSitemapEntries(now = new Date()): Promise<SitemapU
     .filter((e): e is SitemapUrlEntry => Boolean(e));
 }
 
+/** Individual property listing pages only (/properties/{slug}). */
 export async function getPropertiesSitemapEntries(): Promise<SitemapUrlEntry[]> {
   const properties = await fetchAllPropertiesSafe({ revalidate: SITEMAP_REVALIDATE_SECONDS });
   const now = new Date();
@@ -112,17 +125,10 @@ export async function getPropertiesSitemapEntries(): Promise<SitemapUrlEntry[]> 
     .filter((e): e is SitemapUrlEntry => Boolean(e));
 }
 
+/** Individual blog articles only. /blog index lives in sitemap-pages.xml. */
 export async function getBlogSitemapEntries(now = new Date()): Promise<SitemapUrlEntry[]> {
   const blogPosts = await fetchBlogPostsSafe();
   const entries: SitemapUrlEntry[] = [];
-
-  // Always include the blog index so the sitemap never has zero <url> nodes.
-  const hub = entryFromPath("/blog", {
-    lastModified: now,
-    changeFrequency: "weekly",
-    priority: 0.8,
-  });
-  if (hub) entries.push(hub);
 
   for (const post of blogPosts) {
     const slug = String(post?.slug || "").trim();
@@ -147,13 +153,24 @@ export type RentalsSitemapMeta = {
   diagnostics?: Record<string, unknown>;
 };
 
-function rentalsFallbackEntries(now: Date): SitemapUrlEntry[] {
-  return [
-    entryFromPath("/rentals", { lastModified: now, changeFrequency: "weekly", priority: 0.88 }),
-    entryFromPath("/rentals/kigali", { lastModified: now, changeFrequency: "weekly", priority: 0.87 }),
-  ].filter((e): e is SitemapUrlEntry => Boolean(e));
+/**
+ * Whether a /rentals/... path belongs in sitemap-rentals.xml.
+ * Excludes /rentals and /rentals/kigali (owned by sitemap-pages.xml).
+ * Includes neighborhood hubs (/rentals/{hood}) and search intents (/rentals/{loc}/{intent}).
+ */
+export function isRentalsSitemapPath(path: string): boolean {
+  const normalized = normalizePath(path);
+  if (!normalized.startsWith("/rentals/")) return false;
+  if (PAGES_OWNED_RENTAL_PATHS.has(normalized)) return false;
+  const parts = normalized.split("/").filter(Boolean);
+  // /rentals/{location} or /rentals/{location}/{intent}
+  return parts.length >= 2;
 }
 
+/**
+ * Rental search / neighborhood rental URLs only (/rentals/{...}).
+ * Never includes /properties/... or pages-owned /rentals|/rentals/kigali.
+ */
 export async function getRentalsSitemapEntries(
   now = new Date(),
   options?: { debug?: boolean },
@@ -161,8 +178,23 @@ export async function getRentalsSitemapEntries(
   const { data, error, apiUrl } = await fetchRentalsSitemapSafe({ debug: options?.debug });
 
   if (!data) {
-    // Never return an empty sitemap — keep hub URLs available for crawlers even if API is down.
-    const fallback = rentalsFallbackEntries(now);
+    // Do not fall back to /rentals or /rentals/kigali (those are in pages).
+    // Prefer neighborhood rental hubs from locations data when API is down.
+    const neighborhoods = await fetchSearchFilterNeighborhoodsSafe();
+    const fallback = neighborhoods
+      .map((area) => {
+        const slug = String(area.slug || "").trim().toLowerCase();
+        if (!slug || slug === "kigali") return null;
+        const path = `/rentals/${encodeURIComponent(slug)}`;
+        if (!isRentalsSitemapPath(path)) return null;
+        return entryFromPath(path, {
+          lastModified: now,
+          changeFrequency: "weekly",
+          priority: 0.8,
+        });
+      })
+      .filter((e): e is SitemapUrlEntry => Boolean(e));
+
     return {
       entries: fallback,
       meta: {
@@ -176,34 +208,43 @@ export async function getRentalsSitemapEntries(
   }
 
   const entries: SitemapUrlEntry[] = [];
+  let hubCount = 0;
+  let intentCount = 0;
+
   for (const item of data.items || []) {
-    const path = String(item?.path || "").trim();
-    if (!path) continue;
-    // Accept hub (/rentals, /rentals/{loc}) and intent (/rentals/{loc}/{intent}) paths
-    if (!path.startsWith("/rentals")) continue;
+    const path = normalizePath(String(item?.path || ""));
+    if (!isRentalsSitemapPath(path)) continue;
+
+    const segments = path.split("/").filter(Boolean).length;
+    const isIntent = segments >= 3;
+    if (isIntent) intentCount += 1;
+    else hubCount += 1;
+
     const entry = entryFromPath(path, {
       lastModified: parseSitemapDate(item.last_built_at, now),
       changeFrequency: "weekly",
-      priority: path.split("/").filter(Boolean).length >= 3 ? 0.85 : 0.8,
+      priority: isIntent ? 0.85 : 0.8,
     });
     if (entry) entries.push(entry);
   }
 
-  // Guarantee hubs even if upstream omitted them
-  const withHubs = [...rentalsFallbackEntries(now), ...entries];
-
   return {
-    entries: withHubs,
+    entries,
     meta: {
       apiUrl,
-      count: withHubs.length,
-      hubCount: data.hub_count,
-      intentCount: data.intent_count,
+      count: entries.length,
+      hubCount,
+      intentCount,
       diagnostics: data.diagnostics,
+      ...(error ? { error } : {}),
     },
   };
 }
 
+/**
+ * Research product pages only.
+ * There is no /research index route; hub is /research/kigali-rental-market.
+ */
 export function getResearchSitemapEntries(now = new Date()): SitemapUrlEntry[] {
   const paths = [
     "/research/kigali-rental-market",
@@ -219,7 +260,7 @@ export function getResearchSitemapEntries(now = new Date()): SitemapUrlEntry[] {
       entryFromPath(path, {
         lastModified: now,
         changeFrequency: "weekly",
-        priority: 0.75,
+        priority: path.endsWith("/kigali-rental-market") ? 0.8 : 0.75,
       }),
     )
     .filter((e): e is SitemapUrlEntry => Boolean(e));

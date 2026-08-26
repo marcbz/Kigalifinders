@@ -12,8 +12,8 @@ export async function GET(request: Request) {
   try {
     const { entries, meta } = await getRentalsSitemapEntries(new Date(), { debug });
 
-    // Always HTTP 200 with valid <url> entries (hub fallbacks if upstream fails).
-    // Returning 503 + empty <urlset> caused Google Search Console failures.
+    // Always HTTP 200. Entries are rental-specific only (/rentals/{hood|intent}),
+    // never /rentals or /rentals/kigali (those live in sitemap-pages.xml).
     const res = xmlResponse(buildUrlSetXml(entries), {
       cacheControl: meta.error
         ? "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
@@ -44,19 +44,11 @@ export async function GET(request: Request) {
     return res;
   } catch (error) {
     console.error("[sitemap-rentals] fatal", error);
-    // Last-resort valid sitemap with hub URLs — never 503 empty urlset for crawlers
-    const now = new Date();
-    const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://kigalirent.com";
-    return xmlResponse(
-      buildUrlSetXml([
-        { loc: `${base}/rentals`, lastModified: now, changeFrequency: "weekly", priority: 0.88 },
-        { loc: `${base}/rentals/kigali`, lastModified: now, changeFrequency: "weekly", priority: 0.87 },
-      ]),
-      {
-        cacheControl: "no-store",
-        headers: { "X-Sitemap-Error": "fatal_fallback" },
-      },
-    );
+    // Empty-but-valid urlset — do not invent /rentals hubs owned by pages sitemap
+    return xmlResponse(buildUrlSetXml([]), {
+      cacheControl: "no-store",
+      headers: { "X-Sitemap-Error": "fatal_fallback" },
+    });
   }
 }
 

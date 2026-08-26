@@ -130,13 +130,13 @@ async def rentals_sitemap(
         .group_by(Neighborhood.slug, Neighborhood.name)
         .order_by(Neighborhood.name.asc())
     )
-    hub_items: list[dict] = [
-        {"path": "/rentals", "last_built_at": None, "title": "Kigali Rentals Directory"},
-        {"path": "/rentals/kigali", "last_built_at": None, "title": "Kigali Rental Market Overview"},
-    ]
+    hub_items: list[dict] = []
     for slug, name, count in hood_rows.all():
-        slug_s = str(slug or "").strip().strip("/")
+        slug_s = str(slug or "").strip().strip("/").lower()
         if not slug_s or int(count or 0) <= 0:
+            continue
+        # /rentals and /rentals/kigali belong in sitemap-pages.xml — omit here
+        if slug_s == "kigali":
             continue
         hub_items.append(
             {"path": f"/rentals/{slug_s}", "last_built_at": None, "title": f"Rentals in {name}"}

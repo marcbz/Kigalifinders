@@ -13,13 +13,11 @@ export async function GET() {
     });
   } catch (error) {
     console.error("[sitemap-blog]", error);
-    const now = new Date();
-    const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://kigalirent.com";
-    // Always return at least the blog index URL — never an empty <urlset>.
-    return xmlResponse(
-      buildUrlSetXml([{ loc: `${base}/blog`, lastModified: now, changeFrequency: "weekly", priority: 0.8 }]),
-      { cacheControl: "no-store", headers: { "X-Sitemap-Error": "blog_fallback" } },
-    );
+    // Individual articles only — /blog index is in sitemap-pages.xml
+    return xmlResponse(buildUrlSetXml([]), {
+      cacheControl: "no-store",
+      headers: { "X-Sitemap-Error": "blog_fallback" },
+    });
   }
 }
 
