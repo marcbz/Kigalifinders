@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { KeyAttributes, RelatedNeighborhoods } from "@/components/rentals/rental-landing-sections";
+import { KeyAttributes, RelatedNeighborhoods, RelatedRentalSearches } from "@/components/rentals/rental-landing-sections";
 import { fetchRentalLandingSafe } from "@/lib/market-api";
 import { getPropertyHref } from "@/lib/property-url";
 
@@ -125,18 +125,7 @@ export default async function RentalLandingPage({ params }: Props) {
         </section>
 
         {page.related.length > 0 && (
-          <section>
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Related rental searches</h2>
-            <ul className="grid sm:grid-cols-2 gap-3">
-              {page.related.map((r) => (
-                <li key={r.path}>
-                  <Link href={r.path} className="block rounded-lg border bg-white dark:bg-navy-800 px-4 py-3 hover:border-gold-500 transition">
-                    <span className="text-navy-800 dark:text-white font-medium">{r.h1}</span>
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <RelatedRentalSearches items={page.related} />
         )}
 
         {(page.related_neighborhoods?.length || 0) > 0 && (

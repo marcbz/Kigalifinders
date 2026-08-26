@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { KeyAttributes, RelatedNeighborhoods } from "@/components/rentals/rental-landing-sections";
+import { KeyAttributes, RelatedNeighborhoods, RelatedRentalSearches } from "@/components/rentals/rental-landing-sections";
 import { getPropertyHref } from "@/lib/property-url";
 
 type Listing = {
@@ -211,19 +211,7 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
         )}
 
         {searches.length > 0 && (
-          <section>
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Related rental searches</h2>
-            <ul className="grid sm:grid-cols-2 gap-3">
-              {searches.map((s) => (
-                <li key={s.path}>
-                  <Link href={s.path} className="block rounded-lg border bg-white dark:bg-navy-800 px-4 py-3 hover:border-gold-500">
-                    {s.h1}
-                    {s.match_count != null ? <span className="text-xs text-gray-500 ml-2">({s.match_count} matches)</span> : null}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          </section>
+          <RelatedRentalSearches items={searches} showMatchCount />
         )}
 
         {(data.related_neighborhoods?.length || 0) > 0 && (

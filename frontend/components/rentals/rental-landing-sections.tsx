@@ -129,3 +129,55 @@ export function RelatedNeighborhoods({
     </section>
   );
 }
+
+export type RelatedRentalSearchItem = {
+  path: string;
+  h1: string;
+  title?: string;
+  match_count?: number | null;
+};
+
+/** Shared related rental search links used on /rentals hubs, landings, and property detail. */
+export function RelatedRentalSearches({
+  items,
+  heading = "Related rental searches",
+  showMatchCount = false,
+  className,
+}: {
+  items: RelatedRentalSearchItem[];
+  heading?: string;
+  showMatchCount?: boolean;
+  className?: string;
+}) {
+  const unique = items
+    .filter((s) => s.path?.startsWith("/rentals/"))
+    .reduce<RelatedRentalSearchItem[]>((acc, s) => {
+      if (acc.some((x) => x.path === s.path)) return acc;
+      acc.push(s);
+      return acc;
+    }, [])
+    .slice(0, 6);
+
+  if (!unique.length) return null;
+
+  return (
+    <section className={className}>
+      <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">{heading}</h2>
+      <ul className="grid sm:grid-cols-2 gap-3">
+        {unique.map((s) => (
+          <li key={s.path}>
+            <Link
+              href={s.path}
+              className="block rounded-lg border bg-white dark:bg-navy-800 px-4 py-3 hover:border-gold-500 transition"
+            >
+              <span className="text-navy-800 dark:text-white font-medium">{s.h1}</span>
+              {showMatchCount && s.match_count != null ? (
+                <span className="text-xs text-gray-500 ml-2">({s.match_count} matches)</span>
+              ) : null}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}

@@ -8,9 +8,10 @@ import { PropertyFeaturesTable } from "@/components/property/property-features-t
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
 import { PropertyPrice } from "@/components/property/property-price";
 import { TrackPropertyView } from "@/components/property/track-property-view";
+import { RelatedRentalSearches } from "@/components/rentals/rental-landing-sections";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { getListingBadge } from "@/lib/property-features";
-import { fetchPropertySafe } from "@/lib/server-api";
+import { fetchPropertyRelatedSearchesSafe, fetchPropertySafe } from "@/lib/server-api";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import { Button } from "@/components/ui/button";
 
@@ -69,6 +70,8 @@ export default async function PropertyDetailPage({ params }: Props) {
   if (!property) {
     notFound();
   }
+
+  const relatedSearches = await fetchPropertyRelatedSearchesSafe(slug, 6);
 
   const images =
     property.images?.length
@@ -191,6 +194,14 @@ export default async function PropertyDetailPage({ params }: Props) {
           </div>
         </div>
       </section>
+
+      {relatedSearches.length > 0 ? (
+        <div className="px-6 pb-4 bg-white dark:bg-background">
+          <div className="max-w-7xl mx-auto py-8 border-t">
+            <RelatedRentalSearches items={relatedSearches} showMatchCount />
+          </div>
+        </div>
+      ) : null}
 
       <RelatedPropertiesSection slug={slug} />
 

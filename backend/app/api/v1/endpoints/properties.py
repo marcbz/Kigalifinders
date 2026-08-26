@@ -208,6 +208,26 @@ async def related_properties(
     return await repo.get_related(db_prop, page=page, page_size=page_size)
 
 
+@router.get("/{slug}/related-searches")
+async def related_rental_searches(
+    slug: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    limit: int = Query(6, ge=1, le=6),
+):
+    """Related /rentals/... searches for a property detail page (max 6)."""
+    from app.services.search_intent import related_intents_for_property
+
+    repo = PropertyRepository(db)
+    prop = await repo.get_by_slug(slug, track_view=False, allow_soft_unavailable=True)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    db_prop = await repo.get_by_id(prop.id)
+    if not db_prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    items = await related_intents_for_property(db, db_prop, limit=limit)
+    return {"items": items, "count": len(items)}
+
+
 @router.post("", response_model=PropertyListItem, status_code=status.HTTP_201_CREATED)
 async def create_property(
     data: PropertyCreate,

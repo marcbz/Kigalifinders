@@ -96,6 +96,24 @@ export function fetchRelated(slug: string, page = 1, pageSize = 12) {
   );
 }
 
+export type PropertyRelatedRentalSearch = {
+  path: string;
+  title: string;
+  h1: string;
+  match_count?: number;
+  location_slug?: string;
+  intent_slug?: string;
+};
+
+export async function fetchPropertyRelatedSearchesSafe(slug: string, limit = 6) {
+  const normalized = encodeURIComponent(slug.trim());
+  const data = await fetchApiSafe<{ items: PropertyRelatedRentalSearch[]; count: number }>(
+    `/properties/${normalized}/related-searches?limit=${Math.min(Math.max(limit, 1), 6)}`,
+    { revalidate: DEFAULT_REVALIDATE },
+  );
+  return (data?.items || []).slice(0, 6);
+}
+
 export async function fetchPropertiesSafe(params: Record<string, string | number | undefined>) {
   const qs = new URLSearchParams();
   Object.entries(params).forEach(([k, v]) => {

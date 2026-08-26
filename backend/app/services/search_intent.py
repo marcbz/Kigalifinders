@@ -297,6 +297,204 @@ async def related_intents(db: AsyncSession, intent: SearchIntent, limit: int = 8
     return items[:limit]
 
 
+def _district_group_for_hood(hood_slug: str | None) -> str | None:
+    if not hood_slug:
+        return None
+    key = hood_slug.lower()
+    from app.core.neighborhood_groups import NEIGHBORHOOD_GROUP_EXPANSIONS
+
+    for group, members in NEIGHBORHOOD_GROUP_EXPANSIONS.items():
+        if key == group or key in members:
+            return group
+    return None
+
+
+def score_intent_for_property(
+    intent: SearchIntent,
+    *,
+    hood_slug: str | None,
+    district_slug: str | None,
+    property_type_slug: str | None,
+    bedrooms: int | None,
+    is_furnished: bool,
+) -> float | None:
+    """
+    Relevance score for showing a rental search next to a property listing.
+    Returns None when the intent is clearly unrelated (wrong area).
+    """
+    from app.services.intent_copy import normalize_query
+
+    loc = (intent.location_slug or "").lower()
+    q = normalize_query(intent.query or {})
+    hood = (hood_slug or "").lower() or None
+    district = (district_slug or "").lower() or None
+    group = _district_group_for_hood(hood) or district
+    ptype = (property_type_slug or "").lower() or None
+
+    score = 0.0
+
+    # Location priority: neighborhood > district/group > kigali > other (reject)
+    if hood and loc == hood:
+        score += 100
+    elif group and loc == group:
+        score += 70
+    elif district and loc == district:
+        score += 65
+    elif loc == "kigali":
+        score += 25
+    elif hood and loc in expanded_neighborhood_slugs(hood):
+        score += 55
+    else:
+        return None
+
+    intent_type = (q.get("property_type") or "").lower() or None
+    if intent_type and ptype:
+        if intent_type == ptype:
+            score += 40
+        else:
+            score -= 25
+
+    intent_beds = q.get("bedrooms")
+    if intent_beds is not None and bedrooms is not None:
+        if int(intent_beds) == int(bedrooms):
+            score += 35
+        else:
+            score -= 15
+    elif intent_beds is None:
+        score += 4
+
+    intent_furnished = q.get("furnished")
+    if intent_furnished is True and is_furnished:
+        score += 18
+    elif intent_furnished is False and not is_furnished:
+        score += 10
+    elif intent_furnished is True and not is_furnished:
+        score -= 8
+
+    # Prefer searches that actually have matches; quality as soft boost
+    score += min(float(intent.match_count or 0), 40) * 0.35
+    score += min(float(intent.quality_score or 0), 100) * 0.05
+
+    # Prefer indexable for SEO surfaces
+    if intent.index_status == SearchIndexStatus.INDEXABLE.value:
+        score += 8
+
+    return score
+
+
+async def related_intents_for_property(
+    db: AsyncSession,
+    prop: Property,
+    *,
+    limit: int = 6,
+) -> list[dict[str, Any]]:
+    """
+    Related /rentals/... searches for a property detail page.
+    Prioritizes neighborhood, district, type, bedrooms, and furnished intent.
+    Falls back to high match_count searches still tied to the property's area/type.
+    """
+    hood_slug = prop.neighborhood.slug if prop.neighborhood else None
+    district_slug = prop.district.slug if prop.district else None
+    ptype_slug = prop.property_type.slug if prop.property_type else None
+    bedrooms = prop.bedrooms
+    is_furnished = bool(prop.is_furnished) or prop.listing_type == ListingType.FURNISHED
+
+    preferred: set[str] = {"kigali"}
+    if hood_slug:
+        preferred.add(hood_slug.lower())
+    if district_slug:
+        preferred.add(district_slug.lower())
+    group = _district_group_for_hood(hood_slug)
+    if group:
+        preferred.add(group)
+        preferred.update(expanded_neighborhood_slugs(group))
+
+    result = await db.execute(
+        select(SearchIntent).where(
+            SearchIntent.is_enabled == True,  # noqa: E712
+            SearchIntent.index_status.in_(
+                [SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value]
+            ),
+            SearchIntent.location_slug.in_(sorted(preferred)),
+            SearchIntent.path.isnot(None),
+        )
+    )
+    candidates = list(result.scalars().all())
+
+    scored: list[tuple[float, int, float, SearchIntent]] = []
+    for intent in candidates:
+        path = (intent.path or "").strip()
+        if not path.startswith("/rentals/"):
+            continue
+        relevance = score_intent_for_property(
+            intent,
+            hood_slug=hood_slug,
+            district_slug=district_slug,
+            property_type_slug=ptype_slug,
+            bedrooms=bedrooms,
+            is_furnished=is_furnished,
+        )
+        if relevance is None:
+            continue
+        scored.append((relevance, int(intent.match_count or 0), float(intent.quality_score or 0), intent))
+
+    scored.sort(key=lambda row: (row[0], row[1], row[2]), reverse=True)
+
+    # Fallback: city-wide high-match intents still matching type/beds when local set is thin
+    if len(scored) < limit:
+        fallback = await db.execute(
+            select(SearchIntent)
+            .where(
+                SearchIntent.is_enabled == True,  # noqa: E712
+                SearchIntent.index_status.in_(
+                    [SearchIndexStatus.INDEXABLE.value, SearchIndexStatus.NOINDEX.value]
+                ),
+                SearchIntent.location_slug == "kigali",
+                SearchIntent.path.isnot(None),
+            )
+            .order_by(SearchIntent.match_count.desc(), SearchIntent.quality_score.desc())
+            .limit(40)
+        )
+        seen_ids = {row[3].id for row in scored}
+        for intent in fallback.scalars().all():
+            if intent.id in seen_ids:
+                continue
+            relevance = score_intent_for_property(
+                intent,
+                hood_slug=hood_slug,
+                district_slug=district_slug,
+                property_type_slug=ptype_slug,
+                bedrooms=bedrooms,
+                is_furnished=is_furnished,
+            )
+            if relevance is None:
+                continue
+            scored.append((relevance, int(intent.match_count or 0), float(intent.quality_score or 0), intent))
+            seen_ids.add(intent.id)
+        scored.sort(key=lambda row: (row[0], row[1], row[2]), reverse=True)
+
+    out: list[dict[str, Any]] = []
+    seen_paths: set[str] = set()
+    for _rel, _mc, _qs, intent in scored:
+        path = (intent.path or "").rstrip("/") or intent.path
+        if not path or path in seen_paths:
+            continue
+        seen_paths.add(path)
+        out.append(
+            {
+                "path": path,
+                "title": intent.title,
+                "h1": intent.h1,
+                "match_count": intent.match_count,
+                "location_slug": intent.location_slug,
+                "intent_slug": intent.intent_slug,
+            }
+        )
+        if len(out) >= limit:
+            break
+    return out
+
+
 async def rebuild_intent_metrics(db: AsyncSession, intent: SearchIntent) -> SearchIntent:
     from app.services.intent_automation import count_observations, compute_freshness, opportunity_score, specificity_score
     from app.services.intent_config import load_automation_config
