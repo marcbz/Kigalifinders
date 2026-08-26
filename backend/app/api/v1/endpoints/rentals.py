@@ -135,10 +135,12 @@ async def rentals_sitemap(
         {"path": "/rentals/kigali", "last_built_at": None, "title": "Kigali Rental Market Overview"},
     ]
     for slug, name, count in hood_rows.all():
-        if int(count or 0) > 0:
-            hub_items.append(
-                {"path": f"/rentals/{slug}", "last_built_at": None, "title": f"Rentals in {name}"}
-            )
+        slug_s = str(slug or "").strip().strip("/")
+        if not slug_s or int(count or 0) <= 0:
+            continue
+        hub_items.append(
+            {"path": f"/rentals/{slug_s}", "last_built_at": None, "title": f"Rentals in {name}"}
+        )
 
     result = await db.execute(
         select(SearchIntent).where(
@@ -150,18 +152,27 @@ async def rentals_sitemap(
         )
     )
     intents = list(result.scalars().all())
-    intent_items = [
-        {
-            "path": i.path,
-            "last_built_at": i.last_built_at,
-            "title": i.title,
-            "_intent": i,
-        }
-        for i in intents
-        if i.path
-        and i.path.startswith("/rentals/")
-        and i.path.count("/") >= 3  # /rentals/{location}/{intent}
-    ]
+    intent_items: list[dict] = []
+    for i in intents:
+        path = str(i.path or "").strip()
+        if not path.startswith("/rentals/"):
+            continue
+        # /rentals/{location}/{intent} — at least 3 segments
+        if path.count("/") < 3:
+            continue
+        # Skip records with empty location/intent segments
+        parts = [p for p in path.split("/") if p]
+        if len(parts) < 3 or any(not p.strip() for p in parts):
+            continue
+        last_built = i.last_built_at.isoformat() if getattr(i, "last_built_at", None) else None
+        intent_items.append(
+            {
+                "path": path,
+                "last_built_at": last_built,
+                "title": i.title or path,
+                "_intent": i,
+            }
+        )
 
     from app.services.intent_config import load_automation_config
     from app.services.seo_landing import sitemap_priority_key
@@ -169,7 +180,8 @@ async def rentals_sitemap(
     cfg = await load_automation_config(db)
     max_urls = int(cfg.max_sitemap_urls or 100)
     intent_items.sort(key=lambda row: sitemap_priority_key(row["_intent"]), reverse=True)
-    # DB sitemap_status is authoritative — apply_sitemap_cap already enforces max_urls
+    # Keep eligible included intents, but never exceed the configured hard cap
+    intent_items = intent_items[:max_urls]
     for row in intent_items:
         row.pop("_intent", None)
 

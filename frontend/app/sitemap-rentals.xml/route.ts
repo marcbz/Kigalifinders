@@ -12,37 +12,31 @@ export async function GET(request: Request) {
   try {
     const { entries, meta } = await getRentalsSitemapEntries(new Date(), { debug });
 
-    // Failed upstream must not become a cached empty sitemap (crawlers treat empty as truth)
-    if (meta.error) {
-      console.error("[sitemap-rentals] upstream failed", meta);
-      return new Response(
-        `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>\n`,
-        {
-          status: 503,
-          headers: {
-            "Content-Type": "application/xml; charset=utf-8",
-            "Cache-Control": "no-store",
-            "X-Sitemap-Error": meta.error.slice(0, 200),
-            "X-Sitemap-Source": meta.apiUrl,
-          },
-        },
-      );
-    }
+    // Always HTTP 200 with valid <url> entries (hub fallbacks if upstream fails).
+    // Returning 503 + empty <urlset> caused Google Search Console failures.
+    const res = xmlResponse(buildUrlSetXml(entries), {
+      cacheControl: meta.error
+        ? "public, max-age=0, s-maxage=30, stale-while-revalidate=120"
+        : "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+      headers: meta.error
+        ? {
+            "X-Sitemap-Upstream-Error": meta.error.slice(0, 200),
+            "X-Sitemap-Source": meta.apiUrl || "unknown",
+          }
+        : undefined,
+    });
 
     console.info("[sitemap-rentals] urls=", entries.length, {
       apiUrl: meta.apiUrl,
       hubCount: meta.hubCount,
       intentCount: meta.intentCount,
-    });
-
-    const res = xmlResponse(buildUrlSetXml(entries), {
-      // Short CDN TTL so SEO/sitemap status changes appear quickly
-      cacheControl: "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+      upstreamError: meta.error || null,
     });
 
     if (debug) {
       res.headers.set("X-Sitemap-Count", String(entries.length));
       res.headers.set("X-Sitemap-Source", meta.apiUrl || "unknown");
+      if (meta.error) res.headers.set("X-Sitemap-Upstream-Error", meta.error.slice(0, 200));
       if (meta.diagnostics) {
         res.headers.set("X-Sitemap-Diagnostics", JSON.stringify(meta.diagnostics).slice(0, 1800));
       }
@@ -50,17 +44,28 @@ export async function GET(request: Request) {
     return res;
   } catch (error) {
     console.error("[sitemap-rentals] fatal", error);
-    // Prefer 503 over an empty valid sitemap (empty tells crawlers there are no URLs)
-    return new Response(
-      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"></urlset>\n`,
+    // Last-resort valid sitemap with hub URLs — never 503 empty urlset for crawlers
+    const now = new Date();
+    const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://kigalirent.com";
+    return xmlResponse(
+      buildUrlSetXml([
+        { loc: `${base}/rentals`, lastModified: now, changeFrequency: "weekly", priority: 0.88 },
+        { loc: `${base}/rentals/kigali`, lastModified: now, changeFrequency: "weekly", priority: 0.87 },
+      ]),
       {
-        status: 503,
-        headers: {
-          "Content-Type": "application/xml; charset=utf-8",
-          "Cache-Control": "no-store",
-          "X-Sitemap-Error": "upstream_unavailable",
-        },
+        cacheControl: "no-store",
+        headers: { "X-Sitemap-Error": "fatal_fallback" },
       },
     );
   }
+}
+
+export function HEAD() {
+  return new Response(null, {
+    status: 200,
+    headers: {
+      "Content-Type": "application/xml; charset=utf-8",
+      "Cache-Control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
+    },
+  });
 }

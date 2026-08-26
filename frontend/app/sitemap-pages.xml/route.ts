@@ -8,6 +8,11 @@ export async function GET() {
     return xmlResponse(buildUrlSetXml(getPagesSitemapEntries()));
   } catch (error) {
     console.error("[sitemap-pages]", error);
-    return xmlResponse(buildUrlSetXml([]));
+    const now = new Date();
+    const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://kigalirent.com";
+    return xmlResponse(
+      buildUrlSetXml([{ loc: base, lastModified: now, changeFrequency: "daily", priority: 1 }]),
+      { cacheControl: "no-store" },
+    );
   }
 }
