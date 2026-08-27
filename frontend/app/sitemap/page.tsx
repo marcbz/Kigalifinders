@@ -15,6 +15,7 @@ const STATIC_PAGES = [
   { href: "/properties", label: "Properties" },
   { href: "/area", label: "Neighborhoods" },
   { href: "/research/kigali-rental-market", label: "Rental market research" },
+  { href: "/research/kigali-rental-market/prices", label: "Kigali rental prices" },
   { href: "/about", label: "About Us" },
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },

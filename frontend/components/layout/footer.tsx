@@ -76,6 +76,7 @@ export function Footer({
                 { label: "Properties", href: "/properties" },
                 { label: "Neighborhoods", href: "/area" },
                 { label: "Rental market research", href: "/research/kigali-rental-market" },
+                { label: "Kigali rental prices", href: "/research/kigali-rental-market/prices" },
                 { label: "List Your Property", href: "/list-your-property" },
                 { label: "Why Us", href: "/#why" },
                 { label: "Blog", href: "/blog" },

@@ -25,6 +25,9 @@ from app.services.search_intent import MIN_SAMPLE_FOR_STATS, match_verified_prop
 
 SITE = "https://kigalirent.com"
 
+# Hard cap for marketplace "Latest rental listings" grids (hubs + landings).
+RENTAL_HUB_LISTING_CAP = 8
+
 # Prefer existing city-level search intents as type hubs (do not invent new routes).
 # Only surface when match_count meets the threshold — avoids thin type doorways.
 TYPE_HUB_INTENT_SLUGS: tuple[tuple[str, str], ...] = (
@@ -334,34 +337,30 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
             top_searches.extend(await _related_intents_for_location(db, hood["slug"], limit=2))
     featured = _dedupe_featured_searches(top_searches, limit=8)
 
-    intro_parts = [
-        f"KigaliRent lists {total_listings} verified rental propert{'y' if total_listings == 1 else 'ies'}"
-        f" across {sum(1 for n in neighborhoods if n['listing_count'] > 0)} Kigali neighborhoods."
-    ]
-    if kigali_verified and kigali_verified.median_usd:
-        intro_parts.append(
-            f"City-wide verified rents typically centre around ${kigali_verified.median_usd:,.0f}/month "
-            f"(based on {kigali_verified.sample_size} listings)."
-        )
-
     from app.services.combined_market import combined_market_answer
 
     market_answer = await combined_market_answer(db, location_slug="kigali")
     type_hubs = await _type_hubs_for_kigali(db)
-    listing_matches = await match_verified_properties(db, {"location": "kigali"}, limit=9)
-    listing_sorted = sorted(
-        listing_matches, key=lambda p: score_property(p, {"location": "kigali"}), reverse=True
+    # Featured first, then updated_at — preserve DB order for "latest" listings.
+    listing_matches = await match_verified_properties(
+        db, {"location": "kigali"}, limit=RENTAL_HUB_LISTING_CAP
     )
 
     return {
         "page_type": "directory",
         "path": "/rentals",
-        "title": "Kigali Rentals Directory | KigaliRent",
-        "h1": "Kigali rental directory",
-        "meta_description": "Browse verified Kigali rentals by neighborhood, with real listing counts and market data.",
+        "title": "Kigali Rentals | KigaliRent",
+        "h1": "Kigali Rentals",
+        "meta_description": (
+            "Browse current houses, apartments and furnished rentals available in Kigali, "
+            "with listings organized by rental type and neighborhood."
+        ),
         "canonical": f"{SITE}/rentals",
         "robots": "index,follow",
-        "intro": " ".join(intro_parts),
+        "intro": (
+            "Browse current houses, apartments and furnished rentals available in Kigali, "
+            "with listings organized by rental type and neighborhood."
+        ),
         "last_updated": _now().isoformat(),
         "total_listings": total_listings,
         "neighborhood_count": len(neighborhoods),
@@ -371,9 +370,11 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         "observation_market": None,
         "property_types": await _property_type_breakdown(db, "kigali"),
         "type_hubs": type_hubs,
-        "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in listing_sorted],
+        "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in listing_matches],
         "featured_searches": featured,
         "related_searches": featured,
+        "listing_cap": RENTAL_HUB_LISTING_CAP,
+        "listing_order": "featured_then_updated_at",
     }
 
 
@@ -383,8 +384,9 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
 
     neighborhoods = await _neighborhoods_with_counts(db)
     neighborhoods.sort(key=lambda n: (-(n["median_usd"] or 0), -n["listing_count"]))
-    matches = await match_verified_properties(db, {"location": "kigali"}, limit=12)
-    matches_sorted = sorted(matches, key=lambda p: score_property(p, {"location": "kigali"}), reverse=True)
+    matches = await match_verified_properties(
+        db, {"location": "kigali"}, limit=RENTAL_HUB_LISTING_CAP
+    )
 
     market_ctx = await combined_slice_context(db, location_slug="kigali")
     market_answer = market_ctx["market_answer"]
@@ -399,14 +401,15 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
     }
 
     intro = (
-        "Overview of the Kigali rental market using combined eligible observations"
+        "Browse verified Kigali rental listings with asking-rent context from eligible market observations"
         + (
             f" (typical asking rent ${market_answer['typical_usd']:,.0f}/month based on {market_answer.get('sample_size')} observations)."
             if market_answer.get("has_enough_data") and market_answer.get("typical_usd") is not None
             else "."
         )
-        + f" {len(matches)} verified KigaliRent listings are available separately below."
     )
+
+    total_verified = sum(n["listing_count"] for n in neighborhoods)
 
     return {
         "page_type": "city",
@@ -420,7 +423,7 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "robots": "index,follow",
         "intro": intro,
         "last_updated": _now().isoformat(),
-        "listing_count": len(matches),
+        "listing_count": total_verified,
         "observation_count": market_answer.get("sample_size") or 0,
         "market_answer": market_answer,
         "verified_market": None,
@@ -431,13 +434,13 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "property_types": await _property_type_breakdown(db, "kigali"),
         "key_attributes": ["Kigali-wide", "All property types"],
         "data_insights": build_data_insights(
-            match_count=len(matches),
+            match_count=total_verified,
             market_insights=market_ctx.get("data_insights") or [],
         ),
         "trend_verified": market_ctx.get("trend") or [],
         "trend_external": [],
         "neighborhoods": [n for n in neighborhoods if n["listing_count"] > 0][:20],
-        "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in matches_sorted],
+        "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in matches],
         "type_hubs": await _type_hubs_for_kigali(db),
         "related_searches": _dedupe_featured_searches(
             await _related_intents_for_location(db, "kigali", limit=16),
@@ -448,6 +451,8 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
             for n in sorted(neighborhoods, key=lambda x: -x["listing_count"])[:8]
             if n["listing_count"] > 0
         ],
+        "listing_cap": RENTAL_HUB_LISTING_CAP,
+        "listing_order": "featured_then_updated_at",
         "faqs": [
             {
                 "q": "How much does renting in Kigali typically cost?",
@@ -476,9 +481,9 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         return None
     hood, district_name = row
     query = {"location": hood.slug}
-    matches = await match_verified_properties(db, query, limit=24)
-    matches_sorted = sorted(matches, key=lambda p: score_property(p, query), reverse=True)
     all_hoods = await _neighborhoods_with_counts(db)
+    hood_total = next((n["listing_count"] for n in all_hoods if n["slug"] == hood.slug), 0)
+    matches = await match_verified_properties(db, query, limit=RENTAL_HUB_LISTING_CAP)
 
     market_ctx = await combined_slice_context(db, location_slug=hood.slug)
     market_answer = market_ctx["market_answer"]
@@ -492,8 +497,8 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         ),
     }
 
-    listing_word = "listings" if len(matches) != 1 else "listing"
-    verb = "are" if len(matches) != 1 else "is"
+    listing_word = "listings" if hood_total != 1 else "listing"
+    verb = "are" if hood_total != 1 else "is"
     if market_answer.get("has_enough_data") and market_answer.get("typical_usd") is not None:
         market_bit = (
             f" (typical asking rent ${market_answer['typical_usd']:,.0f}/month, "
@@ -502,15 +507,15 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
     else:
         market_bit = "."
     intro = (
-        f"{hood.name} market context uses combined eligible observations{market_bit} "
-        f"{len(matches)} verified rental {listing_word} {verb} currently available on KigaliRent "
-        f"in {district_name}."
+        f"Browse available rentals in {hood.name}, {district_name}."
+        f"{market_bit} "
+        f"{hood_total} verified rental {listing_word} {verb} currently listed on KigaliRent."
     )
 
     related = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
     related.sort(key=lambda n: -n["listing_count"])
 
-    property_word = "property" if len(matches) == 1 else "properties"
+    property_word = "property" if hood_total == 1 else "properties"
     return {
         "page_type": "neighborhood",
         "path": f"/rentals/{hood.slug}",
@@ -526,12 +531,12 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "canonical": f"{SITE}/rentals/{hood.slug}",
         "robots": (
             "index,follow"
-            if len(matches) >= 1 or market_answer.get("has_enough_data")
+            if hood_total >= 1 or market_answer.get("has_enough_data")
             else "noindex,follow"
         ),
         "intro": intro,
         "last_updated": _now().isoformat(),
-        "listing_count": len(matches),
+        "listing_count": hood_total,
         "observation_count": market_answer.get("sample_size") or 0,
         "market_answer": market_answer,
         "verified_market": None,
@@ -540,14 +545,15 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "by_bedroom_external": [],
         "furnished_breakdown": furnished_payload if furnished_payload["total"] else None,
         "property_types": await _property_type_breakdown(db, hood.slug),
+        "type_hubs": await _type_hubs_for_kigali(db),
         "key_attributes": key_attributes_from_query(query),
         "data_insights": build_data_insights(
-            match_count=len(matches),
+            match_count=hood_total,
             market_insights=market_ctx.get("data_insights") or [],
         ),
         "trend_verified": market_ctx.get("trend") or [],
         "trend_external": [],
-        "verified_listings": [_listing_card(p, query) for p in matches_sorted],
+        "verified_listings": [_listing_card(p, query) for p in matches],
         "related_searches": _dedupe_featured_searches(
             await _related_intents_for_location(db, hood.slug, limit=12),
             limit=8,
@@ -556,11 +562,13 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
             {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
             for n in related[:8]
         ],
+        "listing_cap": RENTAL_HUB_LISTING_CAP,
+        "listing_order": "featured_then_updated_at",
         "faqs": [
             {
                 "q": f"How many verified rentals are in {hood.name}?",
                 "a": (
-                    f"KigaliRent currently lists {len(matches)} verified rental "
+                    f"KigaliRent currently lists {hood_total} verified rental "
                     f"{property_word} in {hood.name}."
                 ),
             },

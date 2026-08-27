@@ -256,8 +256,11 @@ async def get_rental_landing(
         raise HTTPException(status_code=404, detail="Search page not found")
 
     query = intent.query or {}
-    matches = await match_verified_properties(db, query, limit=24)
-    matches_sorted = sorted(matches, key=lambda p: score_property(p, query), reverse=True)
+    from app.services.rental_locations import RENTAL_HUB_LISTING_CAP
+
+    # Cap display inventory; preserve featured → updated_at order from matcher.
+    matches = await match_verified_properties(db, query, limit=RENTAL_HUB_LISTING_CAP)
+    match_count = int(intent.match_count or 0) or len(matches)
 
     loc_slug = intent.location_slug
     bedrooms = query.get("bedrooms")
@@ -279,13 +282,13 @@ async def get_rental_landing(
     location_name = loc_slug.replace("-", " ").title() if loc_slug != "kigali" else "Kigali"
     intro_text = generate_intro_text(
         query,
-        match_count=len(matches_sorted),
+        match_count=match_count,
         observation_count=market_answer.get("sample_size") or 0,
         location_name=location_name,
         market_answer=market_answer,
     )
     insights = build_data_insights(
-        match_count=len(matches_sorted),
+        match_count=match_count,
         market_insights=market_ctx.get("data_insights") or [],
     )
 
@@ -343,15 +346,15 @@ async def get_rental_landing(
         meta_description=intent.meta_description,
         intro_html=intent.intro_html,
         intro=intro_text,
-        answer=answer_sentence(intent, matches_sorted),
+        answer=answer_sentence(intent, matches, total_count=match_count),
         index_status=intent.index_status,
         robots=robots,
         canonical=f"{SITE}{intent.path}",
         quality_score=intent.quality_score,
-        match_count=len(matches_sorted),
+        match_count=match_count,
         observation_count=market_answer.get("sample_size") or 0,
         last_updated=intent.last_built_at or intent.updated_at,
-        verified_matches=[_card(p, query) for p in matches_sorted],
+        verified_matches=[_card(p, query) for p in matches],
         market_snapshot=None,
         verified_market=None,
         observation_market=None,

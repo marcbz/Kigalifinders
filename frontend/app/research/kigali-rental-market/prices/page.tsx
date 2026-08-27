@@ -12,7 +12,7 @@ import {
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Kigali Rental Prices — Asking Rent Research",
+  title: "Kigali Rental Prices 2026: Cost of Renting in Kigali",
   description:
     "Typical asking rents in Kigali with middle-50% ranges, bedroom and neighbourhood comparisons, trends, and sample sizes from combined eligible observations.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market/prices" },
@@ -32,7 +32,7 @@ export default async function ResearchPricesPage() {
           </Link>
         </p>
         <h1 className="font-serif text-4xl font-bold text-navy-800 dark:text-white mb-3">
-          How much does renting in Kigali typically cost?
+          Kigali Rental Prices 2026: Cost of Renting in Kigali
         </h1>
         <p className="text-gray-600 max-w-2xl">
           Asking-rent estimates for journalists, researchers, NGOs, investors, relocation teams, and

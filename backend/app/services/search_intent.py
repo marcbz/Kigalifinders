@@ -704,13 +704,22 @@ async def rebuild_intent_metrics(db: AsyncSession, intent: SearchIntent) -> Sear
     return intent
 
 
-def answer_sentence(intent: SearchIntent, matches: list[Property]) -> str:
+def answer_sentence(
+    intent: SearchIntent,
+    matches: list[Property],
+    *,
+    total_count: int | None = None,
+) -> str:
     h1 = intent.h1.rstrip(".")
-    if not matches:
-        return (
-            f"KigaliRent currently has no verified properties matching “{h1}”. "
-            "Below are nearby alternatives and related searches."
-        )
+    count = total_count if total_count is not None else len(matches)
+    if count <= 0 or not matches:
+        if count <= 0:
+            return (
+                f"KigaliRent currently has no verified properties matching “{h1}”. "
+                "Below are nearby alternatives and related searches."
+            )
+        # total_count > 0 but display sample empty — still report inventory count
+        return f"KigaliRent currently has {count} verified {'match' if count == 1 else 'matches'} for “{h1}”."
     prices = [effective_usd_price(p) for p in matches]
     prices = [p for p in prices if p is not None]
     if prices:
@@ -720,7 +729,7 @@ def answer_sentence(intent: SearchIntent, matches: list[Property]) -> str:
         else:
             price_bit = f"ranging from ${lo:,.0f}–${hi:,.0f}/month"
         return (
-            f"KigaliRent currently has {len(matches)} verified "
-            f"{'match' if len(matches) == 1 else 'matches'} for “{h1}”, {price_bit}."
+            f"KigaliRent currently has {count} verified "
+            f"{'match' if count == 1 else 'matches'} for “{h1}”, {price_bit}."
         )
-    return f"KigaliRent currently has {len(matches)} verified {'match' if len(matches) == 1 else 'matches'} for “{h1}”."
+    return f"KigaliRent currently has {count} verified {'match' if count == 1 else 'matches'} for “{h1}”."
