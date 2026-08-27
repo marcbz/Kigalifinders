@@ -95,7 +95,7 @@ export default async function RentalLandingPage({ params }: Props) {
       </header>
 
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
-        <RentalListingsSection listings={listings} />
+        <RentalListingsSection listings={listings} matchMode={page.match_mode || "exact"} />
 
         <FullCatalogueCta />
 

@@ -62,7 +62,7 @@ export function FullCatalogueCta() {
     <div className="flex justify-center">
       <Link
         href="/properties"
-        className="btn-gold cta-breathe inline-flex items-center justify-center rounded-full px-8 py-3.5 text-sm font-semibold"
+        className="btn-gold cta-breathe inline-flex items-center justify-center rounded-full px-8 py-3.5 text-sm font-semibold ring-2 ring-[#c9a961]/55 ring-offset-2 ring-offset-cream dark:ring-offset-navy-900"
       >
         View Full Properties Catalogue
       </Link>
@@ -112,20 +112,26 @@ export function AskingRentSnapshot({
 
 export function RentalListingsSection({
   listings,
+  matchMode = "exact",
   emptyHref = "/properties",
   emptyLabel = "View Full Properties Catalogue",
 }: {
   listings: RentalListingCardData[];
+  matchMode?: "exact" | "closest" | string;
   emptyHref?: string;
   emptyLabel?: string;
 }) {
+  const showingClosest = matchMode === "closest" && listings.length > 0;
+
   return (
     <section>
       <p className="text-xs uppercase tracking-wider text-gray-500 mb-2">Current availability</p>
-      <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">Latest rental listings</h2>
+      <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-6">
+        {showingClosest ? "Closest available rentals" : "Latest rental listings"}
+      </h2>
       {listings.length === 0 ? (
         <div className="rounded-xl border border-dashed p-8 bg-white dark:bg-navy-800">
-          <p className="text-navy-800 dark:text-white font-medium mb-2">No verified listings match right now.</p>
+          <p className="text-navy-800 dark:text-white font-medium mb-2">No exact matches right now</p>
           <p className="text-sm text-gray-600 dark:text-gray-300">
             <Link href={emptyHref} className="text-gold-600 underline">
               {emptyLabel}
@@ -133,51 +139,61 @@ export function RentalListingsSection({
           </p>
         </div>
       ) : (
-        <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {listings.map((p, index) => (
-            <li
-              key={p.id}
-              className={`bg-white dark:bg-navy-800 rounded-xl overflow-hidden border${
-                index >= 6 ? " max-md:hidden" : ""
-              }`}
-            >
-              <Link href={getPropertyHref(p)} className="block">
-                <div className="relative aspect-[4/3] bg-navy-700">
-                  {p.primary_image ? (
-                    <Image
-                      src={p.primary_image}
-                      alt={getPropertyImageAlt({
-                        title: p.title,
-                        neighborhood_name: p.neighborhood_name ?? undefined,
-                        district_name: p.district_name ?? undefined,
-                        bedrooms: p.bedrooms ?? undefined,
-                        property_type_name: p.property_type_name ?? undefined,
-                      })}
-                      fill
-                      className="object-cover"
-                      sizes="(max-width:768px) 100vw, 33vw"
-                    />
-                  ) : null}
-                </div>
-                <div className="p-4">
-                  <h3 className="font-serif font-semibold text-navy-800 dark:text-white line-clamp-2">{p.title}</h3>
-                  <p className="text-gold-600 font-semibold mt-1">
-                    ${(p.usd_price ?? p.price).toLocaleString()}/month
-                  </p>
-                  <p className="text-xs text-gray-500 mt-1">
-                    {[
-                      p.neighborhood_name,
-                      p.bedrooms != null ? `${p.bedrooms} bed` : null,
-                      p.bathrooms != null ? `${p.bathrooms} bath` : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </p>
-                </div>
-              </Link>
-            </li>
-          ))}
-        </ul>
+        <>
+          {showingClosest ? (
+            <div className="mb-5 rounded-lg border border-amber-200/80 bg-amber-50/80 dark:bg-navy-800 dark:border-navy-700 px-4 py-3">
+              <p className="text-navy-800 dark:text-white font-medium">No exact matches right now</p>
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
+                Showing closest available rentals — these may not match every filter from your search.
+              </p>
+            </div>
+          ) : null}
+          <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {listings.map((p, index) => (
+              <li
+                key={p.id}
+                className={`bg-white dark:bg-navy-800 rounded-xl overflow-hidden border${
+                  index >= 6 ? " max-md:hidden" : ""
+                }`}
+              >
+                <Link href={getPropertyHref(p)} className="block">
+                  <div className="relative aspect-[4/3] bg-navy-700">
+                    {p.primary_image ? (
+                      <Image
+                        src={p.primary_image}
+                        alt={getPropertyImageAlt({
+                          title: p.title,
+                          neighborhood_name: p.neighborhood_name ?? undefined,
+                          district_name: p.district_name ?? undefined,
+                          bedrooms: p.bedrooms ?? undefined,
+                          property_type_name: p.property_type_name ?? undefined,
+                        })}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width:768px) 100vw, 33vw"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="p-4">
+                    <h3 className="font-serif font-semibold text-navy-800 dark:text-white line-clamp-2">{p.title}</h3>
+                    <p className="text-gold-600 font-semibold mt-1">
+                      ${(p.usd_price ?? p.price).toLocaleString()}/month
+                    </p>
+                    <p className="text-xs text-gray-500 mt-1">
+                      {[
+                        p.neighborhood_name,
+                        p.bedrooms != null ? `${p.bedrooms} bed` : null,
+                        p.bathrooms != null ? `${p.bathrooms} bath` : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" · ")}
+                    </p>
+                  </div>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   );

@@ -203,6 +203,7 @@ class SearchLandingPageResponse(BaseModel):
     alert_context: Optional[dict[str, Any]] = None
     listing_cap: int = 9
     listing_cap_mobile: int = 6
+    match_mode: str = "exact"  # exact | closest
 
 
 class ResearchOverviewResponse(BaseModel):

@@ -24,7 +24,6 @@ from app.services.research import observation_activity_series, textual_summary
 from app.services.search_intent import (
     answer_sentence,
     get_market_snapshot_for_query,
-    match_verified_properties,
     related_intents,
     score_property,
 )
@@ -239,9 +238,10 @@ async def get_rental_landing(
     from app.services.combined_market import combined_slice_context
     from app.services.landing_pages import (
         build_data_insights,
-        generate_intro_text,
+        generate_display_description,
         key_attributes_from_query,
     )
+    from app.services.search_intent import match_rentals_for_hub
 
     path = f"/rentals/{location_slug.lower()}/{intent_slug.lower()}"
     result = await db.execute(
@@ -258,8 +258,7 @@ async def get_rental_landing(
     query = intent.query or {}
     from app.services.rental_locations import RENTAL_HUB_LISTING_CAP
 
-    # Cap display inventory; preserve featured → updated_at order from matcher.
-    matches = await match_verified_properties(db, query, limit=RENTAL_HUB_LISTING_CAP)
+    matches, match_mode = await match_rentals_for_hub(db, query, limit=RENTAL_HUB_LISTING_CAP)
     match_count = int(intent.match_count or 0) or len(matches)
 
     loc_slug = intent.location_slug
@@ -280,13 +279,7 @@ async def get_rental_landing(
     furnished_market = market_ctx.get("furnished_breakdown")
 
     location_name = loc_slug.replace("-", " ").title() if loc_slug != "kigali" else "Kigali"
-    intro_text = generate_intro_text(
-        query,
-        match_count=match_count,
-        observation_count=market_answer.get("sample_size") or 0,
-        location_name=location_name,
-        market_answer=market_answer,
-    )
+    intro_text = generate_display_description(query, location_name=location_name)
     insights = build_data_insights(
         match_count=match_count,
         market_insights=market_ctx.get("data_insights") or [],
@@ -364,7 +357,7 @@ async def get_rental_landing(
         meta_description=intent.meta_description,
         intro_html=intent.intro_html,
         intro=intro_text,
-        answer=answer_sentence(intent, matches, total_count=match_count),
+        answer=answer_sentence(intent, matches, total_count=match_count, match_mode=match_mode),
         index_status=intent.index_status,
         robots=robots,
         canonical=f"{SITE}{intent.path}",
@@ -399,6 +392,7 @@ async def get_rental_landing(
         alert_context=alert_context,
         listing_cap=RENTAL_HUB_LISTING_CAP,
         listing_cap_mobile=6,
+        match_mode=match_mode,
     )
 
 

@@ -68,8 +68,11 @@
   }
 
   .cta-breathe {
-    animation: cta-breathe 3.6s ease-in-out infinite;
-    will-change: transform, opacity;
+    animation: cta-breathe 2.8s ease-in-out infinite;
+    will-change: transform, opacity, box-shadow;
+    box-shadow:
+      0 0 0 2px rgba(201, 169, 97, 0.55),
+      0 10px 28px rgba(176, 143, 71, 0.42);
   }
 
   @keyframes cta-breathe {
@@ -77,16 +80,25 @@
     100% {
       transform: scale(1);
       opacity: 1;
+      box-shadow:
+        0 0 0 2px rgba(201, 169, 97, 0.45),
+        0 8px 22px rgba(176, 143, 71, 0.35);
     }
     50% {
-      transform: scale(1.015);
-      opacity: 0.94;
+      transform: scale(1.04);
+      opacity: 0.97;
+      box-shadow:
+        0 0 0 3px rgba(201, 169, 97, 0.7),
+        0 14px 34px rgba(176, 143, 71, 0.5);
     }
   }
 
   @media (prefers-reduced-motion: reduce) {
     .cta-breathe {
       animation: none;
+      box-shadow:
+        0 0 0 2px rgba(201, 169, 97, 0.55),
+        0 10px 28px rgba(176, 143, 71, 0.42);
     }
   }
 

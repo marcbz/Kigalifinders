@@ -98,6 +98,7 @@ export type SearchLandingPage = {
   } | null;
   listing_cap?: number;
   listing_cap_mobile?: number;
+  match_mode?: "exact" | "closest" | string;
 };
 
 export type SearchIntentListResponse = {

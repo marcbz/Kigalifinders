@@ -21,7 +21,7 @@ from app.models import (
     SearchIntent,
 )
 from app.services.intent_automation import count_observations
-from app.services.search_intent import MIN_SAMPLE_FOR_STATS, match_verified_properties, score_property
+from app.services.search_intent import MIN_SAMPLE_FOR_STATS, match_rentals_for_hub, match_verified_properties, score_property
 
 SITE = "https://kigalirent.com"
 
@@ -342,8 +342,8 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
 
     market_answer = await combined_market_answer(db, location_slug="kigali")
     type_hubs = await _type_hubs_for_kigali(db)
-    # Featured first, then updated_at — preserve DB order for "latest" listings.
-    listing_matches = await match_verified_properties(
+    # Newest relevant published rentals for the hub (with closest fallback when needed).
+    listing_matches, match_mode = await match_rentals_for_hub(
         db, {"location": "kigali"}, limit=RENTAL_HUB_LISTING_CAP
     )
 
@@ -358,7 +358,7 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         ),
         "canonical": f"{SITE}/rentals",
         "robots": "index,follow",
-        "intro": "Browse current houses, apartments and furnished rentals available in Kigali.",
+        "intro": "Browse available houses, apartments and furnished rentals in Kigali.",
         "last_updated": _now().isoformat(),
         "total_listings": total_listings,
         "neighborhood_count": len(neighborhoods),
@@ -374,6 +374,7 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         "listing_cap": RENTAL_HUB_LISTING_CAP,
         "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
         "listing_order": "intent_match_then_published_or_created_desc",
+        "match_mode": match_mode,
         "alert_context": {
             "intent": "rent",
             "area": "Kigali",
@@ -389,7 +390,7 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
 
     neighborhoods = await _neighborhoods_with_counts(db)
     neighborhoods.sort(key=lambda n: (-(n["median_usd"] or 0), -n["listing_count"]))
-    matches = await match_verified_properties(
+    matches, match_mode = await match_rentals_for_hub(
         db, {"location": "kigali"}, limit=RENTAL_HUB_LISTING_CAP
     )
 
@@ -405,7 +406,7 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         ),
     }
 
-    intro = "Browse current houses, apartments and furnished rentals available across Kigali."
+    intro = "Browse available houses, apartments and furnished rentals across Kigali."
 
     total_verified = sum(n["listing_count"] for n in neighborhoods)
 
@@ -452,6 +453,7 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "listing_cap": RENTAL_HUB_LISTING_CAP,
         "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
         "listing_order": "intent_match_then_published_or_created_desc",
+        "match_mode": match_mode,
         "alert_context": {
             "intent": "rent",
             "area": "Kigali",
@@ -488,7 +490,7 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
     query = {"location": hood.slug}
     all_hoods = await _neighborhoods_with_counts(db)
     hood_total = next((n["listing_count"] for n in all_hoods if n["slug"] == hood.slug), 0)
-    matches = await match_verified_properties(db, query, limit=RENTAL_HUB_LISTING_CAP)
+    matches, match_mode = await match_rentals_for_hub(db, query, limit=RENTAL_HUB_LISTING_CAP)
 
     market_ctx = await combined_slice_context(db, location_slug=hood.slug)
     market_answer = market_ctx["market_answer"]
@@ -502,7 +504,7 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         ),
     }
 
-    intro = f"Browse current houses and apartments for rent in {hood.name}, Kigali."
+    intro = f"Browse available houses and apartments for rent in {hood.name}, Kigali."
 
     related = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
     related.sort(key=lambda n: -n["listing_count"])
@@ -516,7 +518,7 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "district_name": district_name,
         "title": f"Rentals in {hood.name}, Kigali | KigaliRent",
         "h1": f"Rentals in {hood.name}",
-        "meta_description": f"Browse current houses and apartments for rent in {hood.name}, Kigali.",
+        "meta_description": f"Browse available houses and apartments for rent in {hood.name}, Kigali.",
         "canonical": f"{SITE}/rentals/{hood.slug}",
         "robots": (
             "index,follow"
@@ -554,6 +556,7 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "listing_cap": RENTAL_HUB_LISTING_CAP,
         "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
         "listing_order": "intent_match_then_published_or_created_desc",
+        "match_mode": match_mode,
         "alert_context": {
             "intent": "rent",
             "area": hood.name,

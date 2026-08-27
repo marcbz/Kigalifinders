@@ -55,107 +55,6 @@ def _amenity_flags_from_query(query: dict[str, Any]) -> dict[str, bool]:
     return amenity_property_flags(amenities)
 
 
-async def match_verified_properties(
-    db: AsyncSession,
-    query: dict[str, Any],
-    *,
-    limit: int = 24,
-    include_unavailable: bool = False,
-) -> list[Property]:
-    """Return rent listings that satisfy the intent query, newest first among matches.
-
-    Eligibility is enforced in SQL (rent-only, type, exact bedrooms when set, budget,
-    location). Soft ranking for location precision happens after fetch; freshness uses
-    published_at/created_at — not updated_at or featured.
-    """
-    location = (query.get("location") or query.get("location_slug") or "").lower() or None
-    q = (
-        select(Property)
-        .options(
-            selectinload(Property.neighborhood),
-            selectinload(Property.district),
-            selectinload(Property.property_type),
-            selectinload(Property.images),
-            selectinload(Property.amenities),
-        )
-        .where(Property.listing_type.in_([ListingType.RENT, ListingType.FURNISHED]))
-    )
-    if include_unavailable:
-        q = q.where(Property.status.in_([PropertyStatusEnum.PUBLISHED, PropertyStatusEnum.RENTED, PropertyStatusEnum.ARCHIVED]))
-    else:
-        q = q.where(Property.status == PropertyStatusEnum.PUBLISHED)
-
-    nids = await _neighborhood_ids(db, location)
-    if nids:
-        q = q.where(Property.neighborhood_id.in_(nids))
-
-    # Exact bedroom match when the intent specifies bedrooms (do not silently broaden).
-    if query.get("bedrooms") is not None:
-        q = q.where(Property.bedrooms == int(query["bedrooms"]))
-    if query.get("bathrooms") is not None:
-        q = q.where(Property.bathrooms >= float(query["bathrooms"]))
-    if query.get("furnished") is True or query.get("is_furnished") is True:
-        q = q.where(or_(Property.is_furnished.is_(True), Property.listing_type == ListingType.FURNISHED))
-    if query.get("furnished") is False or query.get("is_furnished") is False:
-        q = q.where(Property.is_furnished.is_(False))
-
-    ptype = (query.get("property_type") or query.get("property_type_slug") or "").lower() or None
-    if ptype:
-        type_result = await db.execute(select(PropertyType.id).where(PropertyType.slug == ptype))
-        type_id = type_result.scalar_one_or_none()
-        if type_id:
-            tid = str(type_id)
-            q = q.where(or_(Property.property_type_id == type_id, Property.property_type_ids.contains([tid])))
-        else:
-            # fuzzy name match via joined type name
-            q = q.join(PropertyType, Property.property_type_id == PropertyType.id, isouter=True).where(
-                or_(PropertyType.slug == ptype, PropertyType.name.ilike(f"%{ptype}%"))
-            )
-
-    min_usd = query.get("min_price_usd", query.get("min_price"))
-    max_usd = query.get("max_price_usd", query.get("max_price"))
-    # Prefer usd_price when set; fall back to price for USD listings
-    if min_usd is not None:
-        q = q.where(
-            or_(
-                Property.usd_price >= float(min_usd),
-                and_(Property.usd_price.is_(None), Property.price >= float(min_usd)),
-            )
-        )
-    if max_usd is not None:
-        q = q.where(
-            or_(
-                Property.usd_price <= float(max_usd),
-                and_(Property.usd_price.is_(None), Property.price <= float(max_usd)),
-            )
-        )
-
-    flags = _amenity_flags_from_query(query)
-    for col, val in flags.items():
-        q = q.where(getattr(Property, col) == val)
-
-    # compound (and any remaining allowed amenities without a boolean column) via amenity join
-    from app.services.seo_attributes import sanitize_seo_amenities
-
-    amenity_slugs = [str(a).lower() for a in (query.get("amenity_slugs") or [])]
-    allowed_from_query, _ = sanitize_seo_amenities(query.get("amenities") or [])
-    join_slugs = set(amenity_slugs)
-    for slug in allowed_from_query:
-        if slug == "compound":
-            join_slugs.add("compound")
-    if join_slugs:
-        for slug in join_slugs:
-            q = q.where(
-                Property.amenities.any(Amenity.slug == slug)  # type: ignore[attr-defined]
-            )
-
-    # Fetch a bounded candidate set, then rank: location precision → newest listing date.
-    fetch_limit = max(limit * 3, limit, 40)
-    result = await db.execute(q.limit(fetch_limit))
-    props = list(result.scalars().unique().all())
-    return rank_matched_properties(props, query)[:limit]
-
-
 def _listing_date(prop: Property) -> datetime:
     """Prefer published/created listing date — not updated_at (metadata churn)."""
     for value in (prop.published_at, prop.created_at):
@@ -185,6 +84,236 @@ def rank_matched_properties(props: list[Property], query: dict[str, Any]) -> lis
         props,
         key=lambda p: (location_match_rank(p, query), _listing_date(p)),
         reverse=True,
+    )
+
+
+async def _filter_rental_properties(
+    db: AsyncSession,
+    query: dict[str, Any],
+    *,
+    limit: int,
+    include_unavailable: bool = False,
+    bedroom_mode: str = "exact",  # exact | min | any
+    include_bathrooms: bool = True,
+    include_amenities: bool = True,
+    include_budget: bool = True,
+    include_property_type: bool = True,
+    include_furnished: bool = True,
+    location_override: str | None = None,
+) -> list[Property]:
+    """Core inventory filter: published rent/furnished listings (no extra verification gate)."""
+    location = (
+        location_override
+        or (query.get("location") or query.get("location_slug") or "")
+    ).lower() or None
+    q = (
+        select(Property)
+        .options(
+            selectinload(Property.neighborhood),
+            selectinload(Property.district),
+            selectinload(Property.property_type),
+            selectinload(Property.images),
+            selectinload(Property.amenities),
+        )
+        .where(Property.listing_type.in_([ListingType.RENT, ListingType.FURNISHED]))
+    )
+    if include_unavailable:
+        q = q.where(
+            Property.status.in_(
+                [PropertyStatusEnum.PUBLISHED, PropertyStatusEnum.RENTED, PropertyStatusEnum.ARCHIVED]
+            )
+        )
+    else:
+        q = q.where(Property.status == PropertyStatusEnum.PUBLISHED)
+
+    nids = await _neighborhood_ids(db, location)
+    if nids:
+        q = q.where(Property.neighborhood_id.in_(nids))
+
+    if bedroom_mode != "any" and query.get("bedrooms") is not None:
+        beds = int(query["bedrooms"])
+        if bedroom_mode == "exact":
+            q = q.where(Property.bedrooms == beds)
+        else:
+            q = q.where(Property.bedrooms >= beds)
+
+    if include_bathrooms and query.get("bathrooms") is not None:
+        q = q.where(Property.bathrooms >= float(query["bathrooms"]))
+
+    if include_furnished:
+        if query.get("furnished") is True or query.get("is_furnished") is True:
+            q = q.where(or_(Property.is_furnished.is_(True), Property.listing_type == ListingType.FURNISHED))
+        if query.get("furnished") is False or query.get("is_furnished") is False:
+            q = q.where(Property.is_furnished.is_(False))
+
+    if include_property_type:
+        ptype = (query.get("property_type") or query.get("property_type_slug") or "").lower() or None
+        if ptype:
+            type_result = await db.execute(select(PropertyType.id).where(PropertyType.slug == ptype))
+            type_id = type_result.scalar_one_or_none()
+            if type_id:
+                tid = str(type_id)
+                q = q.where(or_(Property.property_type_id == type_id, Property.property_type_ids.contains([tid])))
+            else:
+                q = q.join(PropertyType, Property.property_type_id == PropertyType.id, isouter=True).where(
+                    or_(PropertyType.slug == ptype, PropertyType.name.ilike(f"%{ptype}%"))
+                )
+
+    if include_budget:
+        min_usd = query.get("min_price_usd", query.get("min_price"))
+        max_usd = query.get("max_price_usd", query.get("max_price"))
+        if min_usd is not None:
+            q = q.where(
+                or_(
+                    Property.usd_price >= float(min_usd),
+                    and_(Property.usd_price.is_(None), Property.price >= float(min_usd)),
+                )
+            )
+        if max_usd is not None:
+            q = q.where(
+                or_(
+                    Property.usd_price <= float(max_usd),
+                    and_(Property.usd_price.is_(None), Property.price <= float(max_usd)),
+                )
+            )
+
+    if include_amenities:
+        flags = _amenity_flags_from_query(query)
+        for col, val in flags.items():
+            q = q.where(getattr(Property, col) == val)
+
+        from app.services.seo_attributes import sanitize_seo_amenities
+
+        amenity_slugs = [str(a).lower() for a in (query.get("amenity_slugs") or [])]
+        allowed_from_query, _ = sanitize_seo_amenities(query.get("amenities") or [])
+        join_slugs = set(amenity_slugs)
+        for slug in allowed_from_query:
+            if slug == "compound":
+                join_slugs.add("compound")
+        if join_slugs:
+            for slug in join_slugs:
+                q = q.where(Property.amenities.any(Amenity.slug == slug))  # type: ignore[attr-defined]
+
+    fetch_limit = max(limit * 3, limit, 40)
+    result = await db.execute(q.limit(fetch_limit))
+    props = list(result.scalars().unique().all())
+    return rank_matched_properties(props, query)[:limit]
+
+
+async def match_rentals_for_hub(
+    db: AsyncSession,
+    query: dict[str, Any],
+    *,
+    limit: int = 24,
+    include_unavailable: bool = False,
+) -> tuple[list[Property], str]:
+    """Match active published rentals for hub display.
+
+    Returns (properties, mode) where mode is ``exact`` or ``closest``.
+    Published rent/furnished inventory counts as available — no extra verification flag.
+    """
+    exact = await _filter_rental_properties(
+        db,
+        query,
+        limit=limit,
+        include_unavailable=include_unavailable,
+        bedroom_mode="exact",
+        include_bathrooms=True,
+        include_amenities=True,
+        include_budget=True,
+        include_property_type=True,
+        include_furnished=True,
+    )
+    if exact:
+        return exact, "exact"
+
+    # Progressive closest matches — never claim these are exact.
+    relax_steps: list[dict[str, Any]] = [
+        {"include_amenities": False, "include_bathrooms": False},
+        {"include_amenities": False, "include_bathrooms": False, "bedroom_mode": "min"},
+        {
+            "include_amenities": False,
+            "include_bathrooms": False,
+            "bedroom_mode": "any",
+            "include_budget": False,
+        },
+        {
+            "include_amenities": False,
+            "include_bathrooms": False,
+            "bedroom_mode": "any",
+            "include_budget": False,
+            "include_furnished": False,
+        },
+        {
+            "include_amenities": False,
+            "include_bathrooms": False,
+            "bedroom_mode": "any",
+            "include_budget": False,
+            "include_furnished": False,
+            "include_property_type": False,
+        },
+    ]
+    loc = (query.get("location") or query.get("location_slug") or "").lower()
+    if loc and loc not in {"kigali", "all"}:
+        relax_steps.append(
+            {
+                "include_amenities": False,
+                "include_bathrooms": False,
+                "bedroom_mode": "any",
+                "include_budget": False,
+                "include_furnished": False,
+                "include_property_type": False,
+                "location_override": "kigali",
+            }
+        )
+
+    for step in relax_steps:
+        closest = await _filter_rental_properties(
+            db,
+            query,
+            limit=limit,
+            include_unavailable=include_unavailable,
+            bedroom_mode=step.get("bedroom_mode", "exact"),
+            include_bathrooms=step.get("include_bathrooms", True),
+            include_amenities=step.get("include_amenities", True),
+            include_budget=step.get("include_budget", True),
+            include_property_type=step.get("include_property_type", True),
+            include_furnished=step.get("include_furnished", True),
+            location_override=step.get("location_override"),
+        )
+        if closest:
+            return closest, "closest"
+
+    return [], "exact"
+
+
+async def match_verified_properties(
+    db: AsyncSession,
+    query: dict[str, Any],
+    *,
+    limit: int = 24,
+    include_unavailable: bool = False,
+    allow_closest: bool = False,
+) -> list[Property]:
+    """Return active published rent listings matching the query.
+
+    When ``allow_closest`` is True (hub display), falls back to clearly-related
+    inventory if exact matches are empty. Automation/quality scoring should keep
+    ``allow_closest=False``.
+    """
+    if allow_closest:
+        props, _mode = await match_rentals_for_hub(
+            db, query, limit=limit, include_unavailable=include_unavailable
+        )
+        return props
+    return await _filter_rental_properties(
+        db,
+        query,
+        limit=limit,
+        include_unavailable=include_unavailable,
+        bedroom_mode="exact",
+        include_bathrooms=True,
+        include_amenities=True,
     )
 
 
@@ -747,17 +876,22 @@ def answer_sentence(
     matches: list[Property],
     *,
     total_count: int | None = None,
+    match_mode: str = "exact",
 ) -> str:
     h1 = intent.h1.rstrip(".")
     count = total_count if total_count is not None else len(matches)
+    if match_mode == "closest" and matches:
+        return (
+            f"No exact matches for “{h1}” right now. "
+            "Showing closest available rentals from current inventory instead."
+        )
     if count <= 0 or not matches:
         if count <= 0:
             return (
-                f"KigaliRent currently has no verified properties matching “{h1}”. "
-                "Below are nearby alternatives and related searches."
+                f"KigaliRent currently has no rental properties matching “{h1}”. "
+                "Browse the full catalogue or related searches below."
             )
-        # total_count > 0 but display sample empty — still report inventory count
-        return f"KigaliRent currently has {count} verified {'match' if count == 1 else 'matches'} for “{h1}”."
+        return f"KigaliRent currently has {count} available {'rental' if count == 1 else 'rentals'} for “{h1}”."
     prices = [effective_usd_price(p) for p in matches]
     prices = [p for p in prices if p is not None]
     if prices:
@@ -767,7 +901,7 @@ def answer_sentence(
         else:
             price_bit = f"ranging from ${lo:,.0f}–${hi:,.0f}/month"
         return (
-            f"KigaliRent currently has {count} verified "
-            f"{'match' if count == 1 else 'matches'} for “{h1}”, {price_bit}."
+            f"KigaliRent currently has {count} available "
+            f"{'rental' if count == 1 else 'rentals'} for “{h1}”, {price_bit}."
         )
-    return f"KigaliRent currently has {count} verified {'match' if count == 1 else 'matches'} for “{h1}”."
+    return f"KigaliRent currently has {count} available {'rental' if count == 1 else 'rentals'} for “{h1}”."

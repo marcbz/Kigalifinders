@@ -68,6 +68,71 @@ def filters_label_from_query(query: dict[str, Any]) -> str:
     return " · ".join(key_attributes_from_query(query))
 
 
+def generate_display_description(
+    query: dict[str, Any],
+    *,
+    location_name: str | None = None,
+) -> str:
+    """Short, intent-led hub description for display (not listing counts)."""
+    q = normalize_query(query)
+    loc_slug = (q.get("location") or "kigali").lower()
+    loc = location_name or (
+        loc_slug.replace("-", " ").title() if loc_slug != "kigali" else "Kigali"
+    )
+    loc_phrase = loc if loc.lower() == "kigali" else f"{loc}, Kigali"
+
+    beds = q.get("bedrooms")
+    ptype = (q.get("property_type") or "").replace("-", " ").strip().lower() or None
+    furnished = q.get("furnished")
+    max_usd = q.get("max_price_usd")
+    min_usd = q.get("min_price_usd") if q.get("max_price_usd") is None else None
+
+    type_phrase = None
+    if ptype:
+        plural = ptype if ptype.endswith("s") else f"{ptype}s"
+        if furnished is True:
+            type_phrase = f"furnished {plural}"
+        elif furnished is False:
+            type_phrase = f"unfurnished {plural}"
+        else:
+            type_phrase = plural
+    elif furnished is True:
+        type_phrase = "furnished rentals"
+    elif furnished is False:
+        type_phrase = "unfurnished rentals"
+
+    bed_phrase = None
+    if beds is not None:
+        n = int(beds)
+        bed_phrase = f"{n}-bedroom" if n != 1 else "1-bedroom"
+
+    budget_phrase = None
+    if max_usd is not None:
+        budget_phrase = f"priced under ${int(max_usd):,} per month"
+    elif min_usd is not None:
+        budget_phrase = f"from ${int(min_usd):,} per month"
+
+    if bed_phrase and type_phrase:
+        lead = f"Browse available {bed_phrase} {type_phrase} for rent in {loc_phrase}"
+    elif type_phrase and furnished is True and ptype and "apartment" in ptype:
+        return (
+            f"Find furnished apartments for rent in {loc_phrase}, "
+            "including move-in-ready options in popular neighborhoods."
+        )
+    elif type_phrase:
+        lead = f"Browse available {type_phrase} for rent in {loc_phrase}"
+    elif bed_phrase:
+        lead = f"Browse available {bed_phrase} rentals in {loc_phrase}"
+    elif loc_slug != "kigali":
+        return f"Browse available houses and apartments for rent in {loc_phrase}."
+    else:
+        return f"Browse available houses and apartments for rent in {loc}."
+
+    if budget_phrase:
+        return f"{lead} {budget_phrase}."
+    return f"{lead}."
+
+
 def generate_intro_text(
     query: dict[str, Any],
     *,
@@ -78,38 +143,8 @@ def generate_intro_text(
     location_name: str | None = None,
     market_answer: dict[str, Any] | None = None,
 ) -> str:
-    q = normalize_query(query)
-    loc = location_name or (q["location"].replace("-", " ").title() if q["location"] != "kigali" else "Kigali")
-    parts: list[str] = []
-
-    if market_answer and market_answer.get("has_enough_data"):
-        typical = market_answer.get("typical_usd")
-        n = market_answer.get("sample_size") or 0
-        if typical is not None:
-            parts.append(
-                f"Typical asking rent for this search in {loc} is about ${typical:,.0f}/month, "
-                f"based on {n} eligible market observations."
-            )
-        if market_answer.get("range_text"):
-            parts.append(market_answer["range_text"])
-    elif verified_snap and verified_snap.get("median_usd"):
-        parts.append(
-            f"Eligible market observations for this search typically ask around "
-            f"${verified_snap['median_usd']:,.0f}/month (n={verified_snap.get('sample_size', 0)})."
-        )
-
-    if match_count:
-        parts.append(
-            f"{match_count} verified rental {'property is' if match_count == 1 else 'properties are'} "
-            f"currently available on KigaliRent matching this search."
-        )
-    else:
-        parts.append(
-            f"There are no verified KigaliRent listings matching this exact search in {loc} right now, "
-            "but market estimates below still use the combined eligible observation set when sample size allows."
-        )
-
-    return " ".join(parts)
+    """Prefer short display copy; market detail stays in dedicated sections."""
+    return generate_display_description(query, location_name=location_name)
 
 
 def build_data_insights(

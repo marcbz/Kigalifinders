@@ -105,6 +105,7 @@ export type RentalHubData = {
     last_updated_display?: string | null;
     asking_rent_note?: string;
   } | null;
+  match_mode?: "exact" | "closest" | string;
 };
 
 function truncateIntro(text: string, max = 220): string {
@@ -167,6 +168,7 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
         <RentalListingsSection
           listings={listings}
+          matchMode={data.match_mode || "exact"}
           emptyHref="/properties"
           emptyLabel="View Full Properties Catalogue"
         />
