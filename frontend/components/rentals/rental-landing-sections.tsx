@@ -152,7 +152,9 @@ export function RelatedRentalSearches({
   const unique = items
     .filter((s) => s.path?.startsWith("/rentals/"))
     .reduce<RelatedRentalSearchItem[]>((acc, s) => {
+      const label = (s.h1 || s.title || "").trim().toLowerCase();
       if (acc.some((x) => x.path === s.path)) return acc;
+      if (label && acc.some((x) => (x.h1 || x.title || "").trim().toLowerCase() === label)) return acc;
       acc.push(s);
       return acc;
     }, [])

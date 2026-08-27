@@ -79,13 +79,24 @@ export function AreaGuidePage({
             </ul>
           )}
 
-          <div className="mb-8">
+          <div className="mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <h2 className="font-serif text-2xl md:text-3xl font-bold text-navy-800 dark:text-white">
               Listings in {name}
               {properties.total > 0 && (
                 <span className="text-lg font-normal text-gray-500 ml-2">({properties.total})</span>
               )}
             </h2>
+            <div className="flex flex-wrap gap-3 text-sm">
+              <Link href={`/rentals/${encodeURIComponent(slug)}`} className="text-gold-600 hover:underline font-medium">
+                {name} rental hub
+              </Link>
+              <span className="text-gray-400" aria-hidden>
+                ·
+              </span>
+              <Link href="/rentals" className="text-gold-600 hover:underline font-medium">
+                All Kigali rentals
+              </Link>
+            </div>
           </div>
 
           {properties.items.length > 0 ? (

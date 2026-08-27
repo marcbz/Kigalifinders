@@ -63,8 +63,8 @@ export function FurnishedSection({ properties }: { properties: PropertyListItem[
       subtitle="Move-in ready furnished properties — ideal for expats and short-term stays."
       eyebrow="FURNISHED CATALOGUE"
       properties={properties}
-      viewAllHref="/properties?listing_type=furnished"
-      viewAllLabel="View All Furnished Homes"
+      viewAllHref="/rentals/kigali/furnished-apartments"
+      viewAllLabel="Browse furnished rentals"
       bgClass="bg-white dark:bg-background"
     />
   );
@@ -117,6 +117,15 @@ export function AreasSection({ neighborhoods }: AreasSectionProps) {
     <section id="area" className="py-20 px-6 bg-white dark:bg-background">
       <div className="max-w-5xl mx-auto">
         <NeighborhoodsDirectory neighborhoods={areas} headingLevel="h2" />
+        <p className="text-center mt-8 text-sm">
+          <Link href="/rentals" className="text-gold-600 hover:underline font-medium">
+            Browse verified rentals by neighborhood
+          </Link>
+          {" · "}
+          <Link href="/area" className="text-gold-600 hover:underline font-medium">
+            All area guides
+          </Link>
+        </p>
       </div>
     </section>
   );

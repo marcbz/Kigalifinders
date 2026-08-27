@@ -72,9 +72,12 @@ export function Footer({
             <h4 className="text-white font-semibold mb-5 tracking-wider text-sm">EXPLORE</h4>
             <ul className="space-y-2 text-sm">
               {[
+                { label: "Rentals", href: "/rentals" },
+                { label: "Properties", href: "/properties" },
+                { label: "Neighborhoods", href: "/area" },
+                { label: "Rental market research", href: "/research/kigali-rental-market" },
                 { label: "List Your Property", href: "/list-your-property" },
                 { label: "Why Us", href: "/#why" },
-                { label: "Areas", href: "/#area" },
                 { label: "Blog", href: "/blog" },
                 { label: "FAQs", href: "/faq" },
               ].map((item) => (

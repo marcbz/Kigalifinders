@@ -111,6 +111,8 @@ export async function HomePageContent() {
           title="Featured Properties"
           subtitle="Hand-picked premium homes available right now across Kigali's most desirable neighborhoods."
           properties={data.featured_properties}
+          viewAllHref="/rentals"
+          viewAllLabel="Browse verified rentals"
         />
       </div>
       <div className="cv-auto">

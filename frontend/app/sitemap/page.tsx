@@ -10,8 +10,11 @@ export const metadata: Metadata = {
 
 const STATIC_PAGES = [
   { href: "/", label: "Home" },
+  { href: "/rentals", label: "Rentals" },
+  { href: "/rentals/kigali", label: "Kigali rental market overview" },
   { href: "/properties", label: "Properties" },
   { href: "/area", label: "Neighborhoods" },
+  { href: "/research/kigali-rental-market", label: "Rental market research" },
   { href: "/about", label: "About Us" },
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },

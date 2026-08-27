@@ -40,7 +40,7 @@ export function HeroSection({
     subtitle ||
     "We know what housing costs in Kigali, where to live, what neighborhoods are like, and what is actually available.";
   const displayCtaPrimary = ctaPrimary || "Book a Visit";
-  const displayCtaSecondary = ctaSecondary || "Browse Properties";
+  const displayCtaSecondary = ctaSecondary || "Browse Rentals";
   const displayBookingUrl = bookingUrl || SITE_BOOKING_URL;
   const titleParts = displayTitle.split("Dream Home");
   const useAnimatedIntro = titleParts.length > 1;
@@ -129,7 +129,7 @@ export function HeroSection({
               {displayCtaPrimary}
             </a>
             <Link
-              href="/properties"
+              href="/rentals"
               className="hero-cta-outline inline-flex h-12 rounded-full px-8 text-sm"
             >
               <Home className="w-5 h-5" />

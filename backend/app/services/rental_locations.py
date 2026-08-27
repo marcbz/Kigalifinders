@@ -25,9 +25,83 @@ from app.services.search_intent import MIN_SAMPLE_FOR_STATS, match_verified_prop
 
 SITE = "https://kigalirent.com"
 
+# Prefer existing city-level search intents as type hubs (do not invent new routes).
+# Only surface when match_count meets the threshold — avoids thin type doorways.
+TYPE_HUB_INTENT_SLUGS: tuple[tuple[str, str], ...] = (
+    ("houses", "Houses for rent"),
+    ("apartments", "Apartments for rent"),
+    ("furnished-apartments", "Furnished apartments"),
+    ("villas", "Villas for rent"),
+)
+MIN_TYPE_HUB_MATCHES = 3
+
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _normalize_label(text: str | None) -> str:
+    return " ".join((text or "").lower().split())
+
+
+async def _type_hubs_for_kigali(db: AsyncSession) -> list[dict[str, Any]]:
+    """Link directory to existing /rentals/kigali/{intent} pages with real inventory."""
+    slugs = [s for s, _ in TYPE_HUB_INTENT_SLUGS]
+    result = await db.execute(
+        select(SearchIntent).where(
+            SearchIntent.location_slug == "kigali",
+            SearchIntent.intent_slug.in_(slugs),
+            SearchIntent.is_enabled == True,  # noqa: E712
+            SearchIntent.index_status == SearchIndexStatus.INDEXABLE.value,
+            SearchIntent.match_count >= MIN_TYPE_HUB_MATCHES,
+        )
+    )
+    by_slug = {i.intent_slug: i for i in result.scalars().all()}
+    out: list[dict[str, Any]] = []
+    for slug, label in TYPE_HUB_INTENT_SLUGS:
+        intent = by_slug.get(slug)
+        if not intent:
+            continue
+        out.append(
+            {
+                "slug": slug,
+                "label": label,
+                "path": intent.path,
+                "h1": intent.h1,
+                "match_count": intent.match_count,
+            }
+        )
+    return out
+
+
+def _dedupe_featured_searches(items: list[dict[str, Any]], limit: int = 8) -> list[dict[str, Any]]:
+    """Prefer distinct intents: path + normalized H1 (avoids houses-with-garden twin of houses)."""
+    seen_paths: set[str] = set()
+    seen_labels: set[str] = set()
+    featured: list[dict[str, Any]] = []
+    # Prefer shorter, simpler intent slugs when H1s collide
+    ranked = sorted(
+        items,
+        key=lambda s: (
+            -(s.get("match_count") or 0),
+            len((s.get("path") or "").split("/")),
+            len(s.get("path") or ""),
+        ),
+    )
+    for s in ranked:
+        path = s.get("path") or ""
+        if not path.startswith("/rentals/") or path in seen_paths:
+            continue
+        label = _normalize_label(s.get("h1") or s.get("title"))
+        if label and label in seen_labels:
+            continue
+        seen_paths.add(path)
+        if label:
+            seen_labels.add(label)
+        featured.append(s)
+        if len(featured) >= limit:
+            break
+    return featured
 
 
 async def _latest_snapshot(
@@ -254,18 +328,11 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
     kigali_observed = await _latest_snapshot(
         db, location_slug="kigali", data_kind=MarketDataKind.MARKET_OBSERVATION.value, min_sample=1
     )
-    top_searches = await _related_intents_for_location(db, "kigali", limit=6)
+    top_searches = await _related_intents_for_location(db, "kigali", limit=8)
     for hood in neighborhoods[:12]:
         if hood["listing_count"] >= 1:
             top_searches.extend(await _related_intents_for_location(db, hood["slug"], limit=2))
-    seen: set[str] = set()
-    featured: list[dict[str, str]] = []
-    for s in top_searches:
-        if s["path"] not in seen:
-            seen.add(s["path"])
-            featured.append(s)
-        if len(featured) >= 12:
-            break
+    featured = _dedupe_featured_searches(top_searches, limit=8)
 
     intro_parts = [
         f"KigaliRent lists {total_listings} verified rental propert{'y' if total_listings == 1 else 'ies'}"
@@ -280,6 +347,11 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
     from app.services.combined_market import combined_market_answer
 
     market_answer = await combined_market_answer(db, location_slug="kigali")
+    type_hubs = await _type_hubs_for_kigali(db)
+    listing_matches = await match_verified_properties(db, {"location": "kigali"}, limit=9)
+    listing_sorted = sorted(
+        listing_matches, key=lambda p: score_property(p, {"location": "kigali"}), reverse=True
+    )
 
     return {
         "page_type": "directory",
@@ -297,7 +369,11 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         "market_answer": market_answer,
         "verified_market": _snap_dict(kigali_verified, "KigaliRent Verified"),
         "observation_market": None,
+        "property_types": await _property_type_breakdown(db, "kigali"),
+        "type_hubs": type_hubs,
+        "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in listing_sorted],
         "featured_searches": featured,
+        "related_searches": featured,
     }
 
 
@@ -362,7 +438,11 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "trend_external": [],
         "neighborhoods": [n for n in neighborhoods if n["listing_count"] > 0][:20],
         "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in matches_sorted],
-        "related_searches": await _related_intents_for_location(db, "kigali", limit=10),
+        "type_hubs": await _type_hubs_for_kigali(db),
+        "related_searches": _dedupe_featured_searches(
+            await _related_intents_for_location(db, "kigali", limit=16),
+            limit=8,
+        ),
         "related_neighborhoods": [
             {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
             for n in sorted(neighborhoods, key=lambda x: -x["listing_count"])[:8]
@@ -468,7 +548,10 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "trend_verified": market_ctx.get("trend") or [],
         "trend_external": [],
         "verified_listings": [_listing_card(p, query) for p in matches_sorted],
-        "related_searches": await _related_intents_for_location(db, hood.slug, limit=8),
+        "related_searches": _dedupe_featured_searches(
+            await _related_intents_for_location(db, hood.slug, limit=12),
+            limit=8,
+        ),
         "related_neighborhoods": [
             {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
             for n in related[:8]

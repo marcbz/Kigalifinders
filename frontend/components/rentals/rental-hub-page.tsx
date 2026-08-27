@@ -3,6 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { KeyAttributes, RelatedNeighborhoods, RelatedRentalSearches } from "@/components/rentals/rental-landing-sections";
+import { getAreaHref } from "@/lib/areas";
 import { getPropertyHref } from "@/lib/property-url";
 
 type Listing = {
@@ -36,6 +37,14 @@ type Snap = {
 
 type BedroomRow = { bedrooms: number; median_usd?: number; p25_usd?: number; p75_usd?: number; sample_size: number };
 
+type TypeHub = {
+  slug: string;
+  label: string;
+  path: string;
+  h1?: string;
+  match_count?: number;
+};
+
 export type RentalHubData = {
   page_type: "directory" | "city" | "neighborhood";
   path: string;
@@ -58,6 +67,7 @@ export type RentalHubData = {
   by_bedroom_external?: BedroomRow[];
   furnished_breakdown?: { furnished: number; unfurnished: number; total: number };
   property_types?: { slug: string; name: string; count: number }[];
+  type_hubs?: TypeHub[];
   verified_listings?: Listing[];
   neighborhoods?: { slug: string; name: string; district_name?: string; listing_count: number; median_usd?: number; path: string }[];
   related_searches?: { path: string; title: string; h1: string; match_count?: number }[];
@@ -98,6 +108,8 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
   const listings = data.verified_listings || [];
   const searches = data.related_searches || data.featured_searches || [];
   const intro = shortHubIntro(data);
+  const typeHubs = data.type_hubs || [];
+  const locationSlug = data.location_slug;
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
@@ -127,6 +139,50 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
       <div className="max-w-6xl mx-auto px-6 py-10 space-y-10">
         {!!data.key_attributes?.length && <KeyAttributes attrs={data.key_attributes} />}
 
+        {data.market_answer?.has_enough_data && data.market_answer.headline && (
+          <section className="rounded-xl border bg-white dark:bg-navy-800 p-5">
+            <p className="text-xs uppercase tracking-wider text-gray-500 mb-1">Asking-rent snapshot</p>
+            <p className="font-serif text-xl font-bold text-navy-800 dark:text-white">{data.market_answer.headline}</p>
+            {data.market_answer.range_text && (
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{data.market_answer.range_text}</p>
+            )}
+            <p className="mt-3 text-sm">
+              <Link href="/research/kigali-rental-market" className="text-gold-600 underline">
+                Kigali rental market research
+              </Link>
+              {data.page_type === "directory" && (
+                <>
+                  {" · "}
+                  <Link href="/rentals/kigali" className="text-gold-600 underline">
+                    City market overview
+                  </Link>
+                </>
+              )}
+            </p>
+          </section>
+        )}
+
+        {typeHubs.length > 0 && (
+          <section>
+            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Browse by rental type</h2>
+            <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+              {typeHubs.map((hub) => (
+                <li key={hub.path}>
+                  <Link
+                    href={hub.path}
+                    className="block rounded-xl border bg-white dark:bg-navy-800 p-4 hover:border-gold-500"
+                  >
+                    <span className="font-medium text-navy-800 dark:text-white">{hub.label}</span>
+                    {hub.match_count != null && (
+                      <p className="text-sm text-gray-500 mt-1">{hub.match_count} verified matches</p>
+                    )}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         {data.page_type === "directory" && data.neighborhoods && (
           <section>
             <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Browse by neighborhood</h2>
@@ -135,18 +191,27 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
                 .filter((n) => n.listing_count > 0)
                 .map((n) => (
                   <li key={n.slug}>
-                    <Link href={n.path} className="block rounded-xl border bg-white dark:bg-navy-800 p-4 hover:border-gold-500">
-                      <span className="font-medium text-navy-800 dark:text-white">{n.name}</span>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {n.listing_count} verified · {n.district_name}
-                        {n.median_usd ? ` · ~$${n.median_usd.toLocaleString()}/mo` : ""}
+                    <div className="rounded-xl border bg-white dark:bg-navy-800 p-4 hover:border-gold-500">
+                      <Link href={n.path} className="block">
+                        <span className="font-medium text-navy-800 dark:text-white">{n.name}</span>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {n.listing_count} verified · {n.district_name}
+                          {n.median_usd ? ` · ~$${n.median_usd.toLocaleString()}/mo` : ""}
+                        </p>
+                      </Link>
+                      <p className="text-xs mt-2">
+                        <Link href={getAreaHref(n.slug)} className="text-gold-600 hover:underline">
+                          Area guide
+                        </Link>
                       </p>
-                    </Link>
+                    </div>
                   </li>
                 ))}
             </ul>
-            <p className="mt-4 text-sm">
+            <p className="mt-4 text-sm flex flex-wrap gap-x-3 gap-y-1">
               <Link href="/rentals/kigali" className="text-gold-600 underline">Kigali market overview</Link>
+              <Link href="/area" className="text-gold-600 underline">All neighborhood guides</Link>
+              <Link href="/properties" className="text-gold-600 underline">Full properties catalogue</Link>
             </p>
           </section>
         )}
@@ -160,17 +225,36 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
                 .slice(0, 12)
                 .map((n) => (
                   <li key={n.slug}>
-                    <Link href={n.path} className="block rounded-xl border bg-white dark:bg-navy-800 p-4 hover:border-gold-500">
-                      <span className="font-medium text-navy-800 dark:text-white">{n.name}</span>
-                      <p className="text-sm text-gray-500 mt-1">
-                        {n.listing_count} verified
-                        {n.median_usd ? ` · ~$${n.median_usd.toLocaleString()}/mo` : ""}
+                    <div className="rounded-xl border bg-white dark:bg-navy-800 p-4 hover:border-gold-500">
+                      <Link href={n.path} className="block">
+                        <span className="font-medium text-navy-800 dark:text-white">{n.name}</span>
+                        <p className="text-sm text-gray-500 mt-1">
+                          {n.listing_count} verified
+                          {n.median_usd ? ` · ~$${n.median_usd.toLocaleString()}/mo` : ""}
+                        </p>
+                      </Link>
+                      <p className="text-xs mt-2">
+                        <Link href={getAreaHref(n.slug)} className="text-gold-600 hover:underline">
+                          Area guide
+                        </Link>
                       </p>
-                    </Link>
+                    </div>
                   </li>
                 ))}
             </ul>
           </section>
+        )}
+
+        {data.page_type === "neighborhood" && locationSlug && (
+          <p className="text-sm">
+            <Link href={getAreaHref(locationSlug)} className="text-gold-600 underline">
+              {data.location_name || locationSlug} neighborhood guide
+            </Link>
+            {" · "}
+            <Link href="/rentals" className="text-gold-600 underline">
+              All Kigali rentals
+            </Link>
+          </p>
         )}
 
         {listings.length > 0 && (
@@ -205,7 +289,9 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
           <section className="rounded-xl border border-dashed p-8 bg-white dark:bg-navy-800">
             <p className="text-navy-800 dark:text-white font-medium">No verified listings in this area right now.</p>
             <p className="text-sm text-gray-500 mt-2">
-              <Link href="/properties" className="text-gold-600 underline">Browse all rentals</Link>
+              <Link href="/rentals" className="text-gold-600 underline">Browse rental directory</Link>
+              {" · "}
+              <Link href="/properties" className="text-gold-600 underline">Browse all properties</Link>
             </p>
           </section>
         )}
