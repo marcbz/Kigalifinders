@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+import re
 from datetime import datetime, timezone
 from typing import Any
 from uuid import UUID
@@ -423,6 +425,87 @@ def _property_search_sort_key(
     return (match_count, district_rank, bedroom_rank)
 
 
+MIN_RELATED_MATCHES = 3
+
+
+def _normalize_search_label(text: str | None) -> str:
+    return re.sub(r"\s+", " ", (text or "").strip().lower())
+
+
+def _intent_dedupe_keys(intent: SearchIntent) -> set[str]:
+    """Identity keys so duplicate paths / filters / labels collapse."""
+    from app.services.intent_copy import canonical_query_hash, normalize_query
+
+    keys: set[str] = set()
+    path = (intent.path or "").strip().rstrip("/").lower()
+    if path:
+        keys.add(f"path:{path}")
+    q = intent.query or {}
+    keys.add(f"hash:{intent.canonical_query_hash or canonical_query_hash(q)}")
+    norm = normalize_query(q)
+    loc = (intent.location_slug or norm.get("location") or "").lower()
+    core = {
+        "location": loc,
+        "property_type": norm.get("property_type"),
+        "bedrooms": norm.get("bedrooms"),
+        "furnished": norm.get("furnished"),
+        "bathrooms": norm.get("bathrooms"),
+        "amenities": tuple(norm.get("amenities") or []),
+        "min_price_usd": norm.get("min_price_usd"),
+        "max_price_usd": norm.get("max_price_usd"),
+    }
+    keys.add(f"filters:{json.dumps(core, sort_keys=True, default=str)}")
+    label = _normalize_search_label(intent.h1) or _normalize_search_label(intent.title)
+    if label:
+        keys.add(f"label:{label}")
+    return keys
+
+
+def _meaningful_combo_signature(
+    intent: SearchIntent,
+    *,
+    hood_slug: str | None,
+    district_slug: str | None,
+    property_type_slug: str | None,
+    bedrooms: int | None,
+) -> str | None:
+    """
+    Accept type × location (± bedrooms) combos that match the viewed property.
+    Returns a diversity signature, or None if not a meaningful related search.
+    """
+    from app.services.intent_copy import normalize_query
+
+    q = normalize_query(intent.query or {})
+    loc = (intent.location_slug or q.get("location") or "").lower()
+    hood = (hood_slug or "").lower() or None
+    district = (district_slug or "").lower() or None
+    group = _district_group_for_hood(hood) or district
+    ptype = (property_type_slug or "").lower() or None
+
+    intent_type = (q.get("property_type") or "").lower() or None
+    intent_beds = q.get("bedrooms")
+
+    if ptype:
+        if not intent_type or intent_type != ptype:
+            return None
+
+    if intent_beds is not None:
+        if bedrooms is None or int(intent_beds) != int(bedrooms):
+            return None
+
+    if hood and loc == hood:
+        loc_level = "neighborhood"
+    elif (group and loc == group) or (district and loc == district):
+        loc_level = "district"
+    elif loc == "kigali":
+        loc_level = "city"
+    else:
+        return None
+
+    beds_part = "beds" if intent_beds is not None else "any"
+    return f"{loc_level}:{beds_part}:type"
+
+
 async def related_intents_for_property(
     db: AsyncSession,
     prop: Property,
@@ -432,14 +515,15 @@ async def related_intents_for_property(
     """
     Related /rentals/... searches for a property detail page.
 
-    Eligible intents are filtered by area/type/furnished relevance, then ranked by:
-    listing count (match_count) DESC → district match → bedroom match.
+    Pipeline: candidates → meaningful combos → match_count >= 3 → dedupe →
+    sort by listing count DESC (district, then bedrooms) → max 6 with combo diversity.
     """
     hood_slug = prop.neighborhood.slug if prop.neighborhood else None
     district_slug = prop.district.slug if prop.district else None
     ptype_slug = prop.property_type.slug if prop.property_type else None
     bedrooms = prop.bedrooms
     is_furnished = bool(prop.is_furnished) or prop.listing_type == ListingType.FURNISHED
+    limit = min(max(int(limit), 1), 6)
 
     preferred: set[str] = {"kigali"}
     if hood_slug:
@@ -449,7 +533,6 @@ async def related_intents_for_property(
     group = _district_group_for_hood(hood_slug)
     if group:
         preferred.add(group)
-        preferred.update(expanded_neighborhood_slugs(group))
 
     result = await db.execute(
         select(SearchIntent).where(
@@ -459,16 +542,22 @@ async def related_intents_for_property(
             ),
             SearchIntent.location_slug.in_(sorted(preferred)),
             SearchIntent.path.isnot(None),
+            SearchIntent.match_count >= MIN_RELATED_MATCHES,
         )
     )
     candidates = list(result.scalars().all())
 
-    # (match_count, district_rank, bedroom_rank, intent)
-    ranked: list[tuple[int, int, int, SearchIntent]] = []
-    for intent in candidates:
+    # (match_count, district_rank, bedroom_rank, signature, intent)
+    ranked: list[tuple[int, int, int, str, SearchIntent]] = []
+    seen_identity: set[str] = set()
+
+    def _try_add(intent: SearchIntent) -> None:
         path = (intent.path or "").strip()
         if not path.startswith("/rentals/"):
-            continue
+            return
+        match_count = int(intent.match_count or 0)
+        if match_count < MIN_RELATED_MATCHES:
+            return
         if (
             score_intent_for_property(
                 intent,
@@ -480,19 +569,33 @@ async def related_intents_for_property(
             )
             is None
         ):
-            continue
+            return
+        signature = _meaningful_combo_signature(
+            intent,
+            hood_slug=hood_slug,
+            district_slug=district_slug,
+            property_type_slug=ptype_slug,
+            bedrooms=bedrooms,
+        )
+        if signature is None:
+            return
+        keys = _intent_dedupe_keys(intent)
+        if keys & seen_identity:
+            return
+        seen_identity.update(keys)
         ranked.append(
             (
-                int(intent.match_count or 0),
+                match_count,
                 _district_rank_for_intent(intent, hood_slug=hood_slug, district_slug=district_slug),
                 _bedroom_rank_for_intent(intent, bedrooms),
+                signature,
                 intent,
             )
         )
 
-    ranked.sort(key=lambda row: _property_search_sort_key(row[0], row[1], row[2]), reverse=True)
+    for intent in candidates:
+        _try_add(intent)
 
-    # Fallback: city-wide intents when the local set is thin (same ranking rules)
     if len(ranked) < limit:
         fallback = await db.execute(
             select(SearchIntent)
@@ -503,44 +606,46 @@ async def related_intents_for_property(
                 ),
                 SearchIntent.location_slug == "kigali",
                 SearchIntent.path.isnot(None),
+                SearchIntent.match_count >= MIN_RELATED_MATCHES,
             )
             .order_by(SearchIntent.match_count.desc(), SearchIntent.quality_score.desc())
-            .limit(40)
+            .limit(60)
         )
-        seen_ids = {row[3].id for row in ranked}
         for intent in fallback.scalars().all():
-            if intent.id in seen_ids:
+            _try_add(intent)
+
+    ranked.sort(key=lambda row: _property_search_sort_key(row[0], row[1], row[2]), reverse=True)
+
+    selected: list[tuple[int, int, int, str, SearchIntent]] = []
+    used_signatures: set[str] = set()
+    used_intent_ids: set[Any] = set()
+
+    for row in ranked:
+        sig = row[3]
+        if sig in used_signatures:
+            continue
+        used_signatures.add(sig)
+        used_intent_ids.add(row[4].id)
+        selected.append(row)
+        if len(selected) >= limit:
+            break
+
+    if len(selected) < limit:
+        for row in ranked:
+            if row[4].id in used_intent_ids:
                 continue
-            if (
-                score_intent_for_property(
-                    intent,
-                    hood_slug=hood_slug,
-                    district_slug=district_slug,
-                    property_type_slug=ptype_slug,
-                    bedrooms=bedrooms,
-                    is_furnished=is_furnished,
-                )
-                is None
-            ):
-                continue
-            ranked.append(
-                (
-                    int(intent.match_count or 0),
-                    _district_rank_for_intent(intent, hood_slug=hood_slug, district_slug=district_slug),
-                    _bedroom_rank_for_intent(intent, bedrooms),
-                    intent,
-                )
-            )
-            seen_ids.add(intent.id)
-        ranked.sort(key=lambda row: _property_search_sort_key(row[0], row[1], row[2]), reverse=True)
+            used_intent_ids.add(row[4].id)
+            selected.append(row)
+            if len(selected) >= limit:
+                break
+
+    selected.sort(key=lambda row: _property_search_sort_key(row[0], row[1], row[2]), reverse=True)
 
     out: list[dict[str, Any]] = []
-    seen_paths: set[str] = set()
-    for match_count, _district, _beds, intent in ranked:
+    for match_count, _district, _beds, _sig, intent in selected[:limit]:
         path = (intent.path or "").rstrip("/") or intent.path
-        if not path or path in seen_paths:
+        if not path:
             continue
-        seen_paths.add(path)
         out.append(
             {
                 "path": path,
@@ -551,9 +656,8 @@ async def related_intents_for_property(
                 "intent_slug": intent.intent_slug,
             }
         )
-        if len(out) >= limit:
-            break
     return out
+
 
 async def rebuild_intent_metrics(db: AsyncSession, intent: SearchIntent) -> SearchIntent:
     from app.services.intent_automation import count_observations, compute_freshness, opportunity_score, specificity_score
