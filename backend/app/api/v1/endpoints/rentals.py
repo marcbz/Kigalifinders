@@ -337,6 +337,24 @@ async def get_rental_landing(
             "unfurnished_median_usd": (furnished_market.get("unfurnished") or {}).get("median_usd"),
         }
 
+    area_label = location_name
+    budget_label = None
+    if query.get("max_price_usd") is not None:
+        budget_label = f"up to ${float(query['max_price_usd']):,.0f}"
+    elif query.get("max_price") is not None:
+        budget_label = f"up to ${float(query['max_price']):,.0f}"
+    beds_label = str(query["bedrooms"]) if query.get("bedrooms") is not None else None
+    alert_context = {
+        "intent": "rent",
+        "area": area_label,
+        "bedrooms": beds_label,
+        "budget": budget_label,
+        "property_type": query.get("property_type") or query.get("property_type_slug"),
+        "furnished": query.get("furnished"),
+        "search_label": intent.h1,
+        "search_url": f"{SITE}{intent.path or path}",
+    }
+
     return SearchLandingPageResponse(
         path=intent.path or path,
         location_slug=intent.location_slug,
@@ -378,6 +396,9 @@ async def get_rental_landing(
         related_neighborhoods=related_neighborhoods,
         methodology_note=METHODOLOGY,
         market_answer=market_answer,
+        alert_context=alert_context,
+        listing_cap=RENTAL_HUB_LISTING_CAP,
+        listing_cap_mobile=6,
     )
 
 

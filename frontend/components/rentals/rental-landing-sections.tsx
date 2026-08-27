@@ -62,7 +62,7 @@ export function FullCatalogueCta() {
     <div className="flex justify-center">
       <Link
         href="/properties"
-        className="inline-flex items-center justify-center border-2 border-navy-800 dark:border-gold-500 text-navy-800 dark:text-gold-500 hover:bg-navy-800 hover:text-gold-500 dark:hover:bg-gold-500 dark:hover:text-navy-900 px-8 py-3.5 rounded-full font-semibold transition text-sm"
+        className="btn-gold cta-breathe inline-flex items-center justify-center rounded-full px-8 py-3.5 text-sm font-semibold"
       >
         View Full Properties Catalogue
       </Link>
@@ -134,8 +134,13 @@ export function RentalListingsSection({
         </div>
       ) : (
         <ul className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {listings.map((p) => (
-            <li key={p.id} className="bg-white dark:bg-navy-800 rounded-xl overflow-hidden border">
+          {listings.map((p, index) => (
+            <li
+              key={p.id}
+              className={`bg-white dark:bg-navy-800 rounded-xl overflow-hidden border${
+                index >= 6 ? " max-md:hidden" : ""
+              }`}
+            >
               <Link href={getPropertyHref(p)} className="block">
                 <div className="relative aspect-[4/3] bg-navy-700">
                   {p.primary_image ? (

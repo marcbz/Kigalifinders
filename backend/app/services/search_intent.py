@@ -62,6 +62,12 @@ async def match_verified_properties(
     limit: int = 24,
     include_unavailable: bool = False,
 ) -> list[Property]:
+    """Return rent listings that satisfy the intent query, newest first among matches.
+
+    Eligibility is enforced in SQL (rent-only, type, exact bedrooms when set, budget,
+    location). Soft ranking for location precision happens after fetch; freshness uses
+    published_at/created_at — not updated_at or featured.
+    """
     location = (query.get("location") or query.get("location_slug") or "").lower() or None
     q = (
         select(Property)
@@ -83,8 +89,9 @@ async def match_verified_properties(
     if nids:
         q = q.where(Property.neighborhood_id.in_(nids))
 
+    # Exact bedroom match when the intent specifies bedrooms (do not silently broaden).
     if query.get("bedrooms") is not None:
-        q = q.where(Property.bedrooms >= int(query["bedrooms"]))
+        q = q.where(Property.bedrooms == int(query["bedrooms"]))
     if query.get("bathrooms") is not None:
         q = q.where(Property.bathrooms >= float(query["bathrooms"]))
     if query.get("furnished") is True or query.get("is_furnished") is True:
@@ -142,9 +149,43 @@ async def match_verified_properties(
                 Property.amenities.any(Amenity.slug == slug)  # type: ignore[attr-defined]
             )
 
-    q = q.order_by(Property.is_featured.desc(), Property.updated_at.desc()).limit(limit)
-    result = await db.execute(q)
-    return list(result.scalars().unique().all())
+    # Fetch a bounded candidate set, then rank: location precision → newest listing date.
+    fetch_limit = max(limit * 3, limit, 40)
+    result = await db.execute(q.limit(fetch_limit))
+    props = list(result.scalars().unique().all())
+    return rank_matched_properties(props, query)[:limit]
+
+
+def _listing_date(prop: Property) -> datetime:
+    """Prefer published/created listing date — not updated_at (metadata churn)."""
+    for value in (prop.published_at, prop.created_at):
+        if value is not None:
+            if value.tzinfo is None:
+                return value.replace(tzinfo=timezone.utc)
+            return value
+    return datetime.min.replace(tzinfo=timezone.utc)
+
+
+def location_match_rank(prop: Property, query: dict[str, Any]) -> int:
+    """Higher = more precise location match within an already-eligible set."""
+    location = (query.get("location") or query.get("location_slug") or "").lower()
+    if not location or location in {"kigali", "all"}:
+        return 0
+    nslug = prop.neighborhood.slug if prop.neighborhood else ""
+    if nslug == location:
+        return 2
+    if nslug in set(expanded_neighborhood_slugs(location)):
+        return 1
+    return 0
+
+
+def rank_matched_properties(props: list[Property], query: dict[str, Any]) -> list[Property]:
+    """Among eligible matches: better location precision first, then newest listing."""
+    return sorted(
+        props,
+        key=lambda p: (location_match_rank(p, query), _listing_date(p)),
+        reverse=True,
+    )
 
 
 def score_property(prop: Property, query: dict[str, Any]) -> float:
@@ -164,11 +205,8 @@ def score_property(prop: Property, query: dict[str, Any]) -> float:
     want_beds = query.get("bedrooms")
     if want_beds is None:
         score += 10
-    elif prop.bedrooms is not None:
-        if prop.bedrooms == int(want_beds):
-            score += 20
-        elif prop.bedrooms >= int(want_beds):
-            score += 12
+    elif prop.bedrooms is not None and prop.bedrooms == int(want_beds):
+        score += 20
 
     ptype = (query.get("property_type") or "").lower()
     if not ptype:

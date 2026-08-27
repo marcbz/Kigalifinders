@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import {
   AskingRentSnapshot,
@@ -9,6 +10,7 @@ import {
   RelatedRentalSearches,
   RentalListingsSection,
 } from "@/components/rentals/rental-landing-sections";
+import { WhatsAppMatchAlert } from "@/components/property/whatsapp-match-alert";
 import { fetchRentalLandingSafe } from "@/lib/market-api";
 
 interface Props {
@@ -31,7 +33,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   };
 }
 
-function truncateIntro(text: string, max = 220): string {
+function truncateIntro(text: string, max = 160): string {
   const cleaned = text.replace(/\s+/g, " ").trim();
   if (cleaned.length <= max) return cleaned;
   const cut = cleaned.slice(0, max);
@@ -44,14 +46,12 @@ function shortIntro(page: {
   intro_html?: string;
   intro?: string;
   answer?: string;
+  h1?: string;
 }): string | null {
-  if (page.meta_description?.trim()) return page.meta_description.trim();
-  if (page.intro_html) {
-    const text = page.intro_html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
-    if (text) return truncateIntro(text);
-  }
-  const fallback = (page.intro || page.answer || "").trim();
-  return fallback ? truncateIntro(fallback) : null;
+  if (page.intro?.trim()) return truncateIntro(page.intro);
+  if (page.meta_description?.trim()) return truncateIntro(page.meta_description);
+  if (page.h1) return `Browse current ${page.h1.toLowerCase()}.`;
+  return null;
 }
 
 export default async function RentalLandingPage({ params }: Props) {
@@ -60,7 +60,20 @@ export default async function RentalLandingPage({ params }: Props) {
   if (!page) notFound();
 
   const intro = shortIntro(page);
-  const listings = (page.verified_matches || []).slice(0, 8);
+  const listings = (page.verified_matches || []).slice(0, 9);
+  const alert = page.alert_context as
+    | {
+        intent?: string;
+        area?: string;
+        bedrooms?: string | null;
+        budget?: string | null;
+        property_type?: string | null;
+        furnished?: boolean | null;
+        search_label?: string;
+        search_url?: string;
+      }
+    | null
+    | undefined;
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
@@ -87,6 +100,21 @@ export default async function RentalLandingPage({ params }: Props) {
         <FullCatalogueCta />
 
         {page.related.length > 0 && <RelatedRentalSearches items={page.related} />}
+
+        <Suspense fallback={null}>
+          <WhatsAppMatchAlert
+            defaults={{
+              intent: (alert?.intent as "rent" | "buy" | "") || "rent",
+              area: alert?.area || page.location_slug.replace(/-/g, " "),
+              bedrooms: alert?.bedrooms || undefined,
+              budget: alert?.budget || undefined,
+              propertyType: alert?.property_type || undefined,
+              furnished: alert?.furnished,
+              searchLabel: alert?.search_label || page.h1,
+              searchUrl: alert?.search_url || `https://kigalirent.com${page.path}`,
+            }}
+          />
+        </Suspense>
 
         {(page.related_neighborhoods?.length || 0) > 0 && (
           <RelatedNeighborhoods items={page.related_neighborhoods!} />

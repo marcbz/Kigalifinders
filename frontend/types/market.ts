@@ -86,6 +86,18 @@ export type SearchLandingPage = {
     p25_usd?: number | null;
     p75_usd?: number | null;
   } | null;
+  alert_context?: {
+    intent?: string;
+    area?: string;
+    bedrooms?: string | null;
+    budget?: string | null;
+    property_type?: string | null;
+    furnished?: boolean | null;
+    search_label?: string;
+    search_url?: string;
+  } | null;
+  listing_cap?: number;
+  listing_cap_mobile?: number;
 };
 
 export type SearchIntentListResponse = {

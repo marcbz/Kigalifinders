@@ -25,8 +25,9 @@ from app.services.search_intent import MIN_SAMPLE_FOR_STATS, match_verified_prop
 
 SITE = "https://kigalirent.com"
 
-# Hard cap for marketplace "Latest rental listings" grids (hubs + landings).
-RENTAL_HUB_LISTING_CAP = 8
+# Hard cap for marketplace listing grids — multiple of 3 for desktop (3-col) layout.
+RENTAL_HUB_LISTING_CAP = 9
+RENTAL_HUB_LISTING_CAP_MOBILE = 6
 
 # Prefer existing city-level search intents as type hubs (do not invent new routes).
 # Only surface when match_count meets the threshold — avoids thin type doorways.
@@ -352,15 +353,12 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         "title": "Kigali Rentals | KigaliRent",
         "h1": "Kigali Rentals",
         "meta_description": (
-            "Browse current houses, apartments and furnished rentals available in Kigali, "
-            "with listings organized by rental type and neighborhood."
+            "Browse houses, apartments and furnished rentals available in Kigali, "
+            "organized by type and neighborhood."
         ),
         "canonical": f"{SITE}/rentals",
         "robots": "index,follow",
-        "intro": (
-            "Browse current houses, apartments and furnished rentals available in Kigali, "
-            "with listings organized by rental type and neighborhood."
-        ),
+        "intro": "Browse current houses, apartments and furnished rentals available in Kigali.",
         "last_updated": _now().isoformat(),
         "total_listings": total_listings,
         "neighborhood_count": len(neighborhoods),
@@ -374,7 +372,14 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         "featured_searches": featured,
         "related_searches": featured,
         "listing_cap": RENTAL_HUB_LISTING_CAP,
-        "listing_order": "featured_then_updated_at",
+        "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
+        "listing_order": "intent_match_then_published_or_created_desc",
+        "alert_context": {
+            "intent": "rent",
+            "area": "Kigali",
+            "search_label": "Kigali Rentals",
+            "search_url": f"{SITE}/rentals",
+        },
     }
 
 
@@ -400,14 +405,7 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         ),
     }
 
-    intro = (
-        "Browse verified Kigali rental listings with asking-rent context from eligible market observations"
-        + (
-            f" (typical asking rent ${market_answer['typical_usd']:,.0f}/month based on {market_answer.get('sample_size')} observations)."
-            if market_answer.get("has_enough_data") and market_answer.get("typical_usd") is not None
-            else "."
-        )
-    )
+    intro = "Browse current houses, apartments and furnished rentals available across Kigali."
 
     total_verified = sum(n["listing_count"] for n in neighborhoods)
 
@@ -416,9 +414,9 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "path": "/rentals/kigali",
         "location_slug": "kigali",
         "location_name": "Kigali",
-        "title": "Kigali Rental Market Overview | KigaliRent",
-        "h1": "Kigali rental market overview",
-        "meta_description": "Verified Kigali rental listings and combined market asking-rent estimates.",
+        "title": "Rentals in Kigali | KigaliRent",
+        "h1": "Rentals in Kigali",
+        "meta_description": "Browse verified Kigali rental listings with asking-rent context.",
         "canonical": f"{SITE}/rentals/kigali",
         "robots": "index,follow",
         "intro": intro,
@@ -452,7 +450,14 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
             if n["listing_count"] > 0
         ],
         "listing_cap": RENTAL_HUB_LISTING_CAP,
-        "listing_order": "featured_then_updated_at",
+        "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
+        "listing_order": "intent_match_then_published_or_created_desc",
+        "alert_context": {
+            "intent": "rent",
+            "area": "Kigali",
+            "search_label": "Rentals in Kigali",
+            "search_url": f"{SITE}/rentals/kigali",
+        },
         "faqs": [
             {
                 "q": "How much does renting in Kigali typically cost?",
@@ -497,20 +502,7 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         ),
     }
 
-    listing_word = "listings" if hood_total != 1 else "listing"
-    verb = "are" if hood_total != 1 else "is"
-    if market_answer.get("has_enough_data") and market_answer.get("typical_usd") is not None:
-        market_bit = (
-            f" (typical asking rent ${market_answer['typical_usd']:,.0f}/month, "
-            f"n={market_answer.get('sample_size')})."
-        )
-    else:
-        market_bit = "."
-    intro = (
-        f"Browse available rentals in {hood.name}, {district_name}."
-        f"{market_bit} "
-        f"{hood_total} verified rental {listing_word} {verb} currently listed on KigaliRent."
-    )
+    intro = f"Browse current houses and apartments for rent in {hood.name}, Kigali."
 
     related = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
     related.sort(key=lambda n: -n["listing_count"])
@@ -524,10 +516,7 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "district_name": district_name,
         "title": f"Rentals in {hood.name}, Kigali | KigaliRent",
         "h1": f"Rentals in {hood.name}",
-        "meta_description": (
-            f"Verified rentals in {hood.name}, {district_name}. "
-            "Combined market asking-rent estimates and current inventory."
-        ),
+        "meta_description": f"Browse current houses and apartments for rent in {hood.name}, Kigali.",
         "canonical": f"{SITE}/rentals/{hood.slug}",
         "robots": (
             "index,follow"
@@ -563,7 +552,14 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
             for n in related[:8]
         ],
         "listing_cap": RENTAL_HUB_LISTING_CAP,
-        "listing_order": "featured_then_updated_at",
+        "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
+        "listing_order": "intent_match_then_published_or_created_desc",
+        "alert_context": {
+            "intent": "rent",
+            "area": hood.name,
+            "search_label": f"Rentals in {hood.name}",
+            "search_url": f"{SITE}/rentals/{hood.slug}",
+        },
         "faqs": [
             {
                 "q": f"How many verified rentals are in {hood.name}?",

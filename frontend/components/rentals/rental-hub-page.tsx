@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { Suspense } from "react";
 import {
   AskingRentSnapshot,
   FullCatalogueCta,
@@ -9,6 +10,7 @@ import {
   RelatedRentalSearches,
   RentalListingsSection,
 } from "@/components/rentals/rental-landing-sections";
+import { WhatsAppMatchAlert } from "@/components/property/whatsapp-match-alert";
 import { getAreaHref } from "@/lib/areas";
 
 type Listing = {
@@ -83,6 +85,16 @@ export type RentalHubData = {
   data_insights?: string[];
   trend_verified?: { label: string; median_usd?: number; sample_size?: number }[];
   trend_external?: { label: string; median_usd?: number; sample_size?: number }[];
+  alert_context?: {
+    intent?: string;
+    area?: string;
+    bedrooms?: string | null;
+    budget?: string | null;
+    property_type?: string | null;
+    furnished?: boolean | null;
+    search_label?: string;
+    search_url?: string;
+  } | null;
   market_answer?: {
     question?: string;
     headline?: string | null;
@@ -104,13 +116,13 @@ function truncateIntro(text: string, max = 220): string {
 }
 
 function shortHubIntro(data: RentalHubData): string | null {
-  if (data.meta_description?.trim()) return data.meta_description.trim();
-  if (data.intro?.trim()) return truncateIntro(data.intro);
+  if (data.intro?.trim()) return truncateIntro(data.intro, 160);
+  if (data.meta_description?.trim()) return truncateIntro(data.meta_description, 160);
   return null;
 }
 
 export function RentalHubPage({ data }: { data: RentalHubData }) {
-  const listings = (data.verified_listings || []).slice(0, 8);
+  const listings = (data.verified_listings || []).slice(0, 9);
   const searches = data.related_searches || data.featured_searches || [];
   const intro = shortHubIntro(data);
   const typeHubs = data.type_hubs || [];
@@ -119,6 +131,7 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
     data.page_type === "directory" || data.page_type === "city"
       ? (data.neighborhoods || []).filter((n) => n.listing_count > 0)
       : [];
+  const alert = data.alert_context;
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
@@ -161,6 +174,21 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
         <FullCatalogueCta />
 
         {searches.length > 0 && <RelatedRentalSearches items={searches} showMatchCount />}
+
+        <Suspense fallback={null}>
+          <WhatsAppMatchAlert
+            defaults={{
+              intent: (alert?.intent as "rent" | "buy" | "") || "rent",
+              area: alert?.area || data.location_name || "Kigali",
+              bedrooms: alert?.bedrooms || undefined,
+              budget: alert?.budget || undefined,
+              propertyType: alert?.property_type || undefined,
+              furnished: alert?.furnished,
+              searchLabel: alert?.search_label || data.h1,
+              searchUrl: alert?.search_url || `https://kigalirent.com${data.path}`,
+            }}
+          />
+        </Suspense>
 
         {(data.related_neighborhoods?.length || 0) > 0 && (
           <RelatedNeighborhoods items={data.related_neighborhoods!} />

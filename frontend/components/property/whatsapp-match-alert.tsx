@@ -10,39 +10,88 @@ function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
 }
 
-export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
+export type MatchAlertDefaults = {
+  area?: string;
+  bedrooms?: string;
+  budget?: string;
+  intent?: "rent" | "buy" | "";
+  searchLabel?: string;
+  searchUrl?: string;
+  propertyType?: string;
+  furnished?: boolean | null;
+};
+
+export function WhatsAppMatchAlert({
+  whatsapp,
+  defaults,
+}: {
+  whatsapp?: string;
+  defaults?: MatchAlertDefaults;
+}) {
   const searchParams = useSearchParams();
   const titleId = useId();
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState("");
-  const [budget, setBudget] = useState("");
-  const [area, setArea] = useState("");
-  const [beds, setBeds] = useState(searchParams.get("bedrooms") || "");
+  const [budget, setBudget] = useState(defaults?.budget || "");
+  const [area, setArea] = useState(defaults?.area || "");
+  const [beds, setBeds] = useState(
+    defaults?.bedrooms || searchParams.get("bedrooms") || "",
+  );
   const [intent, setIntent] = useState<"rent" | "buy" | "">(
-    searchParams.get("listing_type") === "sale"
-      ? "buy"
-      : searchParams.get("listing_type") === "rent" || searchParams.get("listing_type") === "furnished"
-        ? "rent"
-        : "",
+    defaults?.intent ||
+      (searchParams.get("listing_type") === "sale"
+        ? "buy"
+        : searchParams.get("listing_type") === "rent" ||
+            searchParams.get("listing_type") === "furnished"
+          ? "rent"
+          : ""),
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 
   const phone = digitsOnly(whatsapp || "250784806641");
+  const searchUrl =
+    defaults?.searchUrl ||
+    `https://kigalirent.com/properties?${searchParams.toString()}`;
+  const searchLabel = defaults?.searchLabel || "property search";
 
   const href = useMemo(() => {
     const lookingFor = intent === "buy" ? "buy" : intent === "rent" ? "rent" : "any";
+    const typeBit = defaults?.propertyType
+      ? defaults.propertyType.replace(/-/g, " ")
+      : null;
+    const furnishedBit =
+      defaults?.furnished === true
+        ? "furnished"
+        : defaults?.furnished === false
+          ? "unfurnished"
+          : null;
     const lines = [
-      "Hi Kigali Rent — please WhatsApp me when a matching listing appears.",
+      "Hi KigaliRent, I'd like to receive WhatsApp alerts when a rental matching my preferences becomes available.",
+      `Search: ${searchLabel}`,
       email.trim() ? `Email: ${email.trim()}` : null,
       `Looking for: ${lookingFor}`,
+      typeBit ? `Property type: ${typeBit}` : null,
+      furnishedBit ? `Furnishing: ${furnishedBit}` : null,
       beds ? `Bedrooms: ${beds}` : null,
       area.trim() ? `Area: ${area.trim()}` : null,
       budget.trim() ? `Budget: ${budget.trim()}` : null,
-      `Current search: https://kigalirent.com/properties?${searchParams.toString()}`,
+      "Please let me know when a matching property is listed.",
+      `Page: ${searchUrl}`,
     ].filter(Boolean);
     return `https://wa.me/${phone}?text=${encodeURIComponent(lines.join("\n"))}`;
-  }, [area, beds, budget, email, intent, phone, searchParams]);
+  }, [
+    area,
+    beds,
+    budget,
+    defaults?.furnished,
+    defaults?.propertyType,
+    email,
+    intent,
+    phone,
+    searchLabel,
+    searchUrl,
+  ]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,7 +122,7 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
         area: area.trim() || undefined,
         bedrooms: beds || undefined,
         intent: intent || "any",
-        search_url: `https://kigalirent.com/properties?${searchParams.toString()}`,
+        search_url: searchUrl,
       });
       window.open(href, "_blank", "noopener,noreferrer");
       setOpen(false);
@@ -86,16 +135,15 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
 
   return (
     <>
-      <div className="rounded-xl border border-gold-500/30 bg-gold-500/5 p-5 mb-8 flex flex-col gap-4">
+      <div className="rounded-xl border border-gold-500/30 bg-gold-500/5 p-5 flex flex-col gap-4">
         <div className="flex items-start gap-3 min-w-0">
           <MessageCircle className="w-5 h-5 text-gold-600 mt-0.5 shrink-0" />
           <div>
             <h3 className="font-semibold text-navy-800 dark:text-white">
-              WhatsApp me when a match appears
+              Want to know when a matching rental appears?
             </h3>
             <p className="text-sm text-gray-500 mt-1">
-              Tell us your budget and area — we&apos;ll save your alert and message you on WhatsApp when
-              something fits.
+              Get a WhatsApp alert when a property matching your rental preferences is listed.
             </p>
           </div>
         </div>
@@ -106,7 +154,7 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
             onClick={() => setOpen(true)}
           >
             <MessageCircle className="w-4 h-4" />
-            Set up alert
+            WhatsApp me when a match appears
           </Button>
         </div>
       </div>
@@ -133,6 +181,9 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
                 <p className="text-sm text-gray-500 mt-1">
                   We save your preferences, then open WhatsApp so you can confirm.
                 </p>
+                {searchLabel ? (
+                  <p className="text-xs text-gray-500 mt-2">Based on: {searchLabel}</p>
+                ) : null}
               </div>
               <button
                 type="button"
@@ -186,7 +237,7 @@ export function WhatsAppMatchAlert({ whatsapp }: { whatsapp?: string }) {
                 </label>
                 <select className="lux-input w-full" value={beds} onChange={(e) => setBeds(e.target.value)}>
                   <option value="">Any</option>
-                  {["1+", "2+", "3+", "4+", "5+"].map((b) => (
+                  {["1", "2", "3", "4", "5"].map((b) => (
                     <option key={b} value={b}>
                       {b}
                     </option>

@@ -200,6 +200,9 @@ class SearchLandingPageResponse(BaseModel):
     related_neighborhoods: List[dict[str, Any]] = []
     methodology_note: str
     market_answer: Optional[dict[str, Any]] = None
+    alert_context: Optional[dict[str, Any]] = None
+    listing_cap: int = 9
+    listing_cap_mobile: int = 6
 
 
 class ResearchOverviewResponse(BaseModel):
