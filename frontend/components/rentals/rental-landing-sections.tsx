@@ -86,7 +86,7 @@ export function AskingRentSnapshot({
   if (!marketAnswer?.has_enough_data || !marketAnswer.headline) return null;
   return (
     <section className="rounded-xl border bg-white dark:bg-navy-800 p-5">
-      <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-2">Asking-rent snapshot</h2>
+      <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-2">Asking rent snapshot</h2>
       <p className="font-serif text-xl text-navy-800 dark:text-white">{marketAnswer.headline}</p>
       {marketAnswer.range_text && (
         <p className="text-sm text-gray-600 dark:text-gray-300 mt-2">{marketAnswer.range_text}</p>
@@ -144,7 +144,7 @@ export function RentalListingsSection({
             <div className="mb-5 rounded-lg border border-amber-200/80 bg-amber-50/80 dark:bg-navy-800 dark:border-navy-700 px-4 py-3">
               <p className="text-navy-800 dark:text-white font-medium">No exact matches right now</p>
               <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
-                Showing closest available rentals — these may not match every filter from your search.
+                Here are the closest available rentals.
               </p>
             </div>
           ) : null}

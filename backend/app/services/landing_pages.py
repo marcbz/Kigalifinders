@@ -103,8 +103,7 @@ def generate_display_description(
 
     bed_phrase = None
     if beds is not None:
-        n = int(beds)
-        bed_phrase = f"{n}-bedroom" if n != 1 else "1-bedroom"
+        bed_phrase = f"{int(beds)} bedroom"
 
     budget_phrase = None
     if max_usd is not None:
@@ -117,7 +116,7 @@ def generate_display_description(
     elif type_phrase and furnished is True and ptype and "apartment" in ptype:
         return (
             f"Find furnished apartments for rent in {loc_phrase}, "
-            "including move-in-ready options in popular neighborhoods."
+            "including move in ready options in popular neighborhoods."
         )
     elif type_phrase:
         lead = f"Browse available {type_phrase} for rent in {loc_phrase}"
