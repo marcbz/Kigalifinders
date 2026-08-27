@@ -71,10 +71,20 @@ def sort_by_listing_freshness(props: list[Property]) -> list[Property]:
 
 
 def sort_by_query_relevance(props: list[Property], query: dict[str, Any]) -> list[Property]:
-    """Keyword/attribute relevance to the page query, then newest listing."""
+    """Keyword/attribute relevance to the page query, then newest listing.
+
+    Exact property-type matches rank above villa/house/apartment family matches.
+    """
+    wants_type = bool(
+        (query.get("property_type") or query.get("property_type_slug") or "").strip()
+    )
     return sorted(
         props,
-        key=lambda p: (score_property(p, query), _listing_date(p)),
+        key=lambda p: (
+            1 if (not wants_type or _property_type_exact(p, query)) else 0,
+            score_property(p, query),
+            _listing_date(p),
+        ),
         reverse=True,
     )
 
@@ -216,7 +226,78 @@ def _property_type_tokens(prop: Property) -> set[str]:
     return tokens
 
 
-def _criterion_holds(prop: Property, query: dict[str, Any], criterion: str) -> bool:
+# Villa, house, and apartment are interchangeable when exact-type inventory is thin.
+_RESIDENTIAL_TYPE_FAMILY = frozenset(
+    {
+        "villa",
+        "villas",
+        "house",
+        "houses",
+        "home",
+        "homes",
+        "apartment",
+        "apartments",
+        "flat",
+        "flats",
+        "duplex",
+        "townhouse",
+        "townhouses",
+    }
+)
+
+
+def _normalize_type_stem(value: str) -> str:
+    raw = (value or "").lower().strip().replace("_", "-")
+    raw = raw.replace("-", " ")
+    stem = raw.rstrip("s") if raw.endswith("s") and not raw.endswith("ss") else raw
+    aliases = {
+        "flat": "apartment",
+        "home": "house",
+        "townhouse": "house",
+        "duplex": "house",
+        "apt": "apartment",
+    }
+    return aliases.get(stem, stem)
+
+
+def _is_residential_type(value: str) -> bool:
+    return _normalize_type_stem(value) in {
+        _normalize_type_stem(t) for t in _RESIDENTIAL_TYPE_FAMILY
+    } or value.lower().strip() in _RESIDENTIAL_TYPE_FAMILY
+
+
+def _property_type_compatible(
+    want: str,
+    tokens: set[str],
+    *,
+    allow_family: bool,
+) -> bool:
+    """Exact type match, or residential family match (villa/house/apartment) when allowed."""
+    if not want:
+        return True
+    want_l = want.lower().strip()
+    want_stem = _normalize_type_stem(want_l)
+    if any(want_l in t or want_stem in _normalize_type_stem(t) or t in want_l for t in tokens):
+        return True
+    if not allow_family or not _is_residential_type(want_l):
+        return False
+    return any(_is_residential_type(t) for t in tokens)
+
+
+def _property_type_exact(prop: Property, query: dict[str, Any]) -> bool:
+    want = (query.get("property_type") or query.get("property_type_slug") or "").lower().strip()
+    if not want:
+        return True
+    return _property_type_compatible(want, _property_type_tokens(prop), allow_family=False)
+
+
+def _criterion_holds(
+    prop: Property,
+    query: dict[str, Any],
+    criterion: str,
+    *,
+    type_family: bool = False,
+) -> bool:
     if criterion == "location":
         return location_match_rank(prop, query) >= 1
     if criterion == "bedrooms":
@@ -247,9 +328,9 @@ def _criterion_holds(prop: Property, query: dict[str, Any], criterion: str) -> b
         want = (query.get("property_type") or query.get("property_type_slug") or "").lower().strip()
         if not want:
             return True
-        tokens = _property_type_tokens(prop)
-        want_stem = want.rstrip("s")
-        return any(want in t or want_stem in t or t in want for t in tokens)
+        return _property_type_compatible(
+            want, _property_type_tokens(prop), allow_family=type_family
+        )
     if criterion == "bathrooms":
         want = query.get("bathrooms")
         return want is not None and prop.bathrooms is not None and float(prop.bathrooms) >= float(want)
@@ -281,6 +362,38 @@ def _subset_score(subset: frozenset[str], match_count: int, limit: int) -> tuple
 _CORE_CRITERIA = frozenset({"bedrooms", "location", "budget", "furnished", "property_type"})
 
 
+def _select_best_subset(
+    props: list[Property],
+    query: dict[str, Any],
+    *,
+    criteria: list[str],
+    requested_core: frozenset[str],
+    limit: int,
+    type_family: bool,
+) -> tuple[frozenset[str] | None, list[Property], tuple[int, int, int] | None]:
+    best_subset: frozenset[str] | None = None
+    best_matches: list[Property] = []
+    best_score: tuple[int, int, int] | None = None
+    n = len(criteria)
+    for mask in range((1 << n) - 1, 0, -1):
+        subset = frozenset(criteria[i] for i in range(n) if mask & (1 << i))
+        if requested_core and not (subset & requested_core):
+            continue
+        matched = [
+            p
+            for p in props
+            if all(_criterion_holds(p, query, c, type_family=type_family) for c in subset)
+        ]
+        if not matched:
+            continue
+        score = _subset_score(subset, len(matched), limit)
+        if best_score is None or score > best_score:
+            best_score = score
+            best_subset = subset
+            best_matches = matched
+    return best_subset, best_matches, best_score
+
+
 def select_progressive_match_group(
     props: list[Property],
     query: dict[str, Any],
@@ -290,38 +403,59 @@ def select_progressive_match_group(
     """Pick the strongest useful criterion combination from available inventory.
 
     Evaluates criterion subsets against real inventory (not a fixed drop order).
-    Property type is a soft signal: combinations without type can win when type
-    would empty the page. Within the winning group, rank by query relevance then freshness.
+    Property type is a soft signal. When exact villa/house/apartment inventory is
+    thin, those residential types are treated as interchangeable to fill the cap.
+    Within the winning group, rank by query relevance then freshness.
     """
     criteria = _requested_criteria(query)
     full = frozenset(criteria)
     requested_core = full & _CORE_CRITERIA
+    wants_type = "property_type" in full
 
     if not criteria:
         selected = sort_by_query_relevance(props, query)[:limit]
         return selected, "exact", frozenset()
 
-    best_subset: frozenset[str] | None = None
-    best_matches: list[Property] = []
-    best_score: tuple[int, int, int] | None = None
+    best_subset, best_matches, best_score = _select_best_subset(
+        props,
+        query,
+        criteria=criteria,
+        requested_core=requested_core,
+        limit=limit,
+        type_family=False,
+    )
 
-    n = len(criteria)
-    for mask in range((1 << n) - 1, 0, -1):
-        subset = frozenset(criteria[i] for i in range(n) if mask & (1 << i))
-        # Avoid amenity/bathroom-only fillers when stronger signals were requested.
-        if requested_core and not (subset & requested_core):
-            continue
-        matched = [p for p in props if all(_criterion_holds(p, query, c) for c in subset)]
-        if not matched:
-            continue
-        score = _subset_score(subset, len(matched), limit)
-        if best_score is None or score > best_score:
-            best_score = score
-            best_subset = subset
-            best_matches = matched
+    # Not enough exact-type inventory: treat villa, house, and apartment as the same family.
+    used_family = False
+    if wants_type and (best_subset is None or len(best_matches) < limit):
+        fam_subset, fam_matches, fam_score = _select_best_subset(
+            props,
+            query,
+            criteria=criteria,
+            requested_core=requested_core,
+            limit=limit,
+            type_family=True,
+        )
+        use_family = bool(fam_matches) and (
+            best_subset is None
+            or fam_score is None
+            or best_score is None
+            or fam_score >= best_score
+            or len(fam_matches) > len(best_matches)
+        )
+        if use_family and fam_matches:
+            exact_ids = {p.id for p in best_matches} if best_matches else set()
+            exact_first = [p for p in fam_matches if p.id in exact_ids] if exact_ids else []
+            if not exact_first and best_matches:
+                exact_first = [p for p in best_matches if p.id in {x.id for x in fam_matches}]
+                if not exact_first:
+                    exact_first = list(best_matches)
+            family_rest = [p for p in fam_matches if p.id not in {p.id for p in exact_first}]
+            best_matches = exact_first + family_rest
+            best_subset = fam_subset if fam_subset is not None else best_subset
+            used_family = True
 
     if best_subset is None:
-        # Broad / neighborhood pages: city inventory as closest when local pool is empty.
         if props and (not requested_core or requested_core <= frozenset({"location"})):
             selected = sort_by_query_relevance(props, query)[:limit]
             if selected:
@@ -329,7 +463,11 @@ def select_progressive_match_group(
         return [], "exact", full
 
     selected = sort_by_query_relevance(best_matches, query)[:limit]
-    mode = "exact" if best_subset == full else "closest"
+    all_exact_type = (not wants_type) or all(_property_type_exact(p, query) for p in selected)
+    if best_subset == full and all_exact_type:
+        mode = "exact"
+    else:
+        mode = "closest"
     return selected, mode, best_subset
 
 
@@ -545,10 +683,13 @@ def score_property(prop: Property, query: dict[str, Any]) -> float:
     ptype = (query.get("property_type") or "").lower()
     if not ptype:
         score += 5
-    elif prop.property_type and (
-        prop.property_type.slug == ptype or ptype in (prop.property_type.name or "").lower()
-    ):
-        score += 12
+    else:
+        tokens = _property_type_tokens(prop)
+        if _property_type_compatible(ptype, tokens, allow_family=False):
+            score += 12
+        elif _property_type_compatible(ptype, tokens, allow_family=True):
+            # Villa/house/apartment family match — useful but below exact type.
+            score += 8
 
     usd = effective_usd_price(prop)
     max_usd = query.get("max_price_usd", query.get("max_price"))

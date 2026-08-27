@@ -87,12 +87,12 @@ def test_villa_kibagabaga_falls_back_without_emptying():
     ]
     selected, mode, subset = select_progressive_match_group(props, query, limit=9)
     assert mode == "closest"
-    assert "property_type" not in subset
+    # Residential family keeps property_type in the winning combo when houses match villa.
     assert "bedrooms" in subset
     assert "location" in subset
     assert "budget" in subset
     ids = [p.id for p in selected]
-    assert ids == ["house-new", "house-old"], ids
+    assert "house-new" in ids and "house-old" in ids
     assert "unrelated" not in ids
     assert "villa-elsewhere" not in ids
 
@@ -123,9 +123,23 @@ def test_exact_villa_preferred_when_present():
         ),
     ]
     selected, mode, subset = select_progressive_match_group(props, query, limit=9)
-    assert mode == "exact"
     assert subset == frozenset({"bedrooms", "location", "budget", "property_type"})
-    assert [p.id for p in selected] == ["villa-local"]
+    assert selected[0].id == "villa-local"
+    # Thin exact inventory fills with house/apartment family matches.
+    assert any(p.id == "house-newer" for p in selected)
+    assert mode == "closest"
+
+
+def test_apartment_query_accepts_villa_family_when_thin():
+    query = {"location": "kigali", "property_type": "apartment", "bedrooms": 2}
+    props = [
+        _prop(pid="v1", beds=2, price=1400, neighborhood="kibagabaga", ptype="villa", published_days_ago=1),
+        _prop(pid="h1", beds=2, price=1300, neighborhood="gacuriro", ptype="house", published_days_ago=2),
+    ]
+    selected, mode, subset = select_progressive_match_group(props, query, limit=9)
+    assert mode == "closest"
+    assert "property_type" in subset
+    assert {p.id for p in selected} == {"v1", "h1"}
 
 
 def test_descriptions_have_no_decorative_dashes():
@@ -177,6 +191,7 @@ def test_related_search_keyword_ranking_prefers_houses():
 if __name__ == "__main__":
     test_villa_kibagabaga_falls_back_without_emptying()
     test_exact_villa_preferred_when_present()
+    test_apartment_query_accepts_villa_family_when_thin()
     test_descriptions_have_no_decorative_dashes()
     test_related_search_keyword_ranking_prefers_houses()
     print("progressive match checks passed")
