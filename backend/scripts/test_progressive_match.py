@@ -36,6 +36,10 @@ def _prop(
         neighborhood=SimpleNamespace(slug=neighborhood, name=neighborhood.title()),
         property_type=SimpleNamespace(slug=ptype, name=ptype.title()),
         amenities=[],
+        status=SimpleNamespace(value="published"),
+        data_source_kind="verified_kigali_rent",
+        last_verified_at=published,
+        title=f"{beds} Bedroom {ptype.title()} for Rent in {neighborhood.title()}",
     )
 
 
@@ -144,10 +148,37 @@ def test_descriptions_have_no_decorative_dashes():
     assert samples[2] == "Browse available houses and apartments for rent in Kibagabaga, Kigali."
 
 
+def test_related_search_keyword_ranking_prefers_houses():
+    """Top related search 'houses in kigali' should float house listings above apartments."""
+    from app.services.search_intent import sort_by_related_search_relevance
+
+    props = [
+        _prop(pid="apt", beds=2, price=1200, neighborhood="remera", ptype="apartment", published_days_ago=0),
+        _prop(pid="house", beds=3, price=1300, neighborhood="gacuriro", ptype="house", published_days_ago=5),
+    ]
+    related = [
+        {
+            "path": "/rentals/kigali/houses",
+            "h1": "Houses for Rent in Kigali",
+            "match_count": 10,
+            "query": {"location": "kigali", "property_type": "house"},
+        },
+        {
+            "path": "/rentals/kigali/3-bedroom-houses",
+            "h1": "3-Bedroom Houses for Rent in Kigali",
+            "match_count": 9,
+            "query": {"location": "kigali", "property_type": "house", "bedrooms": 3},
+        },
+    ]
+    ranked = sort_by_related_search_relevance(props, related)
+    assert [p.id for p in ranked][0] == "house"
+
+
 if __name__ == "__main__":
     test_villa_kibagabaga_falls_back_without_emptying()
     test_exact_villa_preferred_when_present()
     test_descriptions_have_no_decorative_dashes()
+    test_related_search_keyword_ranking_prefers_houses()
     print("progressive match checks passed")
     for q, loc in [
         ({"bedrooms": 2, "property_type": "house", "max_price_usd": 1500, "location": "kigali"}, None),
@@ -155,3 +186,4 @@ if __name__ == "__main__":
         ({"location": "kibagabaga"}, "Kibagabaga"),
     ]:
         print("-", generate_display_description(q, location_name=loc))
+

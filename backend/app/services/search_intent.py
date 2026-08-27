@@ -70,6 +70,78 @@ def sort_by_listing_freshness(props: list[Property]) -> list[Property]:
     return sorted(props, key=_listing_date, reverse=True)
 
 
+def sort_by_query_relevance(props: list[Property], query: dict[str, Any]) -> list[Property]:
+    """Keyword/attribute relevance to the page query, then newest listing."""
+    return sorted(
+        props,
+        key=lambda p: (score_property(p, query), _listing_date(p)),
+        reverse=True,
+    )
+
+
+def sort_by_related_search_relevance(
+    props: list[Property],
+    related_searches: list[dict[str, Any]],
+) -> list[Property]:
+    """Rank listings by how well they match Related rental search intents.
+
+    Uses each related search's structured query (beds/type/location/budget/…) weighted by
+    that search's match_count — the same inventory signals that drive the related list.
+    """
+    weighted: list[tuple[dict[str, Any], int]] = []
+    for item in related_searches:
+        q = item.get("query")
+        if isinstance(q, dict) and q:
+            weighted.append((q, max(1, int(item.get("match_count") or 1))))
+        else:
+            # Derive a lightweight query from path/h1 keywords when query payload is missing.
+            derived = _query_from_related_search_item(item)
+            if derived:
+                weighted.append((derived, max(1, int(item.get("match_count") or 1))))
+
+    if not weighted:
+        return sort_by_listing_freshness(props)
+
+    def _aggregate(prop: Property) -> tuple[float, float, datetime]:
+        best = 0.0
+        total = 0.0
+        for q, weight in weighted:
+            s = score_property(prop, q)
+            best = max(best, s)
+            total += s * float(weight)
+        return (best, total, _listing_date(prop))
+
+    return sorted(props, key=_aggregate, reverse=True)
+
+
+def _query_from_related_search_item(item: dict[str, Any]) -> dict[str, Any]:
+    """Best-effort query from related-search path/h1 when intent.query is absent."""
+    path = (item.get("path") or "").strip("/").lower()
+    parts = [p for p in path.split("/") if p]
+    q: dict[str, Any] = {}
+    if len(parts) >= 2 and parts[0] == "rentals":
+        loc = parts[1]
+        if loc and loc != "kigali":
+            q["location"] = loc
+        else:
+            q["location"] = "kigali"
+        if len(parts) >= 3:
+            slug = parts[2]
+            bed_m = re.search(r"(\d+)-bedroom", slug)
+            if bed_m:
+                q["bedrooms"] = int(bed_m.group(1))
+            if "furnished" in slug:
+                q["furnished"] = True
+            under_m = re.search(r"under-(\d+)", slug)
+            if under_m:
+                q["max_price_usd"] = int(under_m.group(1))
+            for ptype in ("villa", "house", "apartment", "studio"):
+                if ptype in slug or f"{ptype}s" in slug:
+                    q["property_type"] = ptype
+                    break
+    return q
+
+
 def location_match_rank(prop: Property, query: dict[str, Any]) -> int:
     """Higher = more precise location match within an already-eligible set."""
     location = (query.get("location") or query.get("location_slug") or "").lower()
@@ -219,14 +291,14 @@ def select_progressive_match_group(
 
     Evaluates criterion subsets against real inventory (not a fixed drop order).
     Property type is a soft signal: combinations without type can win when type
-    would empty the page. Within the winning group, sort by listing freshness only.
+    would empty the page. Within the winning group, rank by query relevance then freshness.
     """
     criteria = _requested_criteria(query)
     full = frozenset(criteria)
     requested_core = full & _CORE_CRITERIA
 
     if not criteria:
-        selected = sort_by_listing_freshness(props)[:limit]
+        selected = sort_by_query_relevance(props, query)[:limit]
         return selected, "exact", frozenset()
 
     best_subset: frozenset[str] | None = None
@@ -251,12 +323,12 @@ def select_progressive_match_group(
     if best_subset is None:
         # Broad / neighborhood pages: city inventory as closest when local pool is empty.
         if props and (not requested_core or requested_core <= frozenset({"location"})):
-            selected = sort_by_listing_freshness(props)[:limit]
+            selected = sort_by_query_relevance(props, query)[:limit]
             if selected:
                 return selected, "closest", frozenset()
         return [], "exact", full
 
-    selected = sort_by_listing_freshness(best_matches)[:limit]
+    selected = sort_by_query_relevance(best_matches, query)[:limit]
     mode = "exact" if best_subset == full else "closest"
     return selected, mode, best_subset
 
@@ -374,12 +446,16 @@ async def match_rentals_for_hub(
     *,
     limit: int = 24,
     include_unavailable: bool = False,
+    related_searches: list[dict[str, Any]] | None = None,
 ) -> tuple[list[Property], str]:
     """Match active published rentals for hub display via progressive combinations.
 
     Returns (properties, mode) where mode is ``exact`` or ``closest``.
     Published rent/furnished inventory counts as available — no extra verification flag.
     Property type is never allowed to empty a page when other criteria still match.
+
+    When ``related_searches`` is provided (hub Related rental searches), candidates are
+    ranked by keyword/intent relevance to those searches before the display cap.
     """
     loc = (query.get("location") or query.get("location_slug") or "").lower() or "kigali"
     pool_limit = max(limit * 20, 220)
@@ -405,7 +481,15 @@ async def match_rentals_for_hub(
     else:
         pool = local_pool
 
-    selected, mode, _subset = select_progressive_match_group(pool, query, limit=limit)
+    # Pull a wider eligible set, then re-rank by related-search keyword relevance when available.
+    candidate_limit = max(limit * 4, limit, 36) if related_searches else limit
+    selected, mode, _subset = select_progressive_match_group(
+        pool, query, limit=candidate_limit
+    )
+    if related_searches:
+        selected = sort_by_related_search_relevance(selected, related_searches)[:limit]
+    elif len(selected) > limit:
+        selected = selected[:limit]
     return selected, mode
 
 
@@ -488,12 +572,28 @@ def score_property(prop: Property, query: dict[str, Any]) -> float:
         if getattr(prop, col, False):
             score += 4
 
-    if prop.status == PropertyStatusEnum.PUBLISHED:
+    if getattr(prop, "status", None) == PropertyStatusEnum.PUBLISHED or (
+        getattr(getattr(prop, "status", None), "value", None) == "published"
+    ):
         score += 10
-    if prop.data_source_kind == "verified_kigali_rent":
+    if getattr(prop, "data_source_kind", None) == "verified_kigali_rent":
         score += 5
 
-    verified = prop.last_verified_at
+    # Light title keyword overlap with intent tokens (beds/type/area phrases).
+    title = (getattr(prop, "title", None) or "").lower()
+    tokens: list[str] = []
+    if ptype:
+        tokens.append(ptype)
+        tokens.append(f"{ptype}s")
+    if want_beds is not None:
+        tokens.append(f"{int(want_beds)} bedroom")
+        tokens.append(f"{int(want_beds)}-bedroom")
+    if location and location not in {"kigali", "all"}:
+        tokens.append(location.replace("-", " "))
+    hit = sum(1 for t in tokens if t and t in title)
+    score += min(8.0, hit * 2.5)
+
+    verified = getattr(prop, "last_verified_at", None)
     if verified:
         age_days = (datetime.now(timezone.utc) - verified).days
         if age_days <= 7:

@@ -258,7 +258,34 @@ async def get_rental_landing(
     query = intent.query or {}
     from app.services.rental_locations import RENTAL_HUB_LISTING_CAP
 
-    matches, match_mode = await match_rentals_for_hub(db, query, limit=RENTAL_HUB_LISTING_CAP)
+    related = await related_intents(db, intent)
+    related_searches = [
+        {
+            "path": r.path,
+            "title": r.title,
+            "h1": r.h1,
+            "match_count": r.match_count,
+            "query": r.query or {},
+        }
+        for r in related
+    ]
+    # Page intent keywords dominate; related rental searches refine ranking among matches.
+    ranking_searches = [
+        {
+            "path": intent.path,
+            "title": intent.title,
+            "h1": intent.h1,
+            "match_count": max(int(intent.match_count or 0), 25),
+            "query": query,
+        },
+        *related_searches,
+    ]
+    matches, match_mode = await match_rentals_for_hub(
+        db,
+        query,
+        limit=RENTAL_HUB_LISTING_CAP,
+        related_searches=ranking_searches,
+    )
     match_count = int(intent.match_count or 0) or len(matches)
 
     loc_slug = intent.location_slug
@@ -285,7 +312,6 @@ async def get_rental_landing(
         market_insights=market_ctx.get("data_insights") or [],
     )
 
-    related = await related_intents(db, intent)
     related_neighborhoods: list[dict] = []
     from app.services.rental_locations import _neighborhoods_with_counts
 

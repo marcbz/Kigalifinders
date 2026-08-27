@@ -21,7 +21,12 @@ from app.models import (
     SearchIntent,
 )
 from app.services.intent_automation import count_observations
-from app.services.search_intent import MIN_SAMPLE_FOR_STATS, match_rentals_for_hub, match_verified_properties, score_property
+from app.services.search_intent import (
+    MIN_SAMPLE_FOR_STATS,
+    match_rentals_for_hub,
+    match_verified_properties,
+    score_property,
+)
 
 SITE = "https://kigalirent.com"
 
@@ -248,7 +253,13 @@ async def _related_intents_for_location(db: AsyncSession, location_slug: str, li
         .limit(limit)
     )
     return [
-        {"path": i.path, "title": i.title, "h1": i.h1, "match_count": i.match_count}
+        {
+            "path": i.path,
+            "title": i.title,
+            "h1": i.h1,
+            "match_count": i.match_count,
+            "query": i.query or {},
+        }
         for i in result.scalars().all()
     ]
 
@@ -342,9 +353,12 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
 
     market_answer = await combined_market_answer(db, location_slug="kigali")
     type_hubs = await _type_hubs_for_kigali(db)
-    # Newest relevant published rentals for the hub (with closest fallback when needed).
+    # Prefer listings that match Related rental search keywords (houses, beds, areas…).
     listing_matches, match_mode = await match_rentals_for_hub(
-        db, {"location": "kigali"}, limit=RENTAL_HUB_LISTING_CAP
+        db,
+        {"location": "kigali"},
+        limit=RENTAL_HUB_LISTING_CAP,
+        related_searches=featured,
     )
 
     return {
@@ -373,7 +387,7 @@ async def build_rental_directory(db: AsyncSession) -> dict[str, Any]:
         "related_searches": featured,
         "listing_cap": RENTAL_HUB_LISTING_CAP,
         "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
-        "listing_order": "intent_match_then_published_or_created_desc",
+        "listing_order": "related_search_keyword_relevance_then_published_desc",
         "match_mode": match_mode,
         "alert_context": {
             "intent": "rent",
@@ -390,8 +404,15 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
 
     neighborhoods = await _neighborhoods_with_counts(db)
     neighborhoods.sort(key=lambda n: (-(n["median_usd"] or 0), -n["listing_count"]))
+    related = _dedupe_featured_searches(
+        await _related_intents_for_location(db, "kigali", limit=16),
+        limit=8,
+    )
     matches, match_mode = await match_rentals_for_hub(
-        db, {"location": "kigali"}, limit=RENTAL_HUB_LISTING_CAP
+        db,
+        {"location": "kigali"},
+        limit=RENTAL_HUB_LISTING_CAP,
+        related_searches=related,
     )
 
     market_ctx = await combined_slice_context(db, location_slug="kigali")
@@ -441,10 +462,7 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         "neighborhoods": [n for n in neighborhoods if n["listing_count"] > 0][:20],
         "verified_listings": [_listing_card(p, {"location": "kigali"}) for p in matches],
         "type_hubs": await _type_hubs_for_kigali(db),
-        "related_searches": _dedupe_featured_searches(
-            await _related_intents_for_location(db, "kigali", limit=16),
-            limit=8,
-        ),
+        "related_searches": related,
         "related_neighborhoods": [
             {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
             for n in sorted(neighborhoods, key=lambda x: -x["listing_count"])[:8]
@@ -452,7 +470,7 @@ async def build_kigali_overview(db: AsyncSession) -> dict[str, Any]:
         ],
         "listing_cap": RENTAL_HUB_LISTING_CAP,
         "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
-        "listing_order": "intent_match_then_published_or_created_desc",
+        "listing_order": "related_search_keyword_relevance_then_published_desc",
         "match_mode": match_mode,
         "alert_context": {
             "intent": "rent",
@@ -490,7 +508,16 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
     query = {"location": hood.slug}
     all_hoods = await _neighborhoods_with_counts(db)
     hood_total = next((n["listing_count"] for n in all_hoods if n["slug"] == hood.slug), 0)
-    matches, match_mode = await match_rentals_for_hub(db, query, limit=RENTAL_HUB_LISTING_CAP)
+    related_searches = _dedupe_featured_searches(
+        await _related_intents_for_location(db, hood.slug, limit=12),
+        limit=8,
+    )
+    matches, match_mode = await match_rentals_for_hub(
+        db,
+        query,
+        limit=RENTAL_HUB_LISTING_CAP,
+        related_searches=related_searches,
+    )
 
     market_ctx = await combined_slice_context(db, location_slug=hood.slug)
     market_answer = market_ctx["market_answer"]
@@ -506,8 +533,8 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
 
     intro = f"Browse available houses and apartments for rent in {hood.name}, Kigali."
 
-    related = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
-    related.sort(key=lambda n: -n["listing_count"])
+    related_hoods = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
+    related_hoods.sort(key=lambda n: -n["listing_count"])
 
     property_word = "property" if hood_total == 1 else "properties"
     return {
@@ -545,17 +572,14 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "trend_verified": market_ctx.get("trend") or [],
         "trend_external": [],
         "verified_listings": [_listing_card(p, query) for p in matches],
-        "related_searches": _dedupe_featured_searches(
-            await _related_intents_for_location(db, hood.slug, limit=12),
-            limit=8,
-        ),
+        "related_searches": related_searches,
         "related_neighborhoods": [
             {"slug": n["slug"], "name": n["name"], "path": n["path"], "listing_count": n["listing_count"]}
-            for n in related[:8]
+            for n in related_hoods[:8]
         ],
         "listing_cap": RENTAL_HUB_LISTING_CAP,
         "listing_cap_mobile": RENTAL_HUB_LISTING_CAP_MOBILE,
-        "listing_order": "intent_match_then_published_or_created_desc",
+        "listing_order": "related_search_keyword_relevance_then_published_desc",
         "match_mode": match_mode,
         "alert_context": {
             "intent": "rent",
