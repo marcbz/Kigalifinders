@@ -16,6 +16,28 @@ export function getListingBadge(
   return "Unfurnished";
 }
 
+/** Meaningful alt for listing photos — uses title and location, no keyword stuffing. */
+export function getPropertyImageAlt(
+  property: Pick<
+    PropertyListItem,
+    "title" | "neighborhood_name" | "district_name" | "bedrooms" | "property_type_name"
+  >,
+): string {
+  const title = property.title?.trim();
+  const place = [property.neighborhood_name, property.district_name].filter(Boolean).join(", ");
+  if (title) {
+    const hood = (property.neighborhood_name || "").toLowerCase();
+    if (hood && !title.toLowerCase().includes(hood) && place) {
+      return `${title} in ${place}`;
+    }
+    return title;
+  }
+  const beds = property.bedrooms != null ? `${property.bedrooms}-bedroom ` : "";
+  const type = property.property_type_name ? `${property.property_type_name} ` : "property ";
+  if (place) return `${beds}${type}in ${place}`.replace(/\s+/g, " ").trim();
+  return "Property listing";
+}
+
 export function getPropertyAreaLabel(
   property: Pick<PropertyListItem, "listing_type" | "property_type_name" | "area_sqm" | "lot_size_sqm">,
 ): string | null {

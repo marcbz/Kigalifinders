@@ -90,9 +90,11 @@ export function HeroSection({
           {useAnimatedIntro ? (
             <>
               <h1 className="font-serif text-[2rem] sm:text-4xl md:text-6xl font-bold leading-[1.12] mb-5">
+                <span className="whitespace-nowrap">KigaliRent</span>
+                <span className="font-semibold text-white/90"> — </span>
                 <HeroAnimatedTitleLine />
                 <br />
-                In Kigali
+                in Kigali
               </h1>
               {displaySubtitle ? (
                 <p className="text-lg md:text-xl text-gray-100 mb-10 max-w-2xl leading-relaxed">
@@ -103,7 +105,10 @@ export function HeroSection({
           ) : (
             <>
               <h1 className="font-serif text-4xl md:text-6xl font-bold leading-[1.05] mb-5">
-                {displayTitle}
+                {displayTitle.toLowerCase().includes("kigalirent") ||
+                displayTitle.toLowerCase().includes("kigali rent")
+                  ? displayTitle
+                  : `KigaliRent — ${displayTitle}`}
               </h1>
               {displaySubtitle ? (
                 <p className="text-lg md:text-xl text-gray-100 mb-10 max-w-2xl leading-relaxed">

@@ -20,7 +20,13 @@ export function BlogSection({ posts }: { posts: BlogPost[] }) {
               <div className="overflow-hidden rounded-xl mb-5 h-56 relative">
                 <Image
                   src={post.featured_image || "https://images.unsplash.com/photo-1572120360610-d971b9d7767c?w=800"}
-                  alt={post.title}
+                  alt={
+                    post.title?.trim()
+                      ? post.category_name
+                        ? `${post.title.trim()} (${post.category_name})`
+                        : post.title.trim()
+                      : "KigaliRent blog article"
+                  }
                   fill
                   className="object-cover group-hover:scale-105 transition duration-500"
                   sizes="(max-width: 768px) 100vw, 33vw"

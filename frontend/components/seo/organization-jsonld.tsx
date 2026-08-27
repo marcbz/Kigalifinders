@@ -1,6 +1,8 @@
 import { SITE_ADDRESS, SITE_SOCIAL } from "@/lib/site-defaults";
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com";
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com").replace(/\/+$/, "");
+
+const brandAlternateNames = ["Kigali Rent", "kigalirent.com"] as const;
 
 const graph = {
   "@context": "https://schema.org",
@@ -8,7 +10,8 @@ const graph = {
     {
       "@type": ["Organization", "RealEstateAgent", "LocalBusiness"],
       "@id": `${siteUrl}/#organization`,
-      name: "Kigali Rent",
+      name: "KigaliRent",
+      alternateName: [...brandAlternateNames],
       url: siteUrl,
       logo: {
         "@type": "ImageObject",
@@ -33,8 +36,21 @@ const graph = {
       "@type": "WebSite",
       "@id": `${siteUrl}/#website`,
       url: siteUrl,
-      name: "Kigali Rent",
+      name: "KigaliRent",
+      alternateName: [...brandAlternateNames],
       description: "Kigali's rental and property marketplace.",
+      publisher: { "@id": `${siteUrl}/#organization` },
+      inLanguage: "en-RW",
+    },
+    {
+      "@type": "WebPage",
+      "@id": `${siteUrl}/#webpage`,
+      url: siteUrl,
+      name: "KigaliRent — Houses for Rent & Sale in Kigali",
+      description:
+        "Find houses for rent, furnished homes, and properties for sale in Kigali. Neighbourhood guides, real prices, and listings that are actually available.",
+      isPartOf: { "@id": `${siteUrl}/#website` },
+      about: { "@id": `${siteUrl}/#organization` },
       publisher: { "@id": `${siteUrl}/#organization` },
       inLanguage: "en-RW",
     },

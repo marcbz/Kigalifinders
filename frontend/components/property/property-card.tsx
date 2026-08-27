@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ArrowRight, Bath, Bed, MapPin, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PropertyListItem } from "@/types";
-import { getListingBadge, getPropertyAreaLabel } from "@/lib/property-features";
+import { getListingBadge, getPropertyAreaLabel, getPropertyImageAlt } from "@/lib/property-features";
 import { getPropertyHref } from "@/lib/property-url";
 import { PropertyCardActions } from "@/components/property/property-card-actions";
 import { PropertyImageFrame } from "@/components/property/property-image-frame";
@@ -33,7 +33,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
       <PropertyImageFrame className="relative overflow-hidden h-64 select-none">
         <Image
           src={property.primary_image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800"}
-          alt={property.title}
+          alt={getPropertyImageAlt(property)}
           fill
           loading="lazy"
           fetchPriority="low"
