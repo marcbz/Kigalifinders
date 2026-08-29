@@ -531,3 +531,51 @@ class DashboardStats(BaseModel):
     blog_views: int
     total_views: int
     funnel: list[PropertyFunnelRow] = []
+
+
+class RedirectLinkCreate(BaseModel):
+    slug: Optional[str] = None
+    destination_url: str
+    title: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = True
+
+
+class RedirectLinkUpdate(BaseModel):
+    slug: Optional[str] = None
+    destination_url: Optional[str] = None
+    title: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: Optional[bool] = None
+
+
+class RedirectLinkResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    slug: str
+    destination_url: str
+    title: Optional[str] = None
+    notes: Optional[str] = None
+    is_active: bool
+    clicks_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class RedirectClickResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    redirect_link_id: UUID
+    ip_address: Optional[str] = None
+    country: Optional[str] = None
+    region: Optional[str] = None
+    city: Optional[str] = None
+    user_agent: Optional[str] = None
+    referer: Optional[str] = None
+    clicked_at: datetime
+
+
+class RedirectResolveResponse(BaseModel):
+    destination_url: str

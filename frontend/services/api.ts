@@ -285,4 +285,12 @@ export const adminService = {
       .then((r) => r.data);
   },
   gscSuggestions: () => api.get("/admin/market/gsc-suggestions").then((r) => r.data),
+  redirects: () => api.get("/admin/redirects").then((r) => r.data),
+  createRedirect: (data: Record<string, unknown>) => api.post("/admin/redirects", data).then((r) => r.data),
+  updateRedirect: (id: string, data: Record<string, unknown>) =>
+    api.patch(`/admin/redirects/${id}`, data).then((r) => r.data),
+  deleteRedirect: (id: string) => api.delete(`/admin/redirects/${id}`),
+  redirectClicks: (id: string, limit = 50) =>
+    api.get(`/admin/redirects/${id}/clicks`, { params: { limit } }).then((r) => r.data),
+  redirectStats: (id: string) => api.get(`/admin/redirects/${id}/stats`).then((r) => r.data),
 };

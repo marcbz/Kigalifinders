@@ -948,3 +948,42 @@ class ObservationImportBatch(Base):
     period_end: Mapped[object | None] = mapped_column(Date)
     notes: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class RedirectLink(Base):
+    """Private short links for admin use — not indexed or sitemapped."""
+
+    __tablename__ = "redirect_links"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String(80), unique=True, nullable=False, index=True)
+    destination_url: Mapped[str] = mapped_column(String(2000), nullable=False)
+    title: Mapped[str | None] = mapped_column(String(255))
+    notes: Mapped[str | None] = mapped_column(Text)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    clicks_count: Mapped[int] = mapped_column(Integer, default=0)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+
+    clicks: Mapped[list["RedirectClick"]] = relationship(back_populates="redirect_link", cascade="all, delete-orphan")
+
+
+class RedirectClick(Base):
+    """Per-click analytics for redirect links."""
+
+    __tablename__ = "redirect_clicks"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    redirect_link_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("redirect_links.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    ip_address: Mapped[str | None] = mapped_column(String(45))
+    country: Mapped[str | None] = mapped_column(String(80))
+    region: Mapped[str | None] = mapped_column(String(120))
+    city: Mapped[str | None] = mapped_column(String(120))
+    user_agent: Mapped[str | None] = mapped_column(String(500))
+    referer: Mapped[str | None] = mapped_column(String(1000))
+    clicked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+
+    redirect_link: Mapped["RedirectLink"] = relationship(back_populates="clicks")
