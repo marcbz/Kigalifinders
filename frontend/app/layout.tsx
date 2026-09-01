@@ -42,9 +42,6 @@ export const metadata: Metadata = {
     icon: "/icon.svg",
     apple: "/apple-icon.svg",
   },
-  alternates: {
-    canonical: siteUrl,
-  },
   robots: { index: true, follow: true },
   metadataBase: new URL(siteUrl),
 };

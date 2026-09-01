@@ -2,36 +2,62 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { contentService } from "@/services/api";
 import { BlogPostContent } from "@/components/blog/blog-post-content";
 import { TrackBlogView } from "@/components/blog/track-blog-view";
 import { buildFaqJsonLd, extractBlogFaqs } from "@/lib/blog-faq-schema";
+import { fetchBlogPostSafe } from "@/lib/server-api";
+import { normalizeSeoTitle } from "@/lib/seo-metadata";
 
 interface Props {
   params: Promise<{ slug: string }>;
 }
 
+export const revalidate = 120;
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  try {
-    const post = await contentService.blogPost(slug);
-    return {
-      title: post.meta_title || post.title,
-      description: post.meta_description || post.excerpt,
-    };
-  } catch {
-    return { title: "Post Not Found" };
+  const post = await fetchBlogPostSafe(slug);
+  if (!post) {
+    return { title: "Post Not Found", robots: { index: false, follow: false } };
   }
+
+  const canonical = `https://kigalirent.com/blog/${slug}`;
+  const title = normalizeSeoTitle(post.meta_title || post.title);
+  const description =
+    post.meta_description?.trim() ||
+    post.excerpt?.trim() ||
+    `${post.title} — insights on renting and property in Kigali from Kigali Rent.`;
+  const images = post.featured_image
+    ? [{ url: post.featured_image, width: 1200, height: 630, alt: post.title }]
+    : undefined;
+
+  return {
+    title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      title,
+      description,
+      url: canonical,
+      type: "article",
+      siteName: "Kigali Rent",
+      locale: "en_RW",
+      images,
+      ...(post.published_at ? { publishedTime: post.published_at } : {}),
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: post.featured_image ? [post.featured_image] : undefined,
+    },
+  };
 }
 
 export default async function BlogDetailPage({ params }: Props) {
   const { slug } = await params;
-  let post;
-  try {
-    post = await contentService.blogPost(slug);
-  } catch {
-    notFound();
-  }
+  const post = await fetchBlogPostSafe(slug);
+  if (!post) notFound();
 
   const faqJsonLd = buildFaqJsonLd(extractBlogFaqs(post.content, post.content_format));
 
@@ -54,6 +80,9 @@ export default async function BlogDetailPage({ params }: Props) {
         <h1 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mb-8">
           {post.title}
         </h1>
+        {post.excerpt?.trim() && (
+          <p className="text-lg text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">{post.excerpt}</p>
+        )}
         {post.featured_image && (
           <div className="relative h-72 md:h-96 rounded-2xl overflow-hidden mb-10">
             <Image src={post.featured_image} alt={post.title} fill className="object-cover" priority />
@@ -80,7 +109,7 @@ export default async function BlogDetailPage({ params }: Props) {
             Kigali neighbourhood guides
           </Link>
         </nav>
-        {post.tags?.length > 0 && (
+        {post.tags?.length ? (
           <div className="flex flex-wrap gap-2 mt-10 pt-8 border-t">
             {post.tags.map((tag: string) => (
               <span key={tag} className="px-3 py-1 bg-cream dark:bg-secondary rounded-full text-sm">
@@ -88,7 +117,7 @@ export default async function BlogDetailPage({ params }: Props) {
               </span>
             ))}
           </div>
-        )}
+        ) : null}
       </div>
     </article>
   );

@@ -5,6 +5,7 @@ import type { HomepageData, PaginatedResponse, PropertyDetail, PropertyListItem 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 const DEFAULT_REVALIDATE = 60;
 const FETCH_TIMEOUT_MS = 8000;
+const DETAIL_FETCH_TIMEOUT_MS = 20000;
 
 const emptyHomepage = (): HomepageData => ({
   stats: { properties_listed: 0, happy_clients: 0, years_experience: 0, client_rating: 0 },
@@ -25,11 +26,12 @@ const emptyHomepage = (): HomepageData => ({
 type FetchOptions = {
   revalidate?: number;
   noStore?: boolean;
+  timeoutMs?: number;
 };
 
 /** Fetch from the API with caching. Returns null on failure instead of throwing. */
 async function fetchApiSafe<T>(path: string, options: FetchOptions = {}): Promise<T | null> {
-  const { revalidate = DEFAULT_REVALIDATE, noStore = false } = options;
+  const { revalidate = DEFAULT_REVALIDATE, noStore = false, timeoutMs = FETCH_TIMEOUT_MS } = options;
 
   if (!process.env.NEXT_PUBLIC_API_URL && process.env.NODE_ENV === "production") {
     console.error("[server-api] NEXT_PUBLIC_API_URL is not set on Vercel");
@@ -40,7 +42,7 @@ async function fetchApiSafe<T>(path: string, options: FetchOptions = {}): Promis
     const res = await fetch(`${API_URL}${path}`, {
       ...(noStore ? { cache: "no-store" as const } : { next: { revalidate } }),
       headers: { Accept: "application/json" },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      signal: AbortSignal.timeout(timeoutMs),
     });
     if (!res.ok) {
       console.error(`[server-api] ${path} failed: ${res.status}`);
@@ -69,10 +71,13 @@ export function fetchHomepage() {
   return fetchApi<HomepageData>("/homepage", { revalidate: 120 });
 }
 
-export async function fetchPropertySafe(slug: string) {
+export const fetchPropertySafe = cache(async (slug: string) => {
   const normalized = encodeURIComponent(slug.trim());
-  return fetchApiSafe<PropertyDetail>(`/properties/${normalized}`, { noStore: true });
-}
+  return fetchApiSafe<PropertyDetail>(`/properties/${normalized}`, {
+    revalidate: DEFAULT_REVALIDATE,
+    timeoutMs: DETAIL_FETCH_TIMEOUT_MS,
+  });
+});
 
 export function fetchProperty(slug: string) {
   const normalized = encodeURIComponent(slug.trim());
@@ -183,6 +188,31 @@ export async function fetchBlogPostsSafe() {
   );
   return data ?? [];
 }
+
+export type BlogPostDetail = {
+  id: string;
+  title: string;
+  slug: string;
+  excerpt?: string | null;
+  featured_image?: string | null;
+  category_name?: string | null;
+  read_time_minutes: number;
+  published_at?: string | null;
+  content: string;
+  content_format: string;
+  meta_title?: string | null;
+  meta_description?: string | null;
+  tags?: string[];
+  views_count?: number;
+};
+
+export const fetchBlogPostSafe = cache(async (slug: string) => {
+  const normalized = encodeURIComponent(slug.trim());
+  return fetchApiSafe<BlogPostDetail>(`/blog/${normalized}`, {
+    revalidate: 120,
+    timeoutMs: DETAIL_FETCH_TIMEOUT_MS,
+  });
+});
 
 export function fetchBlogPosts() {
   return fetchApi<{ id: string; title: string; slug: string; excerpt?: string; featured_image?: string }[]>("/blog", {

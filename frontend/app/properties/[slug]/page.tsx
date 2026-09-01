@@ -13,7 +13,9 @@ import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { getListingBadge } from "@/lib/property-features";
 import { fetchPropertyRelatedSearchesSafe, fetchPropertySafe } from "@/lib/server-api";
 import { buildPropertyListingJsonLd } from "@/lib/property-jsonld";
+import { buildPropertyMetaDescription, normalizeSeoTitle } from "@/lib/seo-metadata";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
+import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 
 const RelatedPropertiesSection = dynamic(
@@ -31,14 +33,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const property = await fetchPropertySafe(slug);
   if (!property) {
-    return { title: "Property Not Found" };
+    return { title: "Property Not Found", robots: { index: false, follow: false } };
   }
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;
-  const title = property.meta_title || property.title;
-  const description =
-    property.meta_description ||
-    property.short_description ||
-    `${property.title} in ${property.neighborhood_name || property.district_name || "Kigali"} — listed on Kigali Rent.`;
+  const title = normalizeSeoTitle(property.meta_title || property.title);
+  const description = buildPropertyMetaDescription(property);
   const images = property.primary_image
     ? [{ url: property.primary_image, width: 1200, height: 630, alt: property.title }]
     : undefined;
@@ -85,6 +84,8 @@ export default async function PropertyDetailPage({ params }: Props) {
   const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
   const listingBadge = getListingBadge(property);
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;
+  const pricePeriod = property.listing_type !== "sale" ? property.price_period : null;
+  const priceLabel = formatPrice(property.price, property.currency, pricePeriod);
 
   return (
     <>
@@ -105,6 +106,10 @@ export default async function PropertyDetailPage({ params }: Props) {
             )}
           </div>
           <h1 className="font-serif text-3xl md:text-5xl font-bold mb-3">{property.title}</h1>
+          {property.short_description?.trim() && (
+            <p className="text-gray-200 max-w-3xl mb-3 leading-relaxed">{property.short_description}</p>
+          )}
+          <p className="text-gold-400 text-xl font-semibold mb-3">{priceLabel}</p>
           {property.is_available === false && (
             <p className="text-amber-200 mb-3 max-w-3xl">
               {property.availability_note || "This property is no longer verified as available."} Similar available listings are recommended below.
