@@ -5,33 +5,9 @@ import { useSearchParams } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { propertyService } from "@/services/api";
 import { PropertyCard } from "@/components/property/property-card";
-import type { PropertySearchParams } from "@/types";
+import { buildPropertyListParams } from "@/lib/property-search-params";
 
 const PAGE_SIZE = 12;
-
-function buildListParams(searchParams: URLSearchParams, page: number): PropertySearchParams {
-  const listingType = searchParams.get("listing_type") || undefined;
-  const bedrooms = searchParams.get("bedrooms");
-  const minPrice = searchParams.get("min_price");
-  const maxPrice = searchParams.get("max_price");
-
-  return {
-    q: searchParams.get("q") || undefined,
-    listing_type: listingType && listingType !== "all" ? listingType : undefined,
-    district_id: searchParams.get("district_id") || undefined,
-    neighborhood_id: searchParams.get("neighborhood_id") || undefined,
-    neighborhood_slug: searchParams.get("neighborhood_slug") || undefined,
-    property_type_id: searchParams.get("property_type_id") || undefined,
-    property_type_slug: searchParams.get("property_type_slug") || undefined,
-    bedrooms: bedrooms ? parseInt(bedrooms, 10) : undefined,
-    min_price: minPrice ? parseFloat(minPrice) : undefined,
-    max_price: maxPrice ? parseFloat(maxPrice) : undefined,
-    sort_by: searchParams.get("sort_by") || "created_at",
-    sort_order: searchParams.get("sort_order") || "desc",
-    page,
-    page_size: PAGE_SIZE,
-  };
-}
 
 export function PropertiesInfiniteGrid() {
   const searchParams = useSearchParams();
@@ -41,7 +17,7 @@ export function PropertiesInfiniteGrid() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } = useInfiniteQuery({
     queryKey: ["properties-list", filterKey],
     queryFn: ({ pageParam = 1 }) =>
-      propertyService.list(buildListParams(searchParams, pageParam as number)),
+      propertyService.list(buildPropertyListParams(searchParams, pageParam as number, PAGE_SIZE)),
     getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.pages ? lastPage.page + 1 : undefined,
     initialPageParam: 1,

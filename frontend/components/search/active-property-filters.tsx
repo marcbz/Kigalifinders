@@ -4,6 +4,7 @@ import { useSearchParams } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { locationService } from "@/services/api";
 import { neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
+import { formatBedroomsFilterChip } from "@/lib/property-search-params";
 
 function formatPriceChip(min: string | null, max: string | null): string | null {
   const minN = min ? parseFloat(min) : null;
@@ -61,7 +62,8 @@ export function ActivePropertyFilters() {
   if (listingType === "sale") chips.push("For Sale");
   if (matchedType) chips.push(matchedType.name);
   else if (propertyTypeSlug === "plot") chips.push("Plots");
-  if (bedrooms) chips.push(`${bedrooms}+ bedrooms`);
+  const bedroomChip = formatBedroomsFilterChip(bedrooms);
+  if (bedroomChip) chips.push(bedroomChip);
   const priceChip = formatPriceChip(minPrice, maxPrice);
   if (priceChip) chips.push(priceChip);
 

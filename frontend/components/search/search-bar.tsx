@@ -7,6 +7,11 @@ import { Loader2, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 import { neighborhoodsForSearchFilter, neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
+import {
+  BEDROOM_FILTER_OPTIONS,
+  bedroomsSelectValueFromUrl,
+  bedroomsUrlValueFromSelect,
+} from "@/lib/property-search-params";
 import type { PropertyType } from "@/types";
 
 const tabs = [
@@ -72,7 +77,7 @@ export function SearchBar() {
         searchParams.get("property_type_slug"),
       ),
   );
-  const [bedrooms, setBedrooms] = useState(searchParams.get("bedrooms") || "");
+  const [bedrooms, setBedrooms] = useState(() => bedroomsSelectValueFromUrl(searchParams.get("bedrooms")));
   const [priceRange, setPriceRange] = useState(() =>
     parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price")),
   );
@@ -86,7 +91,7 @@ export function SearchBar() {
         searchParams.get("property_type_slug"),
       ),
     );
-    setBedrooms(searchParams.get("bedrooms") || "");
+    setBedrooms(bedroomsSelectValueFromUrl(searchParams.get("bedrooms")));
     setPriceRange(parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price")));
   }, [searchParams, propertyTypes]);
 
@@ -107,7 +112,8 @@ export function SearchBar() {
     }
     if (neighborhoodId) params.set("neighborhood_id", neighborhoodId);
     if (propertyTypeId) params.set("property_type_id", propertyTypeId);
-    if (bedrooms) params.set("bedrooms", bedrooms.replace("+", ""));
+    const beds = bedroomsUrlValueFromSelect(bedrooms);
+    if (beds) params.set("bedrooms", beds);
     if (priceRange) {
       const [min, max] = priceRange.split("-");
       if (min) params.set("min_price", min);
@@ -143,9 +149,11 @@ export function SearchBar() {
       searchParams.get("property_type_id"),
       searchParams.get("property_type_slug"),
     );
-    const urlBeds = searchParams.get("bedrooms") || "";
+    const urlBeds = bedroomsUrlValueFromSelect(
+      bedroomsSelectValueFromUrl(searchParams.get("bedrooms")),
+    ) || "";
+    const localBeds = bedroomsUrlValueFromSelect(bedrooms) || "";
     const urlPrice = parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price"));
-    const localBeds = bedrooms.replace("+", "");
     return (
       activeTab !== urlTab ||
       neighborhoodId !== urlNeighborhood ||
@@ -157,6 +165,25 @@ export function SearchBar() {
 
   /** On listings: Search until filters are applied; then Reset (unless user changed filters again). */
   const showReset = !isHomepage && urlHasFilters && !filtersDirty;
+
+  useEffect(() => {
+    if (isHomepage || !filtersDirty) return;
+    const params = buildParams();
+    const query = params.toString();
+    if (query === searchParams.toString()) return;
+    router.replace(query ? `/properties?${query}` : "/properties");
+  }, [
+    isHomepage,
+    filtersDirty,
+    buildParams,
+    router,
+    searchParams,
+    activeTab,
+    neighborhoodId,
+    propertyTypeId,
+    bedrooms,
+    priceRange,
+  ]);
 
   const runAction = (label: "Searching..." | "Resetting...", action: () => void) => {
     setBusyLabel(label);
@@ -236,7 +263,7 @@ export function SearchBar() {
             <label htmlFor="search-bedrooms" className="block text-[11px] tracking-wider text-gray-600 mb-1 font-semibold">BEDROOMS</label>
             <select id="search-bedrooms" className="lux-input" value={bedrooms} onChange={(e) => setBedrooms(e.target.value)}>
               <option value="">Any</option>
-              {["1+", "2+", "3+", "4+", "5+"].map((b) => (
+              {BEDROOM_FILTER_OPTIONS.map((b) => (
                 <option key={b} value={b}>{b}</option>
               ))}
             </select>
