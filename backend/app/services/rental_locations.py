@@ -536,6 +536,10 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
     related_hoods = [n for n in all_hoods if n["slug"] != hood.slug and n["listing_count"] > 0]
     related_hoods.sort(key=lambda n: -n["listing_count"])
 
+    has_local_market = (
+        (market_answer.get("sample_size") or 0) >= 5
+        and (market_answer.get("location_slug") or "").lower() == hood.slug.lower()
+    )
     property_word = "property" if hood_total == 1 else "properties"
     return {
         "page_type": "neighborhood",
@@ -547,11 +551,7 @@ async def build_neighborhood_guide(db: AsyncSession, slug: str) -> dict[str, Any
         "h1": f"Rentals in {hood.name}",
         "meta_description": f"Browse available houses and apartments for rent in {hood.name}, Kigali.",
         "canonical": f"{SITE}/rentals/{hood.slug}",
-        "robots": (
-            "index,follow"
-            if hood_total >= 1 or market_answer.get("has_enough_data")
-            else "noindex,follow"
-        ),
+        "robots": "index,follow" if hood_total >= 1 or has_local_market else "noindex,follow",
         "intro": intro,
         "last_updated": _now().isoformat(),
         "listing_count": hood_total,

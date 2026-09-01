@@ -60,6 +60,26 @@ export default async function BlogDetailPage({ params }: Props) {
           </div>
         )}
         <BlogPostContent content={post.content} contentFormat={post.content_format} />
+        <nav
+          className="mt-10 pt-8 border-t text-sm flex flex-wrap gap-x-3 gap-y-2 text-gray-600 dark:text-gray-400"
+          aria-label="Related Kigali Rent resources"
+        >
+          <Link href="/rentals" className="text-gold-600 hover:underline">
+            Browse Kigali rentals
+          </Link>
+          <span className="text-gray-400" aria-hidden>
+            ·
+          </span>
+          <Link href="/research/kigali-rental-market" className="text-gold-600 hover:underline">
+            Kigali rental market research
+          </Link>
+          <span className="text-gray-400" aria-hidden>
+            ·
+          </span>
+          <Link href="/area" className="text-gold-600 hover:underline">
+            Kigali neighbourhood guides
+          </Link>
+        </nav>
         {post.tags?.length > 0 && (
           <div className="flex flex-wrap gap-2 mt-10 pt-8 border-t">
             {post.tags.map((tag: string) => (

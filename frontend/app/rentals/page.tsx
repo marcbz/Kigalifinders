@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchRentalDirectorySafe } from "@/lib/market-api";
 import { RentalHubPage } from "@/components/rentals/rental-hub-page";
+import { RentalHubSeoJsonLd } from "@/components/rentals/rental-seo-jsonld";
+import { normalizeSeoTitle } from "@/lib/seo-metadata";
 
 export const revalidate = 300;
 
@@ -9,7 +11,7 @@ export async function generateMetadata(): Promise<Metadata> {
   const page = await fetchRentalDirectorySafe();
   if (!page) return { title: "Kigali Rentals" };
   return {
-    title: page.title,
+    title: normalizeSeoTitle(page.title),
     description: page.meta_description,
     alternates: { canonical: page.canonical || "https://kigalirent.com/rentals" },
     robots: { index: true, follow: true },
@@ -28,5 +30,10 @@ export default async function RentalsDirectoryPage() {
       </div>
     );
   }
-  return <RentalHubPage data={page} />;
+  return (
+    <>
+      <RentalHubSeoJsonLd data={page} />
+      <RentalHubPage data={page} />
+    </>
+  );
 }

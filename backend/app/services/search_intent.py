@@ -1250,10 +1250,10 @@ def answer_sentence(
     if count <= 0 or not matches:
         if count <= 0:
             return (
-                f"KigaliRent currently has no rental properties matching “{h1}”. "
+                f"Kigali Rent currently has no rental properties matching “{h1}”. "
                 "Browse the full catalogue or related searches below."
             )
-        return f"KigaliRent currently has {count} available {'rental' if count == 1 else 'rentals'} for “{h1}”."
+        return f"Kigali Rent currently has {count} available {'rental' if count == 1 else 'rentals'} for “{h1}”."
     prices = [effective_usd_price(p) for p in matches]
     prices = [p for p in prices if p is not None]
     if prices:
@@ -1263,7 +1263,7 @@ def answer_sentence(
         else:
             price_bit = f"ranging from ${lo:,.0f} to ${hi:,.0f}/month"
         return (
-            f"KigaliRent currently has {count} available "
+            f"Kigali Rent currently has {count} available "
             f"{'rental' if count == 1 else 'rentals'} for “{h1}”, {price_bit}."
         )
-    return f"KigaliRent currently has {count} available {'rental' if count == 1 else 'rentals'} for “{h1}”."
+    return f"Kigali Rent currently has {count} available {'rental' if count == 1 else 'rentals'} for “{h1}”."

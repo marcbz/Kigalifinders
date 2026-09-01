@@ -12,6 +12,7 @@ import { RelatedRentalSearches } from "@/components/rentals/rental-landing-secti
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { getListingBadge } from "@/lib/property-features";
 import { fetchPropertyRelatedSearchesSafe, fetchPropertySafe } from "@/lib/server-api";
+import { buildPropertyListingJsonLd } from "@/lib/property-jsonld";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import { Button } from "@/components/ui/button";
 
@@ -208,15 +209,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify({
-            "@context": "https://schema.org",
-            "@type": "RealEstateListing",
-            "@id": `${propertyUrl}#listing`,
-            url: propertyUrl,
-            name: property.title,
-            description: property.description,
-            offers: { "@type": "Offer", price: property.price, priceCurrency: property.currency },
-          }),
+          __html: JSON.stringify(buildPropertyListingJsonLd(property, propertyUrl)),
         }}
       />
     </>

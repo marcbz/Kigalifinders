@@ -12,6 +12,7 @@ import {
 } from "@/components/rentals/rental-landing-sections";
 import { WhatsAppMatchAlert } from "@/components/property/whatsapp-match-alert";
 import { getAreaHref } from "@/lib/areas";
+import { CiteThisRental } from "@/components/rentals/cite-this-rental";
 
 type Listing = {
   id: string;
@@ -264,16 +265,44 @@ export function RentalHubPage({ data }: { data: RentalHubData }) {
         )}
 
         {data.page_type === "neighborhood" && locationSlug && (
-          <p className="text-sm">
+          <p className="text-sm flex flex-wrap gap-x-3 gap-y-1">
             <Link href={getAreaHref(locationSlug)} className="text-gold-600 underline">
-              {data.location_name || locationSlug} neighborhood guide
+              Living in {data.location_name || locationSlug} area guide
             </Link>
-            {" · "}
+            <span className="text-gray-400" aria-hidden>
+              ·
+            </span>
+            <Link href="/research/kigali-rental-market/prices" className="text-gold-600 underline">
+              Kigali rental prices research
+            </Link>
+            <span className="text-gray-400" aria-hidden>
+              ·
+            </span>
             <Link href="/rentals" className="text-gold-600 underline">
               All Kigali rentals
             </Link>
           </p>
         )}
+
+        {data.page_type === "city" && (data.total_listings ?? 0) > 0 && (
+          <CiteThisRental
+            topic={data.h1}
+            canonicalUrl={data.canonical || "https://kigalirent.com/rentals/kigali"}
+            lastUpdated={data.last_updated}
+            listingCount={data.total_listings}
+          />
+        )}
+
+        {data.page_type === "neighborhood" &&
+          locationSlug &&
+          (data.listing_count ?? 0) > 0 && (
+            <CiteThisRental
+              topic={data.h1}
+              canonicalUrl={data.canonical || `https://kigalirent.com/rentals/${locationSlug}`}
+              lastUpdated={data.last_updated}
+              listingCount={data.listing_count}
+            />
+          )}
 
         {!!data.key_attributes?.length && <KeyAttributes attrs={data.key_attributes} />}
 

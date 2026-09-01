@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import { fetchRentalLocationSafe } from "@/lib/market-api";
 import { fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
 import { RentalHubPage } from "@/components/rentals/rental-hub-page";
+import { RentalHubSeoJsonLd } from "@/components/rentals/rental-seo-jsonld";
+import { normalizeSeoTitle } from "@/lib/seo-metadata";
 
 export const revalidate = 300;
 
@@ -20,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const page = await fetchRentalLocationSafe(location);
   if (!page) return { title: "Rentals", robots: { index: false } };
   return {
-    title: page.title,
+    title: normalizeSeoTitle(page.title),
     description: page.meta_description,
     alternates: { canonical: page.canonical },
     robots: page.robots?.includes("noindex")
@@ -33,5 +35,10 @@ export default async function RentalLocationPage({ params }: Props) {
   const { location } = await params;
   const page = await fetchRentalLocationSafe(location);
   if (!page) notFound();
-  return <RentalHubPage data={page} />;
+  return (
+    <>
+      <RentalHubSeoJsonLd data={page} />
+      <RentalHubPage data={page} />
+    </>
+  );
 }

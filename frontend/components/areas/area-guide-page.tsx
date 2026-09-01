@@ -88,7 +88,13 @@ export function AreaGuidePage({
             </h2>
             <div className="flex flex-wrap gap-3 text-sm">
               <Link href={`/rentals/${encodeURIComponent(slug)}`} className="text-gold-600 hover:underline font-medium">
-                {name} rental hub
+                Houses and apartments for rent in {name}
+              </Link>
+              <span className="text-gray-400" aria-hidden>
+                ·
+              </span>
+              <Link href="/research/kigali-rental-market" className="text-gold-600 hover:underline font-medium">
+                Kigali rental prices research
               </Link>
               <span className="text-gray-400" aria-hidden>
                 ·
