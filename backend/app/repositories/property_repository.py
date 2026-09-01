@@ -2,7 +2,7 @@ from math import ceil
 from typing import Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
+from sqlalchemy import case, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -19,6 +19,14 @@ from app.models import (
 )
 from app.schemas import PaginatedResponse, PropertyDetail, PropertyImageResponse, PropertyListItem, PropertySearchParams
 from app.core.neighborhood_groups import expanded_neighborhood_slugs
+
+
+def _filterable_usd_price():
+    """USD amount used for public price-range filters (UI ranges are in USD)."""
+    return func.coalesce(
+        Property.usd_price,
+        case((func.upper(Property.currency) == "USD", Property.price), else_=None),
+    )
 
 
 class PropertyRepository:
@@ -168,6 +176,11 @@ class PropertyRepository:
                     Property.is_furnished.is_(False),
                     Property.listing_type != ListingType.FURNISHED,
                 )
+            elif lt == ListingType.RENT.value:
+                # Furnished rentals are stored as listing_type=furnished but belong in "For Rent".
+                query = query.where(
+                    Property.listing_type.in_([ListingType.RENT, ListingType.FURNISHED])
+                )
             else:
                 query = query.where(Property.listing_type == ListingType(lt))
         if params.district_id:
@@ -186,7 +199,7 @@ class PropertyRepository:
                     Property.property_type_ids.contains([type_id_str]),
                 )
             )
-        if params.property_type_slug:
+        elif params.property_type_slug:
             slug = params.property_type_slug.lower()
             type_result = await self.db.execute(
                 select(PropertyType.id).where(PropertyType.slug == slug)
@@ -200,10 +213,11 @@ class PropertyRepository:
                         Property.property_type_ids.contains([type_id_str]),
                     )
                 )
+        usd_price = _filterable_usd_price()
         if params.min_price is not None:
-            query = query.where(Property.price >= params.min_price)
+            query = query.where(usd_price.is_not(None), usd_price >= params.min_price)
         if params.max_price is not None:
-            query = query.where(Property.price <= params.max_price)
+            query = query.where(usd_price.is_not(None), usd_price <= params.max_price)
         if params.bedrooms is not None:
             query = query.where(Property.bedrooms >= params.bedrooms)
         if params.bathrooms is not None:

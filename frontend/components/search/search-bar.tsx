@@ -1,12 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { Loader2, RotateCcw, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { locationService } from "@/services/api";
 import { neighborhoodsForSearchFilter, neighborhoodFilterLabel } from "@/lib/neighborhood-groups";
+import type { PropertyType } from "@/types";
 
 const tabs = [
   { id: "all", label: "All" },
@@ -16,7 +17,7 @@ const tabs = [
 
 function tabFromListingType(lt: string | null): string {
   if (!lt) return "all";
-  if (lt === "furnished") return "furnished";
+  if (lt === "furnished") return "rent";
   return lt;
 }
 
@@ -25,12 +26,23 @@ function parsePriceRange(min: string | null, max: string | null) {
   return `${min || ""}-${max || ""}`;
 }
 
+function resolvePropertyTypeId(
+  propertyTypes: PropertyType[],
+  typeId: string | null,
+  typeSlug: string | null,
+): string {
+  if (typeId) return typeId;
+  if (typeSlug) {
+    return propertyTypes.find((pt) => pt.slug === typeSlug)?.id || "";
+  }
+  return "";
+}
+
 export function SearchBar() {
   const router = useRouter();
   const pathname = usePathname();
   const isHomepage = pathname === "/";
   const searchParams = useSearchParams();
-  const actionTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const { data: neighborhoods = [] } = useQuery({
     queryKey: ["neighborhoods"],
@@ -52,19 +64,31 @@ export function SearchBar() {
   const [busyLabel, setBusyLabel] = useState<"Searching..." | "Resetting...">("Searching...");
   const [activeTab, setActiveTab] = useState(() => tabFromListingType(searchParams.get("listing_type")));
   const [neighborhoodId, setNeighborhoodId] = useState(searchParams.get("neighborhood_id") || "");
-  const [propertyTypeId, setPropertyTypeId] = useState(searchParams.get("property_type_id") || "");
+  const [propertyTypeId, setPropertyTypeId] = useState(
+    () =>
+      resolvePropertyTypeId(
+        [],
+        searchParams.get("property_type_id"),
+        searchParams.get("property_type_slug"),
+      ),
+  );
   const [bedrooms, setBedrooms] = useState(searchParams.get("bedrooms") || "");
   const [priceRange, setPriceRange] = useState(() =>
     parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price")),
   );
 
   useEffect(() => {
-    const lt = searchParams.get("listing_type");
-    setActiveTab(tabFromListingType(lt));
-    setPropertyTypeId(searchParams.get("property_type_id") || "");
+    setActiveTab(tabFromListingType(searchParams.get("listing_type")));
+    setPropertyTypeId(
+      resolvePropertyTypeId(
+        propertyTypes,
+        searchParams.get("property_type_id"),
+        searchParams.get("property_type_slug"),
+      ),
+    );
     setBedrooms(searchParams.get("bedrooms") || "");
     setPriceRange(parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price")));
-  }, [searchParams]);
+  }, [searchParams, propertyTypes]);
 
   useEffect(() => {
     const slug = searchParams.get("neighborhood_slug");
@@ -76,15 +100,8 @@ export function SearchBar() {
     }
   }, [searchParams, neighborhoods]);
 
-  useEffect(() => {
-    return () => {
-      if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
-    };
-  }, []);
-
   const buildParams = useCallback(() => {
     const params = new URLSearchParams();
-    const propertyTypeSlug = searchParams.get("property_type_slug");
     if (activeTab && activeTab !== "all") {
       params.set("listing_type", activeTab);
     }
@@ -96,9 +113,8 @@ export function SearchBar() {
       if (min) params.set("min_price", min);
       if (max) params.set("max_price", max);
     }
-    if (propertyTypeSlug) params.set("property_type_slug", propertyTypeSlug);
     return params;
-  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, searchParams]);
+  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange]);
 
   const urlHasFilters = useMemo(() => {
     return Boolean(
@@ -122,7 +138,11 @@ export function SearchBar() {
       (urlSlug
         ? (neighborhoods as { id: string; slug: string }[]).find((n) => n.slug === urlSlug)?.id || ""
         : "");
-    const urlType = searchParams.get("property_type_id") || "";
+    const urlType = resolvePropertyTypeId(
+      propertyTypes,
+      searchParams.get("property_type_id"),
+      searchParams.get("property_type_slug"),
+    );
     const urlBeds = searchParams.get("bedrooms") || "";
     const urlPrice = parsePriceRange(searchParams.get("min_price"), searchParams.get("max_price"));
     const localBeds = bedrooms.replace("+", "");
@@ -133,24 +153,20 @@ export function SearchBar() {
       localBeds !== urlBeds ||
       priceRange !== urlPrice
     );
-  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, searchParams, neighborhoods]);
+  }, [activeTab, neighborhoodId, propertyTypeId, bedrooms, priceRange, searchParams, neighborhoods, propertyTypes]);
 
   /** On listings: Search until filters are applied; then Reset (unless user changed filters again). */
   const showReset = !isHomepage && urlHasFilters && !filtersDirty;
 
-  const runWithLoading = (label: "Searching..." | "Resetting...", action: () => void) => {
-    if (actionTimerRef.current) clearTimeout(actionTimerRef.current);
+  const runAction = (label: "Searching..." | "Resetting...", action: () => void) => {
     setBusyLabel(label);
     setIsBusy(true);
-    const delay = 1000 + Math.floor(Math.random() * 1000); // 1–2s
-    actionTimerRef.current = setTimeout(() => {
-      action();
-      setIsBusy(false);
-    }, delay);
+    action();
+    setIsBusy(false);
   };
 
   const handleReset = () => {
-    runWithLoading("Resetting...", () => {
+    runAction("Resetting...", () => {
       setActiveTab("all");
       setNeighborhoodId("");
       setPropertyTypeId("");
@@ -161,7 +177,7 @@ export function SearchBar() {
   };
 
   const handleSearch = () => {
-    runWithLoading("Searching...", () => {
+    runAction("Searching...", () => {
       const params = buildParams();
       const query = params.toString();
       router.push(query ? `/properties?${query}` : "/properties");
