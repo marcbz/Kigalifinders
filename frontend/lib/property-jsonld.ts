@@ -56,7 +56,11 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
   }
 
   if (property.primary_image) {
-    listing.image = property.primary_image;
+    listing.image = {
+      "@type": "ImageObject",
+      url: property.primary_image,
+      caption: property.primary_image_alt || property.title,
+    };
   }
 
   return listing;

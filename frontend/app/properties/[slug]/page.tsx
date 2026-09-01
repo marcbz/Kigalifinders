@@ -10,7 +10,7 @@ import { PropertyPrice } from "@/components/property/property-price";
 import { TrackPropertyView } from "@/components/property/track-property-view";
 import { RelatedRentalSearches } from "@/components/rentals/rental-landing-sections";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
-import { getListingBadge } from "@/lib/property-features";
+import { getListingBadge, getPropertyImageAlt } from "@/lib/property-features";
 import { fetchPropertyRelatedSearchesSafe, fetchPropertySafe } from "@/lib/server-api";
 import { buildPropertyListingJsonLd } from "@/lib/property-jsonld";
 import { buildPropertyMetaDescription, normalizeSeoTitle } from "@/lib/seo-metadata";
@@ -38,8 +38,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;
   const title = normalizeSeoTitle(property.meta_title || property.title);
   const description = buildPropertyMetaDescription(property);
+  const imageAlt = getPropertyImageAlt(property);
   const images = property.primary_image
-    ? [{ url: property.primary_image, width: 1200, height: 630, alt: property.title }]
+    ? [{ url: property.primary_image, width: 1200, height: 630, alt: imageAlt }]
     : undefined;
 
   return {

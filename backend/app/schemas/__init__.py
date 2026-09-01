@@ -103,6 +103,7 @@ class PropertyListItem(BaseModel):
     property_type_name: Optional[str] = None
     property_type_ids: List[str] = []
     primary_image: Optional[str] = None
+    primary_image_alt: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     realtor_name: Optional[str] = None

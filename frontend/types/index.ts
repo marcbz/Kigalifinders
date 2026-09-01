@@ -23,6 +23,7 @@ export interface PropertyListItem {
   property_type_name?: string;
   property_type_ids?: string[];
   primary_image?: string;
+  primary_image_alt?: string;
   latitude?: number;
   longitude?: number;
   realtor_name?: string;

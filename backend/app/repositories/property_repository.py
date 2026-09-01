@@ -44,9 +44,11 @@ class PropertyRepository:
         )
 
     def _to_list_item(self, prop: Property) -> PropertyListItem:
-        primary = next((img.url for img in prop.images if img.is_primary), None)
-        if not primary and prop.images:
-            primary = prop.images[0].url
+        primary_img = next((img for img in prop.images if img.is_primary), None)
+        if not primary_img and prop.images:
+            primary_img = prop.images[0]
+        primary = primary_img.url if primary_img else None
+        primary_alt = primary_img.alt_text if primary_img else None
         return PropertyListItem(
             id=prop.id,
             title=prop.title,
@@ -72,6 +74,7 @@ class PropertyRepository:
             property_type_name=prop.property_type.name if prop.property_type else None,
             property_type_ids=[str(x) for x in (prop.property_type_ids or [])],
             primary_image=primary,
+            primary_image_alt=primary_alt,
             latitude=prop.latitude,
             longitude=prop.longitude,
             realtor_name=prop.realtor_name,

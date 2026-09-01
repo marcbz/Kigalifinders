@@ -6,6 +6,7 @@ import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BlogRichTextEditor } from "@/components/admin/blog-rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
+import { FeaturedImageSeoPanel } from "@/components/admin/featured-image-seo-panel";
 import type { PropertyListItem } from "@/types";
 import {
   locationService,
@@ -28,7 +29,7 @@ interface PropertyFormModalProps {
   onClose: () => void;
 }
 
-type ImageRow = { url: string; is_primary: boolean };
+type ImageRow = { url: string; is_primary: boolean; alt_text?: string };
 
 function propertyDraftKey(propertyId?: string | null) {
   return propertyId ? `property:${propertyId}` : "property:new";
@@ -110,7 +111,7 @@ function YesNoField({
 export function PropertyFormModal({ property, open, onClose }: PropertyFormModalProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(defaultForm);
-  const [imageRows, setImageRows] = useState<ImageRow[]>([{ url: "", is_primary: true }]);
+  const [imageRows, setImageRows] = useState<ImageRow[]>([{ url: "", is_primary: true, alt_text: "" }]);
   const [error, setError] = useState("");
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
   const skipNextDraftSave = useRef(false);
@@ -154,7 +155,13 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       if (draft && draftHasContent(draft.data)) {
         setForm({ ...defaultForm, ...draft.data.form });
         setImageRows(
-          draft.data.imageRows?.length ? draft.data.imageRows : [{ url: "", is_primary: true }],
+          draft.data.imageRows?.length
+            ? draft.data.imageRows.map((row) => ({
+                url: row.url,
+                is_primary: row.is_primary,
+                alt_text: row.alt_text || "",
+              }))
+            : [{ url: "", is_primary: true, alt_text: "" }],
         );
         setDraftNotice(`Unsaved draft restored (saved ${formatDraftSavedAt(draft.savedAt)}).`);
         return;
@@ -207,11 +214,15 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
           badge_label: property.badge_label || "",
         },
         detail?.images?.length
-          ? detail.images.map((img) => ({ url: img.url, is_primary: img.is_primary }))
-          : [{ url: property.primary_image || "", is_primary: true }],
+          ? detail.images.map((img) => ({
+              url: img.url,
+              is_primary: img.is_primary,
+              alt_text: img.alt_text || "",
+            }))
+          : [{ url: property.primary_image || "", is_primary: true, alt_text: property.primary_image_alt || "" }],
       );
     } else {
-      applyDraftIfAny(defaultForm, [{ url: "", is_primary: true }]);
+      applyDraftIfAny(defaultForm, [{ url: "", is_primary: true, alt_text: "" }]);
     }
     setError("");
   }, [open, property, propertyDetail, draftKey]);
@@ -280,8 +291,22 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
         url: img.url.trim(),
         is_primary: img.is_primary,
         sort_order: i,
+        alt_text: img.alt_text?.trim() || undefined,
       })),
   });
+
+  const primaryImageIndex = imageRows.findIndex((row) => row.is_primary);
+  const primaryImageRow = primaryImageIndex >= 0 ? imageRows[primaryImageIndex] : null;
+  const featuredSeoContext = {
+    title: form.title,
+    bedrooms: form.bedrooms,
+    neighborhoodId: form.neighborhood_id,
+    districtId: form.district_id,
+    propertyTypeIds: form.property_type_ids,
+    neighborhoods: neighborhoods as { id: string; name: string }[],
+    propertyTypes: propertyTypes as { id: string; name: string }[],
+    imageUrl: primaryImageRow?.url,
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -531,8 +556,20 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div className="md:col-span-2 space-y-3">
               <label className="text-xs font-semibold text-gray-500">PROPERTY IMAGES</label>
               <p className="text-xs text-gray-400">
-                Paste image URLs. Mark one as featured — it appears on cards and social previews.
+                Paste image URLs. Mark one as featured — it powers Google Images, listing cards, and social link previews.
               </p>
+              {primaryImageRow ? (
+                <FeaturedImageSeoPanel
+                  context={featuredSeoContext}
+                  altText={primaryImageRow.alt_text || ""}
+                  onAltTextChange={(value) => {
+                    if (primaryImageIndex < 0) return;
+                    const next = [...imageRows];
+                    next[primaryImageIndex] = { ...next[primaryImageIndex], alt_text: value };
+                    setImageRows(next);
+                  }}
+                />
+              ) : null}
               {imageRows.map((row, idx) => (
                 <div key={idx} className="flex gap-2 items-start">
                   <div className="flex-1">
@@ -553,7 +590,9 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                     <input
                       type="radio"
                       checked={row.is_primary}
-                      onChange={() => setImageRows(imageRows.map((r, i) => ({ ...r, is_primary: i === idx })))}
+                      onChange={() =>
+                        setImageRows(imageRows.map((r, i) => ({ ...r, is_primary: i === idx })))
+                      }
                     />
                     Featured
                   </label>
@@ -571,7 +610,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                 variant="outline"
                 size="sm"
                 className="rounded-full"
-                onClick={() => setImageRows([...imageRows, { url: "", is_primary: false }])}
+                onClick={() => setImageRows([...imageRows, { url: "", is_primary: false, alt_text: "" }])}
               >
                 Add image
               </Button>

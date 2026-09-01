@@ -16,13 +16,20 @@ export function getListingBadge(
   return "Unfurnished";
 }
 
-/** Meaningful alt for listing photos — uses title and location, no keyword stuffing. */
+/** Meaningful alt for listing photos — prefers stored featured alt, then title/location. */
 export function getPropertyImageAlt(
   property: Pick<
     PropertyListItem,
-    "title" | "neighborhood_name" | "district_name" | "bedrooms" | "property_type_name"
+    | "title"
+    | "neighborhood_name"
+    | "district_name"
+    | "bedrooms"
+    | "property_type_name"
+    | "primary_image_alt"
   >,
 ): string {
+  const storedAlt = property.primary_image_alt?.trim();
+  if (storedAlt) return storedAlt;
   const title = property.title?.trim();
   const place = [property.neighborhood_name, property.district_name].filter(Boolean).join(", ");
   if (title) {
