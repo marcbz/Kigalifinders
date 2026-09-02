@@ -70,6 +70,69 @@ def sort_by_listing_freshness(props: list[Property]) -> list[Property]:
     return sorted(props, key=_listing_date, reverse=True)
 
 
+def match_tier(prop: Property, query: dict[str, Any]) -> int:
+    """Higher = closer to the page intent. Used before freshness when ranking hub results."""
+    score = 0
+    want_beds = query.get("bedrooms")
+    if want_beds is not None:
+        if prop.bedrooms is None:
+            score -= 100
+        else:
+            diff = int(prop.bedrooms) - int(want_beds)
+            if diff == 0:
+                score += 100
+            elif diff > 0:
+                score += max(-50, 35 - diff * 20)
+            else:
+                score += max(0, 15 + diff * 5)
+
+    want_type = (query.get("property_type") or query.get("property_type_slug") or "").strip().lower()
+    if want_type:
+        tokens = _property_type_tokens(prop, query)
+        if _property_type_compatible(want_type, tokens, allow_family=False):
+            score += 40
+        elif _property_type_compatible(want_type, tokens, allow_family=True):
+            score += 20
+        else:
+            score -= 60
+
+    want_bath = query.get("bathrooms")
+    if want_bath is not None:
+        if prop.bathrooms is not None and float(prop.bathrooms) >= float(want_bath):
+            score += 10
+        else:
+            score -= 10
+
+    return score
+
+
+def sort_by_match_tier_then_freshness(props: list[Property], query: dict[str, Any]) -> list[Property]:
+    """Best intent match first, then newest listing within the same tier."""
+    return sorted(
+        props,
+        key=lambda p: (match_tier(p, query), _listing_date(p)),
+        reverse=True,
+    )
+
+
+def infer_hub_match_mode(
+    matches: list[Property],
+    query: dict[str, Any],
+    *,
+    active_subset: frozenset[str],
+) -> str:
+    if not matches:
+        return "exact"
+    full = frozenset(_requested_criteria(query))
+    want_beds = query.get("bedrooms")
+    all_exact_beds = want_beds is None or all(
+        p.bedrooms is not None and int(p.bedrooms) == int(want_beds) for p in matches
+    )
+    if active_subset == full and all_exact_beds:
+        return "exact"
+    return "closest"
+
+
 def sort_by_query_relevance(props: list[Property], query: dict[str, Any]) -> list[Property]:
     """Keyword/attribute relevance to the page query, then newest listing.
 
@@ -505,7 +568,7 @@ def select_progressive_match_group(
                 return selected, "closest", frozenset()
         return [], "exact", full
 
-    selected = sort_by_query_relevance(best_matches, query)[:limit]
+    selected = sort_by_match_tier_then_freshness(best_matches, query)[:limit]
     all_exact_type = (not wants_type) or all(_property_type_exact(p, query) for p in selected)
     if best_subset == full and all_exact_type:
         mode = "exact"
@@ -624,24 +687,6 @@ async def _filter_rental_properties(
     return sort_by_listing_freshness(matched)[:limit]
 
 
-def _merge_fresh_matches(
-    primary: list[Property],
-    extra: list[Property],
-    *,
-    limit: int,
-) -> list[Property]:
-    seen = {p.id for p in primary}
-    merged = list(primary)
-    for prop in sort_by_listing_freshness(extra):
-        if prop.id in seen:
-            continue
-        merged.append(prop)
-        seen.add(prop.id)
-        if len(merged) >= limit:
-            break
-    return merged[:limit]
-
-
 async def match_rentals_for_hub(
     db: AsyncSession,
     query: dict[str, Any],
@@ -687,38 +732,17 @@ async def match_rentals_for_hub(
     slug_map = await _property_type_slug_map(db, pool)
     enriched_query = {**query, "_type_slug_map": slug_map}
 
-    candidate_limit = max(limit * 4, limit, 36) if related_searches and not prefer_freshness else limit
-    selected, mode, _subset = select_progressive_match_group(
-        pool, enriched_query, limit=candidate_limit
+    gather_limit = max(limit * 3, limit)
+    selected, _mode, active_subset = select_progressive_match_group(
+        pool, enriched_query, limit=gather_limit
     )
-
-    if len(selected) < limit and query.get("bedrooms") is not None:
-        relaxed_query = {**enriched_query, "_bedroom_mode": "min"}
-        relax_criteria = [
-            c for c in _requested_criteria(relaxed_query) if c not in {"bathrooms", "amenities"}
-        ]
-        requested_core = frozenset(relax_criteria) & _CORE_CRITERIA
-        if not requested_core and "property_type" in relax_criteria:
-            requested_core = frozenset({"property_type"})
-        fill_subset, fill_matches, _ = _select_best_subset(
-            pool,
-            relaxed_query,
-            criteria=relax_criteria,
-            requested_core=requested_core,
-            limit=limit,
-            type_family=True,
-            allow_core_drop=True,
-            full_criteria=frozenset(_requested_criteria(query)),
-        )
-        if fill_matches:
-            selected = _merge_fresh_matches(selected, fill_matches, limit=limit)
-            if fill_subset != _subset:
-                mode = "closest"
+    selected = sort_by_match_tier_then_freshness(selected, enriched_query)[:limit]
+    mode = infer_hub_match_mode(selected, enriched_query, active_subset=active_subset)
 
     if prefer_freshness or not related_searches:
-        selected = sort_by_listing_freshness(selected)[:limit]
-    else:
-        selected = sort_by_related_search_relevance(selected, related_searches)[:limit]
+        return selected, mode
+
+    selected = sort_by_related_search_relevance(selected, related_searches)[:limit]
     return selected, mode
 
 

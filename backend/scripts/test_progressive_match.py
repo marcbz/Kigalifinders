@@ -162,6 +162,20 @@ def test_descriptions_have_no_decorative_dashes():
     assert samples[2] == "Browse available houses and apartments for rent in Kibagabaga, Kigali."
 
 
+def test_tier_sort_puts_exact_bedrooms_before_larger_homes():
+    from app.services.search_intent import sort_by_match_tier_then_freshness
+
+    query = {"bedrooms": 1, "property_type": "house", "bathrooms": 1, "location": "kigali"}
+    props = [
+        _prop(pid="big-new", beds=5, price=2000, neighborhood="kibagabaga", ptype="house", published_days_ago=0),
+        _prop(pid="one-old", beds=1, price=500, neighborhood="kagarama", ptype="house", published_days_ago=10),
+        _prop(pid="apt-new", beds=1, price=800, neighborhood="gacuriro", ptype="apartment", published_days_ago=1),
+    ]
+    ranked = sort_by_match_tier_then_freshness(props, query)
+    assert ranked[0].bedrooms == 1
+    assert ranked[-1].id == "big-new"
+
+
 def test_related_search_keyword_ranking_prefers_houses():
     """Top related search 'houses in kigali' should float house listings above apartments."""
     from app.services.search_intent import sort_by_related_search_relevance
@@ -193,6 +207,7 @@ if __name__ == "__main__":
     test_exact_villa_preferred_when_present()
     test_apartment_query_accepts_villa_family_when_thin()
     test_descriptions_have_no_decorative_dashes()
+    test_tier_sort_puts_exact_bedrooms_before_larger_homes()
     test_related_search_keyword_ranking_prefers_houses()
     print("progressive match checks passed")
     for q, loc in [
