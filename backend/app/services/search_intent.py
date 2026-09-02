@@ -215,7 +215,7 @@ def _requested_criteria(query: dict[str, Any]) -> list[str]:
     return criteria
 
 
-def _property_type_tokens(prop: Property) -> set[str]:
+def _property_type_tokens(prop: Property, query: dict[str, Any] | None = None) -> set[str]:
     tokens: set[str] = set()
     if prop.property_type:
         if prop.property_type.slug:
@@ -223,6 +223,12 @@ def _property_type_tokens(prop: Property) -> set[str]:
         if prop.property_type.name:
             tokens.add(prop.property_type.name.lower())
             tokens.update(prop.property_type.name.lower().replace("-", " ").split())
+    slug_map = (query or {}).get("_type_slug_map") or {}
+    for tid in getattr(prop, "property_type_ids", None) or []:
+        slug = slug_map.get(str(tid))
+        if slug:
+            tokens.add(slug.lower())
+            tokens.update(slug.lower().replace("-", " ").split())
     return tokens
 
 
@@ -288,7 +294,30 @@ def _property_type_exact(prop: Property, query: dict[str, Any]) -> bool:
     want = (query.get("property_type") or query.get("property_type_slug") or "").lower().strip()
     if not want:
         return True
-    return _property_type_compatible(want, _property_type_tokens(prop), allow_family=False)
+    return _property_type_compatible(
+        want, _property_type_tokens(prop, query), allow_family=False
+    )
+
+
+async def _property_type_slug_map(db: AsyncSession, props: list[Property]) -> dict[str, str]:
+    ids: set[str] = set()
+    for prop in props:
+        if prop.property_type_id:
+            ids.add(str(prop.property_type_id))
+        for tid in getattr(prop, "property_type_ids", None) or []:
+            ids.add(str(tid))
+    valid_ids: list[UUID] = []
+    for raw_id in ids:
+        try:
+            valid_ids.append(UUID(raw_id))
+        except ValueError:
+            continue
+    if not valid_ids:
+        return {}
+    result = await db.execute(
+        select(PropertyType.id, PropertyType.slug).where(PropertyType.id.in_(valid_ids))
+    )
+    return {str(row.id): (row.slug or "").lower() for row in result.all()}
 
 
 def _criterion_holds(
@@ -302,7 +331,11 @@ def _criterion_holds(
         return location_match_rank(prop, query) >= 1
     if criterion == "bedrooms":
         want = query.get("bedrooms")
-        return want is not None and prop.bedrooms is not None and int(prop.bedrooms) == int(want)
+        if want is None or prop.bedrooms is None:
+            return False
+        if query.get("_bedroom_mode") == "min":
+            return int(prop.bedrooms) >= int(want)
+        return int(prop.bedrooms) == int(want)
     if criterion == "budget":
         price = effective_usd_price(prop)
         if price is None:
@@ -329,7 +362,7 @@ def _criterion_holds(
         if not want:
             return True
         return _property_type_compatible(
-            want, _property_type_tokens(prop), allow_family=type_family
+            want, _property_type_tokens(prop, query), allow_family=type_family
         )
     if criterion == "bathrooms":
         want = query.get("bathrooms")
@@ -352,11 +385,14 @@ def _criterion_holds(
     return True
 
 
+_SOFT_MATCH_CRITERIA = frozenset({"bathrooms", "amenities"})
+
+
 def _subset_score(subset: frozenset[str], match_count: int, limit: int) -> tuple[int, int, int]:
-    """Higher is better: more criteria kept, higher total weight, then useful inventory depth."""
+    """Higher is better: fill the page first, then keep more criteria, then weight."""
     weight = sum(_CRITERION_WEIGHTS.get(c, 0) for c in subset)
     depth = min(match_count, max(limit, 1))
-    return (len(subset), weight, depth)
+    return (depth, len(subset), weight)
 
 
 _CORE_CRITERIA = frozenset({"bedrooms", "location", "budget", "furnished", "property_type"})
@@ -370,6 +406,8 @@ def _select_best_subset(
     requested_core: frozenset[str],
     limit: int,
     type_family: bool,
+    allow_core_drop: bool = False,
+    full_criteria: frozenset[str] | None = None,
 ) -> tuple[frozenset[str] | None, list[Property], tuple[int, int, int] | None]:
     best_subset: frozenset[str] | None = None
     best_matches: list[Property] = []
@@ -379,6 +417,9 @@ def _select_best_subset(
         subset = frozenset(criteria[i] for i in range(n) if mask & (1 << i))
         if requested_core and not (subset & requested_core):
             continue
+        if not allow_core_drop and full_criteria:
+            if (full_criteria - subset) - _SOFT_MATCH_CRITERIA:
+                continue
         matched = [
             p
             for p in props
@@ -423,6 +464,7 @@ def select_progressive_match_group(
         requested_core=requested_core,
         limit=limit,
         type_family=False,
+        full_criteria=full,
     )
 
     # Not enough exact-type inventory: treat villa, house, and apartment as the same family.
@@ -435,6 +477,7 @@ def select_progressive_match_group(
             requested_core=requested_core,
             limit=limit,
             type_family=True,
+            full_criteria=full,
         )
         use_family = bool(fam_matches) and (
             best_subset is None
@@ -503,7 +546,10 @@ async def _fetch_rental_pool(
     if nids:
         q = q.where(Property.neighborhood_id.in_(nids))
 
-    # Prefer fresher inventory in the pool window.
+    q = q.order_by(
+        Property.published_at.desc().nullslast(),
+        Property.created_at.desc(),
+    )
     result = await db.execute(q.limit(pool_limit))
     return list(result.scalars().unique().all())
 
@@ -578,6 +624,24 @@ async def _filter_rental_properties(
     return sort_by_listing_freshness(matched)[:limit]
 
 
+def _merge_fresh_matches(
+    primary: list[Property],
+    extra: list[Property],
+    *,
+    limit: int,
+) -> list[Property]:
+    seen = {p.id for p in primary}
+    merged = list(primary)
+    for prop in sort_by_listing_freshness(extra):
+        if prop.id in seen:
+            continue
+        merged.append(prop)
+        seen.add(prop.id)
+        if len(merged) >= limit:
+            break
+    return merged[:limit]
+
+
 async def match_rentals_for_hub(
     db: AsyncSession,
     query: dict[str, Any],
@@ -585,6 +649,7 @@ async def match_rentals_for_hub(
     limit: int = 24,
     include_unavailable: bool = False,
     related_searches: list[dict[str, Any]] | None = None,
+    prefer_freshness: bool = False,
 ) -> tuple[list[Property], str]:
     """Match active published rentals for hub display via progressive combinations.
 
@@ -619,15 +684,41 @@ async def match_rentals_for_hub(
     else:
         pool = local_pool
 
-    # Pull a wider eligible set, then re-rank by related-search keyword relevance when available.
-    candidate_limit = max(limit * 4, limit, 36) if related_searches else limit
+    slug_map = await _property_type_slug_map(db, pool)
+    enriched_query = {**query, "_type_slug_map": slug_map}
+
+    candidate_limit = max(limit * 4, limit, 36) if related_searches and not prefer_freshness else limit
     selected, mode, _subset = select_progressive_match_group(
-        pool, query, limit=candidate_limit
+        pool, enriched_query, limit=candidate_limit
     )
-    if related_searches:
+
+    if len(selected) < limit and query.get("bedrooms") is not None:
+        relaxed_query = {**enriched_query, "_bedroom_mode": "min"}
+        relax_criteria = [
+            c for c in _requested_criteria(relaxed_query) if c not in {"bathrooms", "amenities"}
+        ]
+        requested_core = frozenset(relax_criteria) & _CORE_CRITERIA
+        if not requested_core and "property_type" in relax_criteria:
+            requested_core = frozenset({"property_type"})
+        fill_subset, fill_matches, _ = _select_best_subset(
+            pool,
+            relaxed_query,
+            criteria=relax_criteria,
+            requested_core=requested_core,
+            limit=limit,
+            type_family=True,
+            allow_core_drop=True,
+            full_criteria=frozenset(_requested_criteria(query)),
+        )
+        if fill_matches:
+            selected = _merge_fresh_matches(selected, fill_matches, limit=limit)
+            if fill_subset != _subset:
+                mode = "closest"
+
+    if prefer_freshness or not related_searches:
+        selected = sort_by_listing_freshness(selected)[:limit]
+    else:
         selected = sort_by_related_search_relevance(selected, related_searches)[:limit]
-    elif len(selected) > limit:
-        selected = selected[:limit]
     return selected, mode
 
 
@@ -684,7 +775,7 @@ def score_property(prop: Property, query: dict[str, Any]) -> float:
     if not ptype:
         score += 5
     else:
-        tokens = _property_type_tokens(prop)
+        tokens = _property_type_tokens(prop, query)
         if _property_type_compatible(ptype, tokens, allow_family=False):
             score += 12
         elif _property_type_compatible(ptype, tokens, allow_family=True):

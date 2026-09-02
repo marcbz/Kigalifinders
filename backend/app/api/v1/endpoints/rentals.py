@@ -241,7 +241,7 @@ async def get_rental_landing(
         generate_display_description,
         key_attributes_from_query,
     )
-    from app.services.search_intent import match_rentals_for_hub, match_verified_properties
+    from app.services.search_intent import match_rentals_for_hub
 
     path = f"/rentals/{location_slug.lower()}/{intent_slug.lower()}"
     result = await db.execute(
@@ -269,33 +269,13 @@ async def get_rental_landing(
         }
         for r in related
     ]
-    # Page intent keywords dominate; related rental searches refine ranking among matches.
-    ranking_searches = [
-        {
-            "path": intent.path,
-            "title": intent.title,
-            "h1": intent.h1,
-            "match_count": max(int(intent.match_count or 0), 25),
-            "query": query,
-        },
-        *related_searches,
-    ]
-    exact_matches = await match_verified_properties(
+
+    matches, match_mode = await match_rentals_for_hub(
         db,
         query,
         limit=RENTAL_HUB_LISTING_CAP,
-        allow_closest=False,
+        prefer_freshness=True,
     )
-    if exact_matches:
-        matches = exact_matches
-        match_mode = "exact"
-    else:
-        matches, match_mode = await match_rentals_for_hub(
-            db,
-            query,
-            limit=RENTAL_HUB_LISTING_CAP,
-            related_searches=ranking_searches,
-        )
     match_count = int(intent.match_count or 0) or len(matches)
 
     loc_slug = intent.location_slug

@@ -24,6 +24,7 @@ from app.models import (
 from app.services.fx import effective_usd_price
 
 MIN_SAMPLE_PUBLIC = 5
+MIN_SAMPLE_VERIFIED_NEIGHBORHOOD = 3
 MIN_SAMPLE_TREND = 3
 OUTLIER_IQR_FACTOR = 1.5
 
@@ -160,6 +161,42 @@ def _group_stats(
                 "p25_usd": st["p25_usd"],
                 "p75_usd": st["p75_usd"],
                 "sample_size": st["sample_size"],
+                "period_start": period_start.isoformat() if period_start else None,
+                "period_end": period_end.isoformat() if period_end else None,
+            }
+        )
+    return out
+
+
+def _group_neighborhood_stats(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Neighborhood medians — prefer KigaliRent Verified inventory when sample is strong enough."""
+    hood_rows = [r for r in rows if (r.get("location_slug") or "") not in {"kigali", "", None}]
+    groups: dict[Any, list[dict[str, Any]]] = defaultdict(list)
+    for row in hood_rows:
+        groups[row.get("location_slug")].append(row)
+
+    out: list[dict[str, Any]] = []
+    for key, group in groups.items():
+        verified = [g for g in group if g.get("origin") == "verified"]
+        prices = [g["usd"] for g in group]
+        sample_min = MIN_SAMPLE_PUBLIC
+        if len(verified) >= MIN_SAMPLE_VERIFIED_NEIGHBORHOOD:
+            prices = [g["usd"] for g in verified]
+            sample_min = MIN_SAMPLE_VERIFIED_NEIGHBORHOOD
+
+        st = compute_stats(prices, min_sample=sample_min)
+        if not st:
+            continue
+        period_start, period_end = _period_from_rows(group)
+        out.append(
+            {
+                "key": key,
+                "label": group[0].get("location_name") or str(key).replace("-", " ").title(),
+                "median_usd": st["median_usd"],
+                "p25_usd": st["p25_usd"],
+                "p75_usd": st["p75_usd"],
+                "sample_size": st["sample_size"],
+                "verified_count": len(verified),
                 "period_start": period_start.isoformat() if period_start else None,
                 "period_end": period_end.isoformat() if period_end else None,
             }
@@ -466,11 +503,7 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
     hood_rows = filtered
     if location_slug in {"kigali", "all", None}:
         hood_rows = [r for r in filtered if (r.get("location_slug") or "") not in {"kigali", "", None}]
-    by_neighborhood = _group_stats(
-        hood_rows,
-        key_fn=lambda r: r.get("location_slug"),
-        label_fn=lambda k, g: g[0].get("location_name") or str(k).replace("-", " ").title(),
-    )
+    by_neighborhood = _group_neighborhood_stats(hood_rows)
     by_neighborhood.sort(key=lambda x: -(x["median_usd"] or 0))
     for row in by_neighborhood:
         row["location_slug"] = row["key"]
