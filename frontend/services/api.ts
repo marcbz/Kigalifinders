@@ -144,6 +144,8 @@ export const propertyService = {
     api.get<PaginatedResponse<PropertyListItem>>("/properties", { params }).then((r) => r.data),
   listAdmin: (params?: PropertySearchParams) =>
     api.get<PaginatedResponse<PropertyListItem>>("/properties/manage", { params }).then((r) => r.data),
+  getAdminById: (id: string) =>
+    api.get<PropertyDetail>(`/properties/manage/${id}`).then((r) => r.data),
   featured: (limit = 6, listing_type?: string) =>
     api.get<PropertyListItem[]>("/properties/featured", { params: { limit, listing_type } }).then((r) => r.data),
   getBySlug: (slug: string) =>

@@ -18,6 +18,8 @@ export interface PropertyListItem {
   is_furnished: boolean;
   has_title_deed: boolean;
   badge_label?: string;
+  district_id?: string;
+  neighborhood_id?: string;
   district_name?: string;
   neighborhood_name?: string;
   property_type_name?: string;

@@ -122,6 +122,20 @@ async def list_properties_admin(
     return await repo.search(params, published_only=False)
 
 
+@router.get("/manage/{property_id}", response_model=PropertyDetail)
+async def get_property_admin(
+    property_id: UUID,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_staff)],
+):
+    """Full property detail for staff, including drafts (public slug API excludes drafts)."""
+    repo = PropertyRepository(db)
+    prop = await repo.get_by_id(property_id)
+    if not prop:
+        raise HTTPException(status_code=404, detail="Property not found")
+    return repo._to_detail(prop)
+
+
 @router.get("/featured", response_model=list[PropertyListItem])
 async def featured_properties(
     db: Annotated[AsyncSession, Depends(get_db)],

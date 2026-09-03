@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BlogRichTextEditor } from "@/components/admin/blog-rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import { FeaturedImageSeoPanel } from "@/components/admin/featured-image-seo-panel";
-import type { PropertyListItem } from "@/types";
+import type { PropertyDetail, PropertyListItem } from "@/types";
 import {
   locationService,
   propertyService,
@@ -17,7 +17,6 @@ import {
 import { getApiErrorMessage } from "@/lib/utils";
 import {
   clearAdminDraft,
-  draftHasContent,
   formatDraftSavedAt,
   loadAdminDraft,
   saveAdminDraft,
@@ -108,13 +107,112 @@ function YesNoField({
   );
 }
 
+function formFromProperty(
+  property: PropertyListItem,
+  detail?: PropertyDetail | null,
+): { form: typeof defaultForm; imageRows: ImageRow[] } {
+  return {
+    form: {
+      title: property.title,
+      slug: property.slug || "",
+      description: detail?.description || "",
+      short_description: property.short_description || "",
+      meta_title: detail?.meta_title || "",
+      meta_description: detail?.meta_description || "",
+      listing_type: property.listing_type,
+      status: property.status,
+      price: String(property.price),
+      previous_price:
+        detail?.previous_price != null
+          ? String(detail.previous_price)
+          : property.previous_price != null
+            ? String(property.previous_price)
+            : "",
+      price_period: property.price_period || "month",
+      currency: property.currency || "USD",
+      bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
+      bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
+      area_sqm: property.area_sqm != null ? String(property.area_sqm) : "",
+      lot_size_sqm: property.lot_size_sqm != null ? String(property.lot_size_sqm) : "",
+      district_id: String(detail?.district_id || property.district_id || ""),
+      neighborhood_id: String(detail?.neighborhood_id || property.neighborhood_id || ""),
+      property_type_ids:
+        detail?.property_type_ids?.length
+          ? detail.property_type_ids
+          : property.property_type_ids?.length
+            ? property.property_type_ids
+            : [],
+      realtor_name: detail?.realtor_name || property.realtor_name || "",
+      is_furnished_yn: boolToYesNo(property.is_furnished),
+      has_balcony: boolToYesNo(detail?.has_balcony ?? property.has_balcony),
+      has_kitchen: boolToYesNo(detail?.has_kitchen ?? property.has_kitchen),
+      has_pool: boolToYesNo(detail?.has_pool ?? property.has_pool),
+      has_parking: boolToYesNo(detail?.has_parking ?? property.has_parking),
+      has_jacuzzi: boolToYesNo(detail?.has_jacuzzi ?? property.has_jacuzzi),
+      has_garden: boolToYesNo(detail?.has_garden ?? property.has_garden),
+      pets_allowed: boolToYesNo(detail?.pets_allowed ?? property.pets_allowed),
+      show_features_table: (detail?.show_features_table ?? property.show_features_table) !== false,
+      is_featured: property.is_featured,
+      has_title_deed: property.has_title_deed,
+      badge_label: property.badge_label || "",
+    },
+    imageRows: detail?.images?.length
+      ? detail.images.map((img) => ({
+          url: img.url,
+          is_primary: img.is_primary,
+          alt_text: img.alt_text || "",
+        }))
+      : [
+          {
+            url: property.primary_image || "",
+            is_primary: true,
+            alt_text: property.primary_image_alt || "",
+          },
+        ],
+  };
+}
+
+function propertyDraftHasMeaningfulContent(data: PropertyDraftData): boolean {
+  const { form, imageRows } = data;
+  if (imageRows?.some((row) => row.url?.trim())) return true;
+  const meaningful = [
+    form.title,
+    form.slug,
+    form.description,
+    form.short_description,
+    form.meta_title,
+    form.meta_description,
+    form.price,
+    form.bedrooms,
+    form.bathrooms,
+    form.district_id,
+    form.neighborhood_id,
+    form.realtor_name,
+    form.badge_label,
+  ];
+  if (
+    meaningful.some((v) => {
+      if (v == null) return false;
+      const t = String(v).trim();
+      return t.length > 0 && t !== "<p></p>";
+    })
+  ) {
+    return true;
+  }
+  if (form.property_type_ids?.length) return true;
+  return false;
+}
+
 export function PropertyFormModal({ property, open, onClose }: PropertyFormModalProps) {
   const queryClient = useQueryClient();
   const [form, setForm] = useState(defaultForm);
   const [imageRows, setImageRows] = useState<ImageRow[]>([{ url: "", is_primary: true, alt_text: "" }]);
   const [error, setError] = useState("");
   const [draftNotice, setDraftNotice] = useState<string | null>(null);
+  const [pendingLocalDraft, setPendingLocalDraft] = useState<PropertyDraftData | null>(null);
   const skipNextDraftSave = useRef(false);
+  const detailHydrated = useRef(false);
+  const hydratedPropertyId = useRef<string | null>(null);
   const draftKey = propertyDraftKey(property?.id);
 
   const { data: districts = [] } = useQuery({
@@ -138,94 +236,86 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     staleTime: 0,
   });
 
-  const { data: propertyDetail } = useQuery({
-    queryKey: ["property-detail", property?.slug],
-    queryFn: () => propertyService.getBySlug(property!.slug),
-    enabled: open && !!property?.slug,
+  const {
+    data: propertyDetail,
+    isError: propertyDetailError,
+  } = useQuery({
+    queryKey: ["admin-property-detail", property?.id],
+    queryFn: () => propertyService.getAdminById(property!.id),
+    enabled: open && !!property?.id,
     staleTime: 0,
+    retry: 1,
   });
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      detailHydrated.current = false;
+      hydratedPropertyId.current = null;
+      return;
+    }
     skipNextDraftSave.current = true;
     setDraftNotice(null);
+    setPendingLocalDraft(null);
+    setError("");
 
-    const applyDraftIfAny = (baseForm: typeof defaultForm, baseImages: ImageRow[]) => {
-      const draft = loadAdminDraft<PropertyDraftData>(draftKey);
-      if (draft && draftHasContent(draft.data)) {
-        setForm({ ...defaultForm, ...draft.data.form });
-        setImageRows(
-          draft.data.imageRows?.length
-            ? draft.data.imageRows.map((row) => ({
-                url: row.url,
-                is_primary: row.is_primary,
-                alt_text: row.alt_text || "",
-              }))
-            : [{ url: "", is_primary: true, alt_text: "" }],
-        );
-        setDraftNotice(`Unsaved draft restored (saved ${formatDraftSavedAt(draft.savedAt)}).`);
-        return;
-      }
-      setForm(baseForm);
-      setImageRows(baseImages);
+    const applyLocalDraft = (draft: PropertyDraftData, savedAt: string) => {
+      setForm({ ...defaultForm, ...draft.form });
+      setImageRows(
+        draft.imageRows?.length
+          ? draft.imageRows.map((row) => ({
+              url: row.url,
+              is_primary: row.is_primary,
+              alt_text: row.alt_text || "",
+            }))
+          : [{ url: "", is_primary: true, alt_text: "" }],
+      );
+      detailHydrated.current = true;
+      hydratedPropertyId.current = null;
+      setDraftNotice(`Unsaved draft restored (saved ${formatDraftSavedAt(savedAt)}).`);
     };
 
-    if (property) {
-      const detail = propertyDetail;
-      if (property.slug && detail === undefined) return;
-      applyDraftIfAny(
-        {
-          title: property.title,
-          slug: property.slug || "",
-          description: detail?.description || "",
-          short_description: property.short_description || "",
-          meta_title: detail?.meta_title || "",
-          meta_description: detail?.meta_description || "",
-          listing_type: property.listing_type,
-          status: property.status,
-          price: String(property.price),
-          previous_price: detail?.previous_price != null ? String(detail.previous_price) : "",
-          price_period: property.price_period || "month",
-          currency: property.currency || "USD",
-          bedrooms: property.bedrooms != null ? String(property.bedrooms) : "",
-          bathrooms: property.bathrooms != null ? String(property.bathrooms) : "",
-          area_sqm: property.area_sqm != null ? String(property.area_sqm) : "",
-          lot_size_sqm: property.lot_size_sqm != null ? String(property.lot_size_sqm) : "",
-          district_id: "",
-          neighborhood_id: "",
-          property_type_ids:
-            detail?.property_type_ids?.length
-              ? detail.property_type_ids
-              : property.property_type_ids?.length
-                ? property.property_type_ids
-                : [],
-          realtor_name: detail?.realtor_name || "",
-          is_furnished_yn: boolToYesNo(property.is_furnished),
-          has_balcony: boolToYesNo(detail?.has_balcony),
-          has_kitchen: boolToYesNo(detail?.has_kitchen),
-          has_pool: boolToYesNo(detail?.has_pool),
-          has_parking: boolToYesNo(detail?.has_parking),
-          has_jacuzzi: boolToYesNo(detail?.has_jacuzzi),
-          has_garden: boolToYesNo(detail?.has_garden),
-          pets_allowed: boolToYesNo(detail?.pets_allowed),
-          show_features_table: detail?.show_features_table !== false,
-          is_featured: property.is_featured,
-          has_title_deed: property.has_title_deed,
-          badge_label: property.badge_label || "",
-        },
-        detail?.images?.length
-          ? detail.images.map((img) => ({
-              url: img.url,
-              is_primary: img.is_primary,
-              alt_text: img.alt_text || "",
-            }))
-          : [{ url: property.primary_image || "", is_primary: true, alt_text: property.primary_image_alt || "" }],
-      );
-    } else {
-      applyDraftIfAny(defaultForm, [{ url: "", is_primary: true, alt_text: "" }]);
+    if (!property) {
+      if (detailHydrated.current && hydratedPropertyId.current === null) return;
+      detailHydrated.current = true;
+      hydratedPropertyId.current = null;
+      const draft = loadAdminDraft<PropertyDraftData>(draftKey);
+      if (draft && propertyDraftHasMeaningfulContent(draft.data)) {
+        applyLocalDraft(draft.data, draft.savedAt);
+      } else {
+        setForm(defaultForm);
+        setImageRows([{ url: "", is_primary: true, alt_text: "" }]);
+      }
+      return;
     }
-    setError("");
-  }, [open, property, propertyDetail, draftKey]);
+
+    if (hydratedPropertyId.current !== property.id) {
+      detailHydrated.current = false;
+    }
+
+    // Wait for admin detail (includes drafts). Do not use the public slug API.
+    if (propertyDetail === undefined && !propertyDetailError) {
+      return;
+    }
+
+    // Avoid overwriting in-progress edits when the query refetches.
+    if (detailHydrated.current && hydratedPropertyId.current === property.id) {
+      return;
+    }
+
+    const { form: baseForm, imageRows: baseImages } = formFromProperty(property, propertyDetail ?? null);
+    detailHydrated.current = true;
+    hydratedPropertyId.current = property.id;
+    setForm(baseForm);
+    setImageRows(baseImages);
+
+    const draft = loadAdminDraft<PropertyDraftData>(draftKey);
+    if (draft && propertyDraftHasMeaningfulContent(draft.data)) {
+      setPendingLocalDraft(draft.data);
+      setDraftNotice(
+        `You have unsaved local changes from ${formatDraftSavedAt(draft.savedAt)}. Saved listing data is shown — restore local changes if you need them.`,
+      );
+    }
+  }, [open, property, propertyDetail, propertyDetailError, draftKey]);
 
   useEffect(() => {
     if (!open) return;
@@ -233,16 +323,17 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       skipNextDraftSave.current = false;
       return;
     }
+    if (property && !detailHydrated.current) return;
     const timer = window.setTimeout(() => {
       const payload: PropertyDraftData = { form, imageRows };
-      if (!draftHasContent(payload)) {
+      if (!propertyDraftHasMeaningfulContent(payload)) {
         clearAdminDraft(draftKey);
         return;
       }
       saveAdminDraft(draftKey, payload);
     }, 600);
     return () => window.clearTimeout(timer);
-  }, [form, imageRows, open, draftKey]);
+  }, [form, imageRows, open, draftKey, property]);
 
   const filteredNeighborhoods = neighborhoods.filter(
     (n: { district_name?: string; id: string; name: string }) =>
@@ -250,50 +341,59 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       districts.find((d: { id: string; name: string }) => d.id === form.district_id)?.name === n.district_name,
   );
 
-  const buildPayload = (): PropertyCreatePayload => ({
-    title: form.title.trim(),
-    slug: form.slug.trim() || undefined,
-    description:
-      form.description.trim() && form.description.trim() !== "<p></p>" ? form.description.trim() : undefined,
-    short_description: form.short_description.trim() || undefined,
-    meta_title: form.meta_title.trim() || undefined,
-    meta_description: form.meta_description.trim() || undefined,
-    listing_type: form.listing_type,
-    status: form.status,
-    price: parseFloat(form.price),
-    previous_price: form.previous_price ? parseFloat(form.previous_price) : undefined,
-    price_period: form.price_period ? form.price_period : undefined,
-    currency: form.currency,
-    bedrooms: form.bedrooms ? parseInt(form.bedrooms) : undefined,
-    bathrooms: form.bathrooms ? parseInt(form.bathrooms) : undefined,
-    area_sqm: form.area_sqm ? parseFloat(form.area_sqm) : undefined,
-    lot_size_sqm: form.lot_size_sqm ? parseFloat(form.lot_size_sqm) : undefined,
-    district_id: form.district_id || undefined,
-    neighborhood_id: form.neighborhood_id || undefined,
-    property_type_ids: form.property_type_ids.length ? form.property_type_ids : undefined,
-    property_type_id: form.property_type_ids[0] || undefined,
-    realtor_name: form.realtor_name.trim() || undefined,
-    is_furnished: yesNoToBool(form.is_furnished_yn) ?? false,
-    has_balcony: yesNoToBool(form.has_balcony) ?? false,
-    has_kitchen: yesNoToBool(form.has_kitchen) ?? false,
-    has_pool: yesNoToBool(form.has_pool) ?? false,
-    has_parking: yesNoToBool(form.has_parking) ?? false,
-    has_jacuzzi: yesNoToBool(form.has_jacuzzi) ?? false,
-    has_garden: yesNoToBool(form.has_garden) ?? false,
-    pets_allowed: yesNoToBool(form.pets_allowed) ?? false,
-    show_features_table: form.show_features_table,
-    is_featured: form.is_featured,
-    has_title_deed: form.has_title_deed,
-    badge_label: form.badge_label.trim() || undefined,
-    images: imageRows
+  const buildPayload = (): PropertyCreatePayload => {
+    const images = imageRows
       .filter((img) => img.url.trim())
       .map((img, i) => ({
         url: img.url.trim(),
         is_primary: img.is_primary,
         sort_order: i,
         alt_text: img.alt_text?.trim() || undefined,
-      })),
-  });
+      }));
+
+    // Never wipe existing images when edit form has not hydrated yet.
+    const includeImages = !property || detailHydrated.current || images.length > 0;
+
+    return {
+      title: form.title.trim(),
+      slug: form.slug.trim() || undefined,
+      description:
+        form.description.trim() && form.description.trim() !== "<p></p>"
+          ? form.description.trim()
+          : undefined,
+      short_description: form.short_description.trim() || undefined,
+      meta_title: form.meta_title.trim() || undefined,
+      meta_description: form.meta_description.trim() || undefined,
+      listing_type: form.listing_type,
+      status: form.status,
+      price: parseFloat(form.price),
+      previous_price: form.previous_price ? parseFloat(form.previous_price) : undefined,
+      price_period: form.price_period ? form.price_period : undefined,
+      currency: form.currency,
+      bedrooms: form.bedrooms ? parseInt(form.bedrooms) : undefined,
+      bathrooms: form.bathrooms ? parseInt(form.bathrooms) : undefined,
+      area_sqm: form.area_sqm ? parseFloat(form.area_sqm) : undefined,
+      lot_size_sqm: form.lot_size_sqm ? parseFloat(form.lot_size_sqm) : undefined,
+      district_id: form.district_id || undefined,
+      neighborhood_id: form.neighborhood_id || undefined,
+      property_type_ids: form.property_type_ids.length ? form.property_type_ids : undefined,
+      property_type_id: form.property_type_ids[0] || undefined,
+      realtor_name: form.realtor_name.trim() || undefined,
+      is_furnished: yesNoToBool(form.is_furnished_yn) ?? false,
+      has_balcony: yesNoToBool(form.has_balcony) ?? false,
+      has_kitchen: yesNoToBool(form.has_kitchen) ?? false,
+      has_pool: yesNoToBool(form.has_pool) ?? false,
+      has_parking: yesNoToBool(form.has_parking) ?? false,
+      has_jacuzzi: yesNoToBool(form.has_jacuzzi) ?? false,
+      has_garden: yesNoToBool(form.has_garden) ?? false,
+      pets_allowed: yesNoToBool(form.pets_allowed) ?? false,
+      show_features_table: form.show_features_table,
+      is_featured: form.is_featured,
+      has_title_deed: form.has_title_deed,
+      badge_label: form.badge_label.trim() || undefined,
+      ...(includeImages ? { images } : {}),
+    };
+  };
 
   const primaryImageIndex = imageRows.findIndex((row) => row.is_primary);
   const primaryImageRow = primaryImageIndex >= 0 ? imageRows[primaryImageIndex] : null;
@@ -310,6 +410,9 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (property && !detailHydrated.current) {
+        throw new Error("Still loading listing details — wait a moment, then try again.");
+      }
       const payload = buildPayload();
       if (!payload.title || !payload.price) {
         throw new Error("Title and price are required");
@@ -322,7 +425,9 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     onSuccess: () => {
       clearAdminDraft(draftKey);
       setDraftNotice(null);
+      setPendingLocalDraft(null);
       queryClient.invalidateQueries({ queryKey: ["admin-properties"] });
+      queryClient.invalidateQueries({ queryKey: ["admin-property-detail"] });
       queryClient.invalidateQueries({ queryKey: ["property-detail"] });
       onClose();
     },
@@ -332,6 +437,8 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
   });
 
   if (!open) return null;
+
+  const detailLoading = Boolean(property && propertyDetail === undefined && !propertyDetailError);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -353,21 +460,50 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
           className="p-6 space-y-4"
         >
           {error && <p className="text-red-500 text-sm">{error}</p>}
+          {detailLoading && (
+            <p className="text-sm text-gray-500">Loading saved listing details…</p>
+          )}
           {draftNotice && (
             <div className="rounded-lg border border-gold-500/40 bg-gold-500/10 px-3 py-2 text-sm text-navy-800 dark:text-cream flex items-start justify-between gap-3">
               <p>
-                {draftNotice} Your work is kept in this browser if you get logged out.
+                {draftNotice} Your work is also kept in this browser if you get logged out.
               </p>
-              <button
-                type="button"
-                className="text-xs underline shrink-0"
-                onClick={() => {
-                  clearAdminDraft(draftKey);
-                  setDraftNotice(null);
-                }}
-              >
-                Discard draft
-              </button>
+              <div className="flex shrink-0 gap-2">
+                {pendingLocalDraft ? (
+                  <button
+                    type="button"
+                    className="text-xs underline"
+                    onClick={() => {
+                      skipNextDraftSave.current = true;
+                      setForm({ ...defaultForm, ...pendingLocalDraft.form });
+                      setImageRows(
+                        pendingLocalDraft.imageRows?.length
+                          ? pendingLocalDraft.imageRows.map((row) => ({
+                              url: row.url,
+                              is_primary: row.is_primary,
+                              alt_text: row.alt_text || "",
+                            }))
+                          : [{ url: "", is_primary: true, alt_text: "" }],
+                      );
+                      setPendingLocalDraft(null);
+                      setDraftNotice("Local unsaved changes restored.");
+                    }}
+                  >
+                    Restore
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="text-xs underline"
+                  onClick={() => {
+                    clearAdminDraft(draftKey);
+                    setPendingLocalDraft(null);
+                    setDraftNotice(null);
+                  }}
+                >
+                  Discard
+                </button>
+              </div>
             </div>
           )}
 
@@ -629,7 +765,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
 
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose} className="rounded-full">Cancel</Button>
-            <Button type="submit" disabled={saveMutation.isPending} className="rounded-full">
+            <Button type="submit" disabled={saveMutation.isPending || detailLoading} className="rounded-full">
               {saveMutation.isPending ? "Saving..." : property ? "Update Property" : "Create Property"}
             </Button>
           </div>

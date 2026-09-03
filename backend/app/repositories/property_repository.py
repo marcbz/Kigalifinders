@@ -69,6 +69,8 @@ class PropertyRepository:
             is_furnished=prop.is_furnished,
             has_title_deed=prop.has_title_deed,
             badge_label=prop.badge_label,
+            district_id=prop.district_id,
+            neighborhood_id=prop.neighborhood_id,
             district_name=prop.district.name if prop.district else None,
             neighborhood_name=prop.neighborhood.name if prop.neighborhood else None,
             property_type_name=prop.property_type.name if prop.property_type else None,

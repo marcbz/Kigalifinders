@@ -98,6 +98,8 @@ class PropertyListItem(BaseModel):
     is_furnished: bool
     has_title_deed: bool
     badge_label: Optional[str] = None
+    district_id: Optional[UUID] = None
+    neighborhood_id: Optional[UUID] = None
     district_name: Optional[str] = None
     neighborhood_name: Optional[str] = None
     property_type_name: Optional[str] = None
