@@ -1,27 +1,23 @@
 import type { Metadata } from "next";
-import dynamic from "next/dynamic";
+import { Bath, Bed, CalendarCheck, Car, MapPin, Ruler, Trees } from "lucide-react";
 import { notFound } from "next/navigation";
-import { Bath, Bed, CalendarCheck, MapPin, Ruler } from "lucide-react";
 import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyDescription } from "@/components/property/property-description";
 import { PropertyFeaturesTable } from "@/components/property/property-features-table";
 import { PropertyInquiryForm } from "@/components/property/property-inquiry-form";
 import { PropertyPrice } from "@/components/property/property-price";
 import { TrackPropertyView } from "@/components/property/track-property-view";
+import { RelatedPropertiesSection } from "@/components/property/related-properties-section";
 import { RelatedRentalSearches } from "@/components/rentals/rental-landing-sections";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
-import { getListingBadge, getPropertyImageAlt } from "@/lib/property-features";
-import { fetchPropertyRelatedSearchesSafe, fetchPropertySafe } from "@/lib/server-api";
+import { FAQSection } from "@/features/home/faq-section";
+import { buildPropertyFaqs, getListingBadge, getPropertyImageAlt } from "@/lib/property-features";
+import { fetchPropertyRelatedSearchesSafe, fetchPropertySafe, fetchRelatedSafe } from "@/lib/server-api";
 import { buildPropertyListingJsonLd } from "@/lib/property-jsonld";
-import { buildPropertyMetaDescription, normalizeSeoTitle } from "@/lib/seo-metadata";
+import { buildPropertyMetaDescription, buildFaqPageJsonLd, normalizeSeoTitle } from "@/lib/seo-metadata";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-
-const RelatedPropertiesSection = dynamic(
-  () => import("@/components/property/related-properties-section").then((mod) => ({ default: mod.RelatedPropertiesSection })),
-  { loading: () => <div className="py-16 px-6 bg-cream dark:bg-secondary min-h-[200px]" aria-hidden /> },
-);
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -72,7 +68,10 @@ export default async function PropertyDetailPage({ params }: Props) {
     notFound();
   }
 
-  const relatedSearches = await fetchPropertyRelatedSearchesSafe(slug, 6);
+  const [relatedSearches, relatedInitial] = await Promise.all([
+    fetchPropertyRelatedSearchesSafe(slug, 6),
+    fetchRelatedSafe(slug, 1, 6),
+  ]);
 
   const images =
     property.images?.length
@@ -87,6 +86,9 @@ export default async function PropertyDetailPage({ params }: Props) {
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;
   const pricePeriod = property.listing_type !== "sale" ? property.price_period : null;
   const priceLabel = formatPrice(property.price, property.currency, pricePeriod);
+
+  const propertyFaqs = buildPropertyFaqs(property);
+  const faqJsonLd = buildFaqPageJsonLd(propertyFaqs);
 
   return (
     <>
@@ -128,22 +130,81 @@ export default async function PropertyDetailPage({ params }: Props) {
           <div className="lg:col-span-2">
             <PropertyGallery images={images} title={property.title} />
 
-            <div className="flex flex-wrap gap-6 text-sm border-b pb-6 mb-8">
+            <div className="flex flex-wrap gap-x-8 gap-y-3 text-sm border-b pb-6 mb-8">
               {property.bedrooms != null && (
-                <span className="flex items-center gap-2"><Bed className="text-gold-500" /> {property.bedrooms} Beds</span>
+                <span className="flex items-center gap-2">
+                  <Bed className="text-gold-500" /> {property.bedrooms} Bedrooms
+                </span>
               )}
               {property.bathrooms != null && (
-                <span className="flex items-center gap-2"><Bath className="text-gold-500" /> {property.bathrooms} Baths</span>
+                <span className="flex items-center gap-2">
+                  <Bath className="text-gold-500" /> {property.bathrooms} Bathrooms
+                </span>
               )}
-              {property.area_sqm && (
-                <span className="flex items-center gap-2"><Ruler className="text-gold-500" /> {property.area_sqm}m²</span>
+              {property.parking_spaces != null && property.parking_spaces > 0 ? (
+                <span className="flex items-center gap-2">
+                  <Car className="text-gold-500" /> {property.parking_spaces} Parking space{property.parking_spaces === 1 ? "" : "s"}
+                </span>
+              ) : property.has_parking ? (
+                <span className="flex items-center gap-2">
+                  <Car className="text-gold-500" /> Parking available
+                </span>
+              ) : null}
+              {property.area_sqm != null && (
+                <span className="flex items-center gap-2">
+                  <Ruler className="text-gold-500" /> {property.area_sqm}m² Living area
+                </span>
+              )}
+              {property.lot_size_sqm != null && property.lot_size_sqm !== property.area_sqm && (
+                <span className="flex items-center gap-2">
+                  <Trees className="text-gold-500" /> {property.lot_size_sqm}m² Plot
+                </span>
+              )}
+              {property.has_garden && (
+                <span className="flex items-center gap-2">
+                  <Trees className="text-gold-500" /> Garden
+                </span>
+              )}
+              {property.has_pool && (
+                <span className="flex items-center gap-2 text-gold-600 font-medium">
+                  Swimming pool
+                </span>
+              )}
+              {property.has_jacuzzi && (
+                <span className="flex items-center gap-2 text-gold-600 font-medium">
+                  Jacuzzi
+                </span>
+              )}
+              {property.has_kitchen && (
+                <span className="flex items-center gap-2">
+                  Kitchen
+                </span>
+              )}
+              {property.is_furnished && (
+                <span className="flex items-center gap-2 text-gold-600 font-medium">
+                  Furnished
+                </span>
+              )}
+              {property.pets_allowed && (
+                <span className="flex items-center gap-2">
+                  Pets allowed
+                </span>
               )}
             </div>
 
             <PropertyFeaturesTable property={property} />
 
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Description</h2>
-            <div className="mb-8">
+            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">
+              About this property
+            </h2>
+            {property.short_description?.trim() && property.description?.trim() && property.short_description.trim() !== property.description.trim().slice(0, property.short_description.length) && (
+              <div className="mb-6 p-5 bg-cream dark:bg-secondary rounded-xl border border-gray-200 dark:border-border">
+                <p className="text-navy-800 dark:text-gray-300 leading-relaxed font-medium">
+                  {property.short_description}
+                </p>
+              </div>
+            )}
+            <div className="mb-8 property-description-block">
               <PropertyDescription content={property.description} />
             </div>
 
@@ -152,11 +213,107 @@ export default async function PropertyDetailPage({ params }: Props) {
                 <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Amenities</h2>
                 <div className="flex flex-wrap gap-3 mb-8">
                   {property.amenities.map((a) => (
-                    <span key={a} className="px-4 py-2 bg-cream dark:bg-secondary rounded-full text-sm">{a}</span>
+                    <span
+                      key={a}
+                      className="px-4 py-2 bg-cream dark:bg-secondary rounded-full text-sm border border-gray-200 dark:border-border"
+                    >
+                      {a}
+                    </span>
                   ))}
                 </div>
               </>
             )}
+
+            <div className="mb-8 p-5 bg-white dark:bg-card rounded-2xl border shadow-sm hidden-print" aria-hidden="false">
+              <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white mb-3">
+                {property.title} — Quick Summary
+              </h2>
+              <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Location</dt>
+                  <dd className="text-navy-800 dark:text-white font-medium">
+                    {[property.neighborhood_name, property.district_name].filter(Boolean).join(", ") || "Kigali"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Price</dt>
+                  <dd className="text-navy-800 dark:text-white font-medium">{priceLabel}</dd>
+                </div>
+                {property.bedrooms != null && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Bedrooms</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">{property.bedrooms}</dd>
+                  </div>
+                )}
+                {property.bathrooms != null && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Bathrooms</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">{property.bathrooms}</dd>
+                  </div>
+                )}
+                {property.area_sqm != null && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Living area</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">{property.area_sqm} m²</dd>
+                  </div>
+                )}
+                {property.lot_size_sqm != null && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Plot area</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">{property.lot_size_sqm} m²</dd>
+                  </div>
+                )}
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Furnished</dt>
+                  <dd className="text-navy-800 dark:text-white font-medium">{property.is_furnished ? "Yes" : "No"}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Available</dt>
+                  <dd className="text-navy-800 dark:text-white font-medium">
+                    {property.is_available !== false ? "Yes" : "No"}
+                  </dd>
+                </div>
+                {property.has_pool && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Pool</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">Yes</dd>
+                  </div>
+                )}
+                {property.has_garden && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Garden</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">Yes</dd>
+                  </div>
+                )}
+                {property.has_parking && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Parking</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">Yes</dd>
+                  </div>
+                )}
+                {property.property_type_name && (
+                  <div>
+                    <dt className="text-gray-500 dark:text-gray-400">Type</dt>
+                    <dd className="text-navy-800 dark:text-white font-medium">{property.property_type_name}</dd>
+                  </div>
+                )}
+              </dl>
+              {property.description?.trim() && (
+                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-border">
+                  <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Full description</p>
+                  <div
+                    className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm property-description-text"
+                    dangerouslySetInnerHTML={{
+                      __html: property.description
+                        .replace(/<[^>]+>/g, " ")
+                        .replace(/\s+/g, " ")
+                        .trim()
+                        .slice(0, 1500),
+                    }}
+                  />
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="lg:sticky lg:top-24 h-fit">
@@ -202,6 +359,26 @@ export default async function PropertyDetailPage({ params }: Props) {
         </div>
       </section>
 
+      {propertyFaqs.length > 0 && (
+        <div className="px-6 py-12 bg-white dark:bg-background">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">
+                QUESTIONS ABOUT THIS LISTING
+              </span>
+              <h2 className="font-serif text-3xl md:text-4xl font-bold text-navy-800 dark:text-white mt-3 mb-4">
+                Frequently Asked Questions
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400 max-w-2xl mx-auto">
+                Everything you need to know about {property.title || "this property"} in{" "}
+                {property.neighborhood_name || property.district_name || "Kigali"}.
+              </p>
+            </div>
+            <FAQSection faqs={propertyFaqs} />
+          </div>
+        </div>
+      )}
+
       {relatedSearches.length > 0 ? (
         <div className="px-6 pb-4 bg-white dark:bg-background">
           <div className="max-w-7xl mx-auto py-8 border-t">
@@ -210,7 +387,7 @@ export default async function PropertyDetailPage({ params }: Props) {
         </div>
       ) : null}
 
-      <RelatedPropertiesSection slug={slug} />
+      <RelatedPropertiesSection slug={slug} initialData={relatedInitial} />
 
       <script
         type="application/ld+json"
@@ -218,6 +395,12 @@ export default async function PropertyDetailPage({ params }: Props) {
           __html: JSON.stringify(buildPropertyListingJsonLd(property, propertyUrl)),
         }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
     </>
   );
 }
