@@ -170,16 +170,6 @@ export default async function PropertyDetailPage({ params }: Props) {
                   Swimming pool
                 </span>
               )}
-              {property.has_jacuzzi && (
-                <span className="flex items-center gap-2 text-gold-600 font-medium">
-                  Jacuzzi
-                </span>
-              )}
-              {property.has_kitchen && (
-                <span className="flex items-center gap-2">
-                  Kitchen
-                </span>
-              )}
               {property.is_furnished && (
                 <span className="flex items-center gap-2 text-gold-600 font-medium">
                   Furnished
@@ -293,12 +283,6 @@ export default async function PropertyDetailPage({ params }: Props) {
                 <div>
                   <dt className="text-gray-500 dark:text-gray-400">Furnished</dt>
                   <dd className="text-navy-800 dark:text-white font-medium">{property.is_furnished ? "Yes" : "No"}</dd>
-                </div>
-                <div>
-                  <dt className="text-gray-500 dark:text-gray-400">Available</dt>
-                  <dd className="text-navy-800 dark:text-white font-medium">
-                    {property.is_available !== false ? "Yes" : "No"}
-                  </dd>
                 </div>
                 {property.has_pool && (
                   <div>

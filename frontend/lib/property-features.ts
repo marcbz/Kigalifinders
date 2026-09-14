@@ -106,7 +106,7 @@ export function buildPropertyFaqs(property: PropertyDetail): { id: string; quest
   const hood = property.neighborhood_name ? property.neighborhood_name.trim() : "";
   const district = property.district_name ? property.district_name.trim() : "";
   const loc = [hood, district].filter(Boolean).join(", ") || "Kigali";
-  const title = property.title || "this property";
+  const shortTitle = property.title ? property.title.replace(/\s+(in|for|at|—|-|–)\s+.+$/i, "").trim() : "this property";
 
   const hoodContext: Record<string, string> = {
     kicukiro: "Kicukiro is a popular residential district in eastern Kigali, well connected to the city centre and Kigali International Airport.",
@@ -129,42 +129,42 @@ export function buildPropertyFaqs(property: PropertyDetail): { id: string; quest
 
   faqs.push({
     id: `faq-${property.id}-location`,
-    question: `Where exactly is ${title} located in Kigali?`,
-    answer: `<p>${property.title} is located in ${loc}, Rwanda. ${property.address ? `The address on record is ${property.address}. ` : ""}${contextHints.join(" ")} If you would like exact directions or landmark references, please send us a WhatsApp message or book a viewing.</p>`,
+    question: `Where is ${shortTitle} located?`,
+    answer: `<p>${property.title || shortTitle} is in ${loc}, Rwanda. ${property.address ? `Address: ${property.address}. ` : ""}${contextHints.join(" ")} For exact directions or landmarks, message us on WhatsApp or book a viewing.</p>`,
     category: "Location",
   });
 
   const specsParts: string[] = [];
   if (property.bedrooms != null) specsParts.push(`${property.bedrooms} bedroom${property.bedrooms === 1 ? "" : "s"}`);
   if (property.bathrooms != null) specsParts.push(`${property.bathrooms} bathroom${property.bathrooms === 1 ? "" : "s"}`);
-  if (property.area_sqm != null) specsParts.push(`a ${property.area_sqm} m² living area`);
-  if (property.lot_size_sqm != null && property.lot_size_sqm !== property.area_sqm) specsParts.push(`sitting on a ${property.lot_size_sqm} m² plot`);
-  if (property.parking_spaces != null && property.parking_spaces > 0) specsParts.push(`${property.parking_spaces} covered parking space${property.parking_spaces === 1 ? "" : "s"}`);
-  if (property.year_built != null) specsParts.push(`constructed around ${property.year_built}`);
+  if (property.area_sqm != null) specsParts.push(`${property.area_sqm} m² living area`);
+  if (property.lot_size_sqm != null && property.lot_size_sqm !== property.area_sqm) specsParts.push(`${property.lot_size_sqm} m² plot`);
+  if (property.parking_spaces != null && property.parking_spaces > 0) specsParts.push(`${property.parking_spaces} parking space${property.parking_spaces === 1 ? "" : "s"}`);
+  if (property.year_built != null) specsParts.push(`built ${property.year_built}`);
   if (property.floors != null && property.floors > 1) specsParts.push(`${property.floors} floors`);
   const specSentence = specsParts.length
     ? specsParts.slice(0, -1).join(", ") + (specsParts.length > 1 ? ` and ${specsParts[specsParts.length - 1]}` : "")
     : "";
   faqs.push({
     id: `faq-${property.id}-specs`,
-    question: `What are the main specifications of ${title}?`,
-    answer: `<p>${property.title} in ${loc} offers ${specSentence || "a range of accommodation features designed for comfortable living in Kigali"}. ${property.is_furnished ? "The property comes fully furnished — kitchen appliances, wardrobes, seating and bedroom furniture are all included in the listing." : "The property is let unfurnished, so you can move in with your own furniture and personal effects."} ${property.property_type_name ? `The listing is categorised as a ${property.property_type_name}.` : ""}</p>`,
-    category: "Property Details",
+    question: `What's included in ${shortTitle}?`,
+    answer: `<p>${property.title || shortTitle} in ${loc} has ${specSentence || "comfortable residential features"}. ${property.is_furnished ? "Furnished with kitchen appliances, wardrobes, seating and bedroom furniture." : "Unfurnished — bring your own furniture."} ${property.property_type_name ? `Listed as a ${property.property_type_name}.` : ""}</p>`,
+    category: "Details",
   });
 
   const amList: string[] = [];
   if (property.has_pool) amList.push("swimming pool");
-  if (property.has_jacuzzi) amList.push("jacuzzi / hot tub");
+  if (property.has_jacuzzi) amList.push("jacuzzi");
   if (property.has_garden) amList.push("private garden");
-  if (property.has_balcony) amList.push("balcony or terrace");
+  if (property.has_balcony) amList.push("balcony");
   if (property.has_kitchen) amList.push("fitted kitchen");
-  if (property.has_parking || (property.parking_spaces != null && property.parking_spaces > 0)) amList.push("secure on-site parking");
-  if (property.pets_allowed) amList.push("pet-friendly policy");
+  if (property.has_parking || (property.parking_spaces != null && property.parking_spaces > 0)) amList.push("on-site parking");
+  if (property.pets_allowed) amList.push("pet friendly");
   if (property.amenities?.length) amList.push(...property.amenities.map((a) => a.toLowerCase()));
   faqs.push({
     id: `faq-${property.id}-amenities`,
-    question: `What amenities and features does ${title} include?`,
-    answer: `<p>Key amenities included with ${property.title} in ${loc}: ${amList.length ? amList.join(", ") + "." : "standard residential features suitable for rental living in Kigali."} ${property.has_title_deed ? "The property has a title deed, providing clear ownership documentation for the transaction." : ""} For a full walkthrough of the finishes, fixtures and services included, we recommend an in-person viewing or a video call with our agent.</p>`,
+    question: `What amenities does ${shortTitle} have?`,
+    answer: `<p>Amenities in ${loc}: ${amList.length ? amList.join(", ") + "." : "standard residential features."} ${property.has_title_deed ? "Title deed available — clear ownership documentation on file." : ""} Ask the agent during a viewing for the full fixture and finishes list.</p>`,
     category: "Amenities",
   });
 
@@ -172,12 +172,12 @@ export function buildPropertyFaqs(property: PropertyDetail): { id: string; quest
   const currency = property.currency || "USD";
   const period = property.listing_type === "sale" ? null : property.price_period;
   const reduced = property.previous_price != null && property.previous_price > price;
-  const listingKind = property.listing_type === "sale" ? "sale listing" : "rental";
+  const listingKind = property.listing_type === "sale" ? "for sale" : "to rent";
   faqs.push({
     id: `faq-${property.id}-pricing`,
-    question: `What is the current price and availability of ${title}?`,
-    answer: `<p>${property.title} in ${loc} is a ${listingKind} priced at ${price.toLocaleString("en-US", { style: "currency", currency, maximumFractionDigits: 0 })}${period ? ` per ${period}` : ""}. ${reduced ? "The asking price has recently been reduced from the previous listing, making this an opportune moment to inquire." : "The price shown is the current advertised rate."} ${property.is_available !== false ? "The listing is currently marked as available on Kigali Rent." : "At the moment this listing is not marked as available — please contact us for comparable alternatives in the same area."} ${property.availability_note || ""} Final terms, deposit amount and any negotiable items should be discussed directly with the listing agent.</p>`,
-    category: "Pricing & Availability",
+    question: `How much is ${shortTitle}?`,
+    answer: `<p>${property.title || shortTitle} is ${listingKind} at ${price.toLocaleString("en-US", { style: "currency", currency, maximumFractionDigits: 0 })}${period ? ` per ${period}` : ""}. ${reduced ? "Price recently reduced — good time to inquire." : "This is the current advertised rate."} ${property.is_available !== false ? "Marked as available on Kigali Rent." : "Currently not marked available — ask us for alternatives nearby."} ${property.availability_note || ""} Final terms and deposit are confirmed with the listing agent.</p>`,
+    category: "Pricing",
   });
 
   return faqs.slice(0, 4);
