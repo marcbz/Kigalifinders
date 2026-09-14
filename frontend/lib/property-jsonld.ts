@@ -47,7 +47,7 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
 
   if (property.published_at) {
     listing.datePosted = property.published_at;
-    listing.dateModified = property.updated_at || property.published_at;
+    listing.dateModified = property.last_verified_at || property.created_at || property.published_at;
   }
   if (Object.keys(addressParts).length > 2) listing.address = addressParts;
   if (property.latitude != null && property.longitude != null) {

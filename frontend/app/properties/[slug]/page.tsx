@@ -201,8 +201,8 @@ export default async function PropertyDetailPage({ params }: Props) {
               className="mb-8"
             >
               <meta itemProp="author" content="Kigali Rent" />
-              <meta itemProp="datePublished" content={property.published_at || new Date().toISOString().slice(0, 10)} />
-              <meta itemProp="dateModified" content={property.updated_at || property.published_at || new Date().toISOString().slice(0, 10)} />
+              <meta itemProp="datePublished" content={property.published_at || property.created_at || new Date().toISOString().slice(0, 10)} />
+              <meta itemProp="dateModified" content={property.last_verified_at || property.published_at || property.created_at || new Date().toISOString().slice(0, 10)} />
               <meta
                 itemProp="headline"
                 content={`${property.title} — ${[property.neighborhood_name, property.district_name].filter(Boolean).join(", ") || "Kigali"}`}
