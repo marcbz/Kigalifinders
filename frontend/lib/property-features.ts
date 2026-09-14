@@ -81,8 +81,6 @@ export function buildPropertyFeatureRows(property: PropertyDetail): FeatureRow[]
   const realtor = property.realtor_name || property.agent_name;
   const rows: FeatureRow[] = [
     { label: "Realtor", value: realtor ?? "" },
-    { label: "Property Type", value: property.property_type_name ?? "" },
-    { label: "Listing Type", value: property.listing_type ? property.listing_type.charAt(0).toUpperCase() + property.listing_type.slice(1) : "" },
     { label: "Furnished", value: formatYesNo(property.is_furnished) ?? "" },
     { label: "Bedrooms", value: property.bedrooms != null ? String(property.bedrooms) : "" },
     { label: "Bathrooms", value: property.bathrooms != null ? String(property.bathrooms) : "" },
@@ -96,10 +94,8 @@ export function buildPropertyFeatureRows(property: PropertyDetail): FeatureRow[]
     { label: "Garden", value: formatYesNo(property.has_garden) ?? "" },
     { label: "Balcony", value: formatYesNo(property.has_balcony) ?? "" },
     { label: "Pets allowed", value: formatYesNo(property.pets_allowed) ?? "" },
-    { label: "Title deed", value: formatYesNo(property.has_title_deed) ?? "" },
     { label: "Year built", value: property.year_built != null ? String(property.year_built) : "" },
     { label: "Floors", value: property.floors != null ? String(property.floors) : "" },
-    { label: "Published", value: property.published_at ? new Date(property.published_at).toLocaleDateString("en-GB") : "" },
   ];
 
   return rows.filter((row) => row.value.trim().length > 0);
@@ -107,81 +103,82 @@ export function buildPropertyFeatureRows(property: PropertyDetail): FeatureRow[]
 
 export function buildPropertyFaqs(property: PropertyDetail): { id: string; question: string; answer: string; category?: string }[] {
   const faqs: { id: string; question: string; answer: string; category?: string }[] = [];
-  const loc = [property.neighborhood_name, property.district_name].filter(Boolean).join(", ") || "Kigali";
+  const hood = property.neighborhood_name ? property.neighborhood_name.trim() : "";
+  const district = property.district_name ? property.district_name.trim() : "";
+  const loc = [hood, district].filter(Boolean).join(", ") || "Kigali";
   const title = property.title || "this property";
+
+  const hoodContext: Record<string, string> = {
+    kicukiro: "Kicukiro is a popular residential district in eastern Kigali, well connected to the city centre and Kigali International Airport.",
+    nyarutarama: "Nyarutarama is an upscale, green neighbourhood in Kigali popular with families and expatriates, close to the Golf Club.",
+    gacuriro: "Gacuriro is a sought-after, quiet residential area in Kigali known for its modern homes, good roads, and proximity to supermarkets and schools.",
+    gisozi: "Gisozi is a central residential area in Kigali, close to main amenities and within easy reach of the Central Business District.",
+    kagarama: "Kagarama is a residential area in Kicukiro district, Kigali, favoured for its accessibility and mix of apartment and house options.",
+    kibagabaga: "Kibagabaga is a residential area in Gasabo district, Kigali, with a mix of apartments and family homes close to local services.",
+    kimironko: "Kimironko is a vibrant residential area in Gasabo district, Kigali, home to a large local market and good road links.",
+    rebero: "Rebero is a quiet, residential neighbourhood in Kigali popular for its fresh air, hilltop views, and family-sized housing stock.",
+  };
+
+  const contextHints: string[] = [];
+  const hoodKey = hood.toLowerCase();
+  if (hoodContext[hoodKey]) contextHints.push(hoodContext[hoodKey]);
+  if (district && !contextHints.length) {
+    const distKey = district.toLowerCase();
+    if (hoodContext[distKey]) contextHints.push(hoodContext[distKey]);
+  }
 
   faqs.push({
     id: `faq-${property.id}-location`,
-    question: `Where is ${title} located?`,
-    answer: `<p>This property is located in ${loc}. ${property.address ? `The full address is ${property.address}.` : ""}</p>`,
+    question: `Where exactly is ${title} located in Kigali?`,
+    answer: `<p>${property.title} is located in ${loc}, Rwanda. ${property.address ? `The address on record is ${property.address}. ` : ""}${contextHints.join(" ")} If you would like exact directions or landmark references, please send us a WhatsApp message or book a viewing.</p>`,
     category: "Location",
   });
 
-  if (property.bedrooms != null || property.bathrooms != null) {
-    const specs = [
-      property.bedrooms != null ? `${property.bedrooms} bedroom${property.bedrooms === 1 ? "" : "s"}` : null,
-      property.bathrooms != null ? `${property.bathrooms} bathroom${property.bathrooms === 1 ? "" : "s"}` : null,
-    ].filter(Boolean).join(" and ");
-    faqs.push({
-      id: `faq-${property.id}-size`,
-      question: `How many bedrooms and bathrooms does ${title} have?`,
-      answer: `<p>${specs ? `This property has ${specs}.` : ""} ${property.area_sqm ? `The total living area is ${property.area_sqm} m².` : ""} ${property.lot_size_sqm ? `The plot size is ${property.lot_size_sqm} m².` : ""}</p>`,
-      category: "Property Details",
-    });
-  }
-
+  const specsParts: string[] = [];
+  if (property.bedrooms != null) specsParts.push(`${property.bedrooms} bedroom${property.bedrooms === 1 ? "" : "s"}`);
+  if (property.bathrooms != null) specsParts.push(`${property.bathrooms} bathroom${property.bathrooms === 1 ? "" : "s"}`);
+  if (property.area_sqm != null) specsParts.push(`a ${property.area_sqm} m² living area`);
+  if (property.lot_size_sqm != null && property.lot_size_sqm !== property.area_sqm) specsParts.push(`sitting on a ${property.lot_size_sqm} m² plot`);
+  if (property.parking_spaces != null && property.parking_spaces > 0) specsParts.push(`${property.parking_spaces} covered parking space${property.parking_spaces === 1 ? "" : "s"}`);
+  if (property.year_built != null) specsParts.push(`constructed around ${property.year_built}`);
+  if (property.floors != null && property.floors > 1) specsParts.push(`${property.floors} floors`);
+  const specSentence = specsParts.length
+    ? specsParts.slice(0, -1).join(", ") + (specsParts.length > 1 ? ` and ${specsParts[specsParts.length - 1]}` : "")
+    : "";
   faqs.push({
-    id: `faq-${property.id}-furnished`,
-    question: `Is ${title} furnished?`,
-    answer: `<p>${property.is_furnished ? "Yes, this property is fully furnished." : "No, this property is let unfurnished."} If you would like to know more about the furniture or fixtures included, please contact us via WhatsApp or the inquiry form.</p>`,
+    id: `faq-${property.id}-specs`,
+    question: `What are the main specifications of ${title}?`,
+    answer: `<p>${property.title} in ${loc} offers ${specSentence || "a range of accommodation features designed for comfortable living in Kigali"}. ${property.is_furnished ? "The property comes fully furnished — kitchen appliances, wardrobes, seating and bedroom furniture are all included in the listing." : "The property is let unfurnished, so you can move in with your own furniture and personal effects."} ${property.property_type_name ? `The listing is categorised as a ${property.property_type_name}.` : ""}</p>`,
     category: "Property Details",
   });
 
+  const amList: string[] = [];
+  if (property.has_pool) amList.push("swimming pool");
+  if (property.has_jacuzzi) amList.push("jacuzzi / hot tub");
+  if (property.has_garden) amList.push("private garden");
+  if (property.has_balcony) amList.push("balcony or terrace");
+  if (property.has_kitchen) amList.push("fitted kitchen");
+  if (property.has_parking || (property.parking_spaces != null && property.parking_spaces > 0)) amList.push("secure on-site parking");
+  if (property.pets_allowed) amList.push("pet-friendly policy");
+  if (property.amenities?.length) amList.push(...property.amenities.map((a) => a.toLowerCase()));
   faqs.push({
-    id: `faq-${property.id}-price`,
-    question: `What is the rent or sale price of ${title}?`,
-    answer: `<p>The asking price is available on this listing page. The currency is ${property.currency || "USD"}. ${property.previous_price != null && property.previous_price > property.price ? "The price has recently been reduced." : ""} Final pricing, deposit terms, and payment schedule can be confirmed with the listing agent during a viewing or inquiry.</p>`,
-    category: "Pricing",
+    id: `faq-${property.id}-amenities`,
+    question: `What amenities and features does ${title} include?`,
+    answer: `<p>Key amenities included with ${property.title} in ${loc}: ${amList.length ? amList.join(", ") + "." : "standard residential features suitable for rental living in Kigali."} ${property.has_title_deed ? "The property has a title deed, providing clear ownership documentation for the transaction." : ""} For a full walkthrough of the finishes, fixtures and services included, we recommend an in-person viewing or a video call with our agent.</p>`,
+    category: "Amenities",
   });
 
-  const amenities: string[] = [];
-  if (property.has_pool) amenities.push("a swimming pool");
-  if (property.has_jacuzzi) amenities.push("a jacuzzi");
-  if (property.has_garden) amenities.push("a garden");
-  if (property.has_balcony) amenities.push("a balcony");
-  if (property.has_kitchen) amenities.push("a kitchen");
-  if (property.has_parking || (property.parking_spaces != null && property.parking_spaces > 0)) amenities.push("parking");
-  if (property.pets_allowed) amenities.push("pet-friendly accommodation");
-  if (amenities.length > 0 || (property.amenities?.length ?? 0) > 0) {
-    const allAmenities = [...amenities, ...(property.amenities ?? [])];
-    faqs.push({
-      id: `faq-${property.id}-amenities`,
-      question: `What amenities are available at ${title}?`,
-      answer: `<p>This property features: ${allAmenities.join(", ")}. Additional details about amenities and included services can be confirmed with the agent.</p>`,
-      category: "Amenities",
-    });
-  }
-
+  const price = property.price;
+  const currency = property.currency || "USD";
+  const period = property.listing_type === "sale" ? null : property.price_period;
+  const reduced = property.previous_price != null && property.previous_price > price;
+  const listingKind = property.listing_type === "sale" ? "sale listing" : "rental";
   faqs.push({
-    id: `faq-${property.id}-viewing`,
-    question: `Can I schedule a viewing for ${title}?`,
-    answer: `<p>Yes. Use the "Schedule Viewing" button on this page to book a time, or send us a WhatsApp inquiry and we will arrange a viewing at your convenience. We recommend booking viewings at least 24 hours in advance.</p>`,
-    category: "Viewing",
+    id: `faq-${property.id}-pricing`,
+    question: `What is the current price and availability of ${title}?`,
+    answer: `<p>${property.title} in ${loc} is a ${listingKind} priced at ${price.toLocaleString("en-US", { style: "currency", currency, maximumFractionDigits: 0 })}${period ? ` per ${period}` : ""}. ${reduced ? "The asking price has recently been reduced from the previous listing, making this an opportune moment to inquire." : "The price shown is the current advertised rate."} ${property.is_available !== false ? "The listing is currently marked as available on Kigali Rent." : "At the moment this listing is not marked as available — please contact us for comparable alternatives in the same area."} ${property.availability_note || ""} Final terms, deposit amount and any negotiable items should be discussed directly with the listing agent.</p>`,
+    category: "Pricing & Availability",
   });
 
-  faqs.push({
-    id: `faq-${property.id}-availability`,
-    question: `Is ${title} still available?`,
-    answer: `<p>${property.is_available !== false ? "Yes, this listing is currently marked as available. Availability changes regularly, so we recommend confirming with the agent before planning a viewing." : "This property is no longer marked as available. Please see similar properties recommended below, or contact us for alternatives in the same area."} ${property.availability_note || ""}</p>`,
-    category: "Availability",
-  });
-
-  faqs.push({
-    id: `faq-${property.id}-deposit`,
-    question: `What is the deposit and payment process for renting in Kigali?`,
-    answer: `<p>Standard terms for rentals in Kigali typically involve a security deposit (often one or two months' rent) plus the first month's rent in advance. The exact amount, payment methods, and lease terms (e.g., 6-month or 12-month minimum) are confirmed with the landlord or agent prior to signing. We can walk you through the full process when you inquire about this property.</p>`,
-    category: "Rental Process",
-  });
-
-  return faqs;
+  return faqs.slice(0, 4);
 }

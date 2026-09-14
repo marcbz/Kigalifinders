@@ -194,37 +194,64 @@ export default async function PropertyDetailPage({ params }: Props) {
 
             <PropertyFeaturesTable property={property} />
 
-            <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">
-              About this property
-            </h2>
-            {property.short_description?.trim() && property.description?.trim() && property.short_description.trim() !== property.description.trim().slice(0, property.short_description.length) && (
-              <div className="mb-6 p-5 bg-cream dark:bg-secondary rounded-xl border border-gray-200 dark:border-border">
-                <p className="text-navy-800 dark:text-gray-300 leading-relaxed font-medium">
+            <article
+              itemScope
+              itemType="https://schema.org/Article"
+              aria-labelledby="property-description-heading"
+              className="mb-8"
+            >
+              <meta itemProp="author" content="Kigali Rent" />
+              <meta itemProp="datePublished" content={property.published_at || new Date().toISOString().slice(0, 10)} />
+              <meta itemProp="dateModified" content={property.updated_at || property.published_at || new Date().toISOString().slice(0, 10)} />
+              <meta
+                itemProp="headline"
+                content={`${property.title} — ${[property.neighborhood_name, property.district_name].filter(Boolean).join(", ") || "Kigali"}`}
+              />
+              <h2
+                id="property-description-heading"
+                itemProp="name"
+                className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4"
+              >
+                About this property
+              </h2>
+              {property.short_description?.trim() && property.description?.trim() && property.short_description.trim() !== property.description.trim().slice(0, property.short_description.length) && (
+                <p
+                  itemProp="abstract"
+                  className="mb-6 p-5 bg-cream dark:bg-secondary rounded-xl border border-gray-200 dark:border-border text-navy-800 dark:text-gray-300 leading-relaxed font-medium"
+                >
                   {property.short_description}
                 </p>
+              )}
+              <div itemProp="articleBody description" className="property-description-block">
+                <PropertyDescription content={property.description} />
               </div>
-            )}
-            <div className="mb-8 property-description-block">
-              <PropertyDescription content={property.description} />
-            </div>
+              <noscript aria-hidden="true">
+                <div className="hidden-llm-text">
+                  {property.title} in {[property.neighborhood_name, property.district_name].filter(Boolean).join(", ") || "Kigali"}, Rwanda.{" "}
+                  {property.short_description?.trim() || ""}
+                  {property.description?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || ""}
+                </div>
+              </noscript>
+            </article>
 
             {(property.amenities?.length ?? 0) > 0 && (
-              <>
-                <h2 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Amenities</h2>
-                <div className="flex flex-wrap gap-3 mb-8">
+              <section aria-labelledby="amenities-heading" className="mb-8">
+                <h2 id="amenities-heading" className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4">Amenities</h2>
+                <div className="flex flex-wrap gap-3" role="list">
                   {property.amenities.map((a) => (
                     <span
                       key={a}
+                      role="listitem"
                       className="px-4 py-2 bg-cream dark:bg-secondary rounded-full text-sm border border-gray-200 dark:border-border"
                     >
                       {a}
                     </span>
                   ))}
                 </div>
-              </>
+              </section>
             )}
 
-            <div className="mb-8 p-5 bg-white dark:bg-card rounded-2xl border shadow-sm hidden-print" aria-hidden="false">
+            <div className="mb-8 p-5 bg-white dark:bg-card rounded-2xl border shadow-sm hidden-print">
               <h2 className="font-serif text-xl font-bold text-navy-800 dark:text-white mb-3">
                 {property.title} — Quick Summary
               </h2>
@@ -291,28 +318,7 @@ export default async function PropertyDetailPage({ params }: Props) {
                     <dd className="text-navy-800 dark:text-white font-medium">Yes</dd>
                   </div>
                 )}
-                {property.property_type_name && (
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Type</dt>
-                    <dd className="text-navy-800 dark:text-white font-medium">{property.property_type_name}</dd>
-                  </div>
-                )}
               </dl>
-              {property.description?.trim() && (
-                <div className="mt-4 pt-4 border-t border-gray-100 dark:border-border">
-                  <p className="text-xs uppercase tracking-wider text-gray-400 mb-2">Full description</p>
-                  <div
-                    className="text-gray-600 dark:text-gray-400 leading-relaxed text-sm property-description-text"
-                    dangerouslySetInnerHTML={{
-                      __html: property.description
-                        .replace(/<[^>]+>/g, " ")
-                        .replace(/\s+/g, " ")
-                        .trim()
-                        .slice(0, 1500),
-                    }}
-                  />
-                </div>
-              )}
             </div>
           </div>
 
