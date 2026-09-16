@@ -320,8 +320,9 @@ async def create_property(
         t = await db.get(PropertyType, prop.property_type_id)
         tslug = t.slug if t else None
     try:
-        from app.workers.celery_app import refresh_intents_for_property_task
+        from app.workers.celery_app import refresh_intents_for_property_task, rebuild_market_research_task
         refresh_intents_for_property_task.delay(nslug, prop.bedrooms, tslug)
+        rebuild_market_research_task.delay()
     except Exception:
         from app.services.intent_automation import refresh_intents_for_property_facets
         await refresh_intents_for_property_facets(
@@ -395,8 +396,9 @@ async def update_property(
     nslug = prop.neighborhood.slug if prop.neighborhood else None
     tslug = prop.property_type.slug if prop.property_type else None
     try:
-        from app.workers.celery_app import refresh_intents_for_property_task
+        from app.workers.celery_app import refresh_intents_for_property_task, rebuild_market_research_task
         refresh_intents_for_property_task.delay(nslug, prop.bedrooms, tslug)
+        rebuild_market_research_task.delay()
     except Exception:
         from app.services.intent_automation import refresh_intents_for_property_facets
         await refresh_intents_for_property_facets(
