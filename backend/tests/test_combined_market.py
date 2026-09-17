@@ -4,20 +4,27 @@ from datetime import datetime, timedelta, timezone
 
 from app.services.combined_market import (
     EXTERNAL_MAX_AGE_DAYS,
-    MIN_SAMPLE_VERIFIED_PUBLIC,
     _external_observation_is_fresh,
-    _rows_for_public_stats,
+    _furnished_breakdown,
     compute_stats,
 )
 
 
-def _row(usd: float, *, origin: str, observed_at: datetime | None = None, bedrooms: int = 3) -> dict:
+def _row(
+    usd: float,
+    *,
+    origin: str = "external",
+    observed_at: datetime | None = None,
+    bedrooms: int = 3,
+    is_furnished: bool | None = None,
+) -> dict:
     return {
         "usd": usd,
         "origin": origin,
         "observed_at": observed_at or datetime.now(timezone.utc),
         "bedrooms": bedrooms,
-        "dedupe": f"{origin}:{usd}",
+        "is_furnished": is_furnished,
+        "dedupe": f"{origin}:{usd}:{bedrooms}:{is_furnished}",
     }
 
 
@@ -30,30 +37,42 @@ def test_external_observation_freshness_window():
     assert _external_observation_is_fresh(None, now=now) is False
 
 
-def test_public_stats_prefer_verified_when_sample_is_strong():
+def test_combined_stats_keep_external_with_verified():
+    """Premium verified inventory must not displace third-party market observations."""
     rows = [
-        *[_row(1000 + i * 10, origin="verified") for i in range(MIN_SAMPLE_VERIFIED_PUBLIC)],
-        _row(400, origin="external"),
-        _row(450, origin="external"),
-        _row(500, origin="external"),
+        _row(1500, origin="verified", bedrooms=2),
+        _row(1600, origin="verified", bedrooms=2),
+        _row(1700, origin="verified", bedrooms=3),
+        _row(1800, origin="verified", bedrooms=3),
+        _row(1900, origin="verified", bedrooms=3),
+        _row(500, origin="external", bedrooms=2),
+        _row(550, origin="external", bedrooms=2),
+        _row(600, origin="external", bedrooms=2),
+        _row(650, origin="external", bedrooms=3),
+        _row(700, origin="external", bedrooms=3),
     ]
-    selected = _rows_for_public_stats(rows)
-    assert all(r["origin"] == "verified" for r in selected)
-    assert len(selected) == MIN_SAMPLE_VERIFIED_PUBLIC
-
-    # New high verified prices should move the median once externals are dropped.
-    verified_median = compute_stats([r["usd"] for r in selected])["median_usd"]
-    combined_median = compute_stats([r["usd"] for r in rows])["median_usd"]
-    assert verified_median > combined_median
+    combined = compute_stats([r["usd"] for r in rows])
+    verified_only = compute_stats([r["usd"] for r in rows if r["origin"] == "verified"])
+    assert combined is not None and verified_only is not None
+    assert combined["median_usd"] < verified_only["median_usd"]
+    assert combined["sample_size"] == len(rows)
 
 
-def test_public_stats_keep_external_when_verified_sample_is_thin():
+def test_furnished_breakdown_uses_bedroom_matched_medians():
+    # Mix differs by bedroom: unfurnished 4-beds are expensive; furnished 1-beds are cheaper.
+    # A naive global median can look identical; bedroom-matched should keep furnished higher.
     rows = [
-        _row(1500, origin="verified"),
-        _row(1600, origin="verified"),
-        _row(700, origin="external"),
-        _row(750, origin="external"),
-        _row(800, origin="external"),
+        # 1-bed: furnished premium
+        *[_row(500 + i, bedrooms=1, is_furnished=True) for i in range(5)],
+        *[_row(350 + i, bedrooms=1, is_furnished=False) for i in range(5)],
+        # 2-bed: furnished premium
+        *[_row(800 + i, bedrooms=2, is_furnished=True) for i in range(5)],
+        *[_row(600 + i, bedrooms=2, is_furnished=False) for i in range(5)],
+        # Extra expensive unfurnished 4-beds that would pull a global unfurnished median up
+        *[_row(2000 + i * 50, bedrooms=4, is_furnished=False) for i in range(8)],
     ]
-    selected = _rows_for_public_stats(rows)
-    assert len(selected) == len(rows)
+    breakdown = _furnished_breakdown(rows)
+    assert breakdown["furnished"]["comparison"] == "bedroom_matched"
+    assert breakdown["furnished"]["median_usd"] is not None
+    assert breakdown["unfurnished"]["median_usd"] is not None
+    assert breakdown["furnished"]["median_usd"] > breakdown["unfurnished"]["median_usd"]

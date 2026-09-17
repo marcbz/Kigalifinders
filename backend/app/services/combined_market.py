@@ -24,12 +24,11 @@ from app.models import (
 from app.services.fx import effective_usd_price
 
 MIN_SAMPLE_PUBLIC = 3
-MIN_SAMPLE_VERIFIED_NEIGHBORHOOD = 3
-MIN_SAMPLE_VERIFIED_PUBLIC = 5
 MIN_SAMPLE_TREND = 3
 OUTLIER_IQR_FACTOR = 1.5
-# External CSV rows older than this no longer dominate live research figures.
-EXTERNAL_MAX_AGE_DAYS = 120
+# Drop very old external CSV rows, but keep a wide window — third-party market
+# observations are intentional (verified inventory skews premium).
+EXTERNAL_MAX_AGE_DAYS = 365
 
 
 def _now() -> datetime:
@@ -53,18 +52,6 @@ def _external_observation_is_fresh(observed_at: datetime | date | None, *, now: 
         return False
     cutoff = (now or _now()) - timedelta(days=EXTERNAL_MAX_AGE_DAYS)
     return observed >= cutoff
-
-
-def _rows_for_public_stats(rows: list[dict[str, Any]], *, min_verified: int = MIN_SAMPLE_VERIFIED_PUBLIC) -> list[dict[str, Any]]:
-    """Prefer live verified inventory when that sample alone is large enough.
-
-    External observations remain available for sparse slices; otherwise new published
-    listings would barely move medians dominated by large historical CSV imports.
-    """
-    verified = [r for r in rows if r.get("origin") == "verified"]
-    if len(verified) >= min_verified:
-        return verified
-    return rows
 
 
 def _percentile(sorted_vals: list[float], p: float) -> float | None:
@@ -174,7 +161,6 @@ def _group_stats(
     key_fn,
     label_fn,
     min_sample: int = MIN_SAMPLE_PUBLIC,
-    min_verified: int = MIN_SAMPLE_VERIFIED_PUBLIC,
 ) -> list[dict[str, Any]]:
     groups: dict[Any, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
@@ -184,11 +170,10 @@ def _group_stats(
         groups[k].append(r)
     out: list[dict[str, Any]] = []
     for key, group in groups.items():
-        stats_rows = _rows_for_public_stats(group, min_verified=min_verified)
-        st = compute_stats([g["usd"] for g in stats_rows], min_sample=min_sample)
+        st = compute_stats([g["usd"] for g in group], min_sample=min_sample)
         if not st:
             continue
-        period_start, period_end = _period_from_rows(stats_rows)
+        period_start, period_end = _period_from_rows(group)
         out.append(
             {
                 "key": key,
@@ -205,7 +190,7 @@ def _group_stats(
 
 
 def _group_neighborhood_stats(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Neighborhood medians — prefer KigaliRent Verified inventory when sample is strong enough."""
+    """Neighborhood medians from the combined verified + external eligible set."""
     hood_rows = [r for r in rows if (r.get("location_slug") or "") not in {"kigali", "", None}]
     groups: dict[Any, list[dict[str, Any]]] = defaultdict(list)
     for row in hood_rows:
@@ -214,13 +199,7 @@ def _group_neighborhood_stats(rows: list[dict[str, Any]]) -> list[dict[str, Any]
     out: list[dict[str, Any]] = []
     for key, group in groups.items():
         verified = [g for g in group if g.get("origin") == "verified"]
-        prices = [g["usd"] for g in group]
-        sample_min = MIN_SAMPLE_PUBLIC
-        if len(verified) >= MIN_SAMPLE_VERIFIED_NEIGHBORHOOD:
-            prices = [g["usd"] for g in verified]
-            sample_min = MIN_SAMPLE_VERIFIED_NEIGHBORHOOD
-
-        st = compute_stats(prices, min_sample=sample_min)
+        st = compute_stats([g["usd"] for g in group], min_sample=MIN_SAMPLE_PUBLIC)
         if not st:
             continue
         period_start, period_end = _period_from_rows(group)
@@ -238,6 +217,79 @@ def _group_neighborhood_stats(rows: list[dict[str, Any]]) -> list[dict[str, Any]
             }
         )
     return out
+
+
+def _furnished_breakdown(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Compare furnished vs unfurnished on a bedroom-matched basis.
+
+    Global medians often look identical when the bedroom mix differs (e.g. more
+    unfurnished family houses vs furnished apartments). Matching by bedroom keeps
+    the two market segments comparable.
+    """
+    furnished_rows = [r for r in rows if r.get("is_furnished") is True]
+    unfurnished_rows = [r for r in rows if r.get("is_furnished") is False]
+
+    bed_keys = sorted(
+        {
+            int(r["bedrooms"])
+            for r in furnished_rows + unfurnished_rows
+            if r.get("bedrooms") is not None
+        }
+    )
+    f_cohort_medians: list[float] = []
+    u_cohort_medians: list[float] = []
+    matched_bedrooms = 0
+    for beds in bed_keys:
+        f_prices = [
+            float(r["usd"])
+            for r in furnished_rows
+            if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds
+        ]
+        u_prices = [
+            float(r["usd"])
+            for r in unfurnished_rows
+            if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds
+        ]
+        f_st = compute_stats(f_prices, min_sample=MIN_SAMPLE_PUBLIC)
+        u_st = compute_stats(u_prices, min_sample=MIN_SAMPLE_PUBLIC)
+        if not f_st or not u_st:
+            continue
+        f_cohort_medians.append(f_st["median_usd"])
+        u_cohort_medians.append(u_st["median_usd"])
+        matched_bedrooms += 1
+
+    f_all = compute_stats([float(r["usd"]) for r in furnished_rows], min_sample=MIN_SAMPLE_PUBLIC)
+    u_all = compute_stats([float(r["usd"]) for r in unfurnished_rows], min_sample=MIN_SAMPLE_PUBLIC)
+
+    if matched_bedrooms >= 1:
+        f_median = round(statistics.median(f_cohort_medians), 2)
+        u_median = round(statistics.median(u_cohort_medians), 2)
+        comparison = "bedroom_matched"
+    else:
+        f_median = f_all["median_usd"] if f_all else None
+        u_median = u_all["median_usd"] if u_all else None
+        comparison = "overall"
+
+    return {
+        "furnished": {
+            "count": len(furnished_rows),
+            "median_usd": f_median,
+            "p25_usd": f_all["p25_usd"] if f_all else None,
+            "p75_usd": f_all["p75_usd"] if f_all else None,
+            "sample_size": f_all["sample_size"] if f_all else 0,
+            "comparison": comparison,
+            "matched_bedroom_cohorts": matched_bedrooms,
+        },
+        "unfurnished": {
+            "count": len(unfurnished_rows),
+            "median_usd": u_median,
+            "p25_usd": u_all["p25_usd"] if u_all else None,
+            "p75_usd": u_all["p75_usd"] if u_all else None,
+            "sample_size": u_all["sample_size"] if u_all else 0,
+            "comparison": comparison,
+            "matched_bedroom_cohorts": matched_bedrooms,
+        },
+    }
 
 
 def _budget_bands(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -312,9 +364,10 @@ def build_narrative_sections(
         "A listing that disappears from an external source is never assumed to have been rented.",
     ]
     methodology = [
-        "Eligible observations include KigaliRent Verified listings and approved external market observations.",
-        "When enough verified listings exist for a slice, public figures prefer that live inventory so new publishes move the market.",
+        "Eligible observations include KigaliRent Verified listings and approved external market observations from admin market imports.",
+        "External third-party observations are kept in the public set so research reflects the broader Kigali market, not only premium verified inventory.",
         f"External observations older than {EXTERNAL_MAX_AGE_DAYS} days are excluded from the public research set.",
+        "Furnished vs unfurnished typical rents are compared within matching bedroom cohorts when possible.",
         "Prices are normalized to USD, deduplicated, quality-checked, and screened for unreliable outliers.",
         "Statistics are published only when the sample size meets the minimum threshold.",
         "Source streams remain separate internally for provenance and auditing; public figures use the combined eligible set.",
@@ -480,7 +533,7 @@ async def combined_market_answer(
         property_type=property_type,
         furnished=furnished,
     )
-    stats_rows = _rows_for_public_stats(filtered)
+    stats_rows = filtered
     prices = [r["usd"] for r in stats_rows]
     stats = compute_stats(prices)
 
@@ -515,7 +568,6 @@ async def combined_market_answer(
         "provenance": {
             "verified_count": verified_n,
             "external_count": external_n,
-            "stats_from_verified_only": len(stats_rows) == verified_n and verified_n > 0,
             "eligible_before_outlier_filter": len(prices),
             "outliers_removed": (stats or {}).get("outliers_removed", 0),
         },
@@ -552,27 +604,24 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
     for row in by_neighborhood:
         row["location_slug"] = row["key"]
 
-    public_rows = _rows_for_public_stats(filtered)
-    furnished_prices = [r["usd"] for r in public_rows if r.get("is_furnished") is True]
-    unfurnished_prices = [r["usd"] for r in public_rows if r.get("is_furnished") is False]
-    furnished_stats = compute_stats(furnished_prices, min_sample=MIN_SAMPLE_PUBLIC)
-    unfurnished_stats = compute_stats(unfurnished_prices, min_sample=MIN_SAMPLE_PUBLIC)
-    furnished_breakdown = {
-        "furnished": {
-            "count": len(furnished_prices),
-            "median_usd": furnished_stats["median_usd"] if furnished_stats else None,
-            "p25_usd": furnished_stats["p25_usd"] if furnished_stats else None,
-            "p75_usd": furnished_stats["p75_usd"] if furnished_stats else None,
-            "sample_size": furnished_stats["sample_size"] if furnished_stats else 0,
-        },
-        "unfurnished": {
-            "count": len(unfurnished_prices),
-            "median_usd": unfurnished_stats["median_usd"] if unfurnished_stats else None,
-            "p25_usd": unfurnished_stats["p25_usd"] if unfurnished_stats else None,
-            "p75_usd": unfurnished_stats["p75_usd"] if unfurnished_stats else None,
-            "sample_size": unfurnished_stats["sample_size"] if unfurnished_stats else 0,
-        },
-    }
+    public_rows = filtered
+    furnished_breakdown = _furnished_breakdown(public_rows)
+    furnished_stats = (
+        {
+            "median_usd": furnished_breakdown["furnished"]["median_usd"],
+            "sample_size": furnished_breakdown["furnished"]["sample_size"],
+        }
+        if furnished_breakdown["furnished"]["median_usd"] is not None
+        else None
+    )
+    unfurnished_stats = (
+        {
+            "median_usd": furnished_breakdown["unfurnished"]["median_usd"],
+            "sample_size": furnished_breakdown["unfurnished"]["sample_size"],
+        }
+        if furnished_breakdown["unfurnished"]["median_usd"] is not None
+        else None
+    )
 
     trend = _trend_with_change(filtered)
     budget = _budget_bands(public_rows)
@@ -595,11 +644,27 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
             f"By bedrooms, typical asking rents range from ${cheapest['median_usd']:,.0f}/month "
             f"({cheapest['label']} bed) to ${priciest['median_usd']:,.0f}/month ({priciest['label']} bed)."
         )
-    if furnished_stats and unfurnished_stats:
-        insights.append(
-            f"Furnished listings typically ask around ${furnished_stats['median_usd']:,.0f}/month "
-            f"versus ${unfurnished_stats['median_usd']:,.0f}/month for unfurnished."
-        )
+    if (
+        furnished_stats
+        and unfurnished_stats
+        and furnished_stats["median_usd"] is not None
+        and unfurnished_stats["median_usd"] is not None
+    ):
+        f_med = furnished_stats["median_usd"]
+        u_med = unfurnished_stats["median_usd"]
+        if u_med > 0 and abs(f_med - u_med) >= 1:
+            premium_pct = round(100.0 * (f_med - u_med) / u_med, 1)
+            direction = "higher" if premium_pct > 0 else "lower"
+            insights.append(
+                f"Furnished listings typically ask around ${f_med:,.0f}/month versus "
+                f"${u_med:,.0f}/month for unfurnished "
+                f"({abs(premium_pct):.1f}% {direction}, bedroom-matched where possible)."
+            )
+        else:
+            insights.append(
+                f"Furnished listings typically ask around ${f_med:,.0f}/month versus "
+                f"${u_med:,.0f}/month for unfurnished."
+            )
     if len(by_neighborhood) >= 2:
         top = by_neighborhood[0]
         low = by_neighborhood[-1]
@@ -714,10 +779,10 @@ async def combined_research_payload(db: AsyncSession) -> dict[str, Any]:
         "last_updated": overall.get("last_updated"),
         "last_updated_display": overall.get("last_updated_display"),
         "methodology_summary": (
-            "Eligible asking rents from verified listings and recent approved external market observations "
-            "are normalized to USD, deduplicated, screened for outliers, and combined into a single "
-            "market estimate. When enough verified listings exist, those live prices are preferred so "
-            "new publishes are reflected promptly."
+            "Eligible asking rents from verified listings and approved external market observations "
+            "(imported via admin market data) are normalized to USD, deduplicated, screened for outliers, "
+            "and combined into a single market estimate. External sources keep the research representative "
+            "of the broader Kigali market alongside premium verified inventory."
         ),
         "limitations": sections["limitations"],
         "how_to_interpret": sections["how_to_interpret"],
