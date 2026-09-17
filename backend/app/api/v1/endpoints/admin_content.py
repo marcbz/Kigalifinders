@@ -97,7 +97,7 @@ async def list_inquiries(
             status=req.status,
             created_at=req.created_at,
         )
-        for req, title in result.all()
+        for req, title, slug in result.all()
     ]
 
 

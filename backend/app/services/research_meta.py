@@ -120,17 +120,37 @@ async def research_source_attribution(db: AsyncSession) -> list[dict[str, Any]]:
 
 
 async def research_last_updated(db: AsyncSession) -> date | None:
+    """Newest date behind published research.
+
+    Takes the latest of aggregate snapshots, observations, and verified listings so the
+    stamp still moves when a listing is published between snapshot rebuilds.
+    """
+    candidates: list[date] = []
+
     snap = (
         await db.execute(
-            select(MarketStatSnapshot.period_end)
-            .order_by(MarketStatSnapshot.period_end.desc())
-            .limit(1)
+            select(func.max(MarketStatSnapshot.period_end))
         )
-    ).scalar_one_or_none()
+    ).scalar()
     if snap:
-        return snap
+        candidates.append(snap)
+
     obs = (await db.execute(select(func.max(RentalObservation.observed_at)))).scalar()
-    return obs.date() if obs else None
+    if obs:
+        candidates.append(obs.date())
+
+    listing = (
+        await db.execute(
+            select(func.max(func.coalesce(Property.last_verified_at, Property.published_at))).where(
+                Property.status == PropertyStatusEnum.PUBLISHED,
+                Property.listing_type.in_([ListingType.RENT, ListingType.FURNISHED]),
+            )
+        )
+    ).scalar()
+    if listing:
+        candidates.append(listing.date())
+
+    return max(candidates) if candidates else None
 
 
 async def research_transparency(

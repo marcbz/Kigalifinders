@@ -1,3 +1,4 @@
+import logging
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 from uuid import UUID
@@ -13,6 +14,8 @@ from app.models import Analytics, Property, PropertyImage, PropertyStatusEnum, U
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
 from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
@@ -71,6 +74,46 @@ async def _sync_property_images(db: AsyncSession, prop: Property, images: list[P
                 sort_order=img.sort_order if img.sort_order else i,
             )
         )
+
+
+async def _refresh_market_data(
+    db: AsyncSession,
+    *,
+    location_slug: str | None,
+    bedrooms: int | None,
+    property_type_slug: str | None,
+) -> None:
+    """Refresh intents and market snapshots after a listing changes.
+
+    Queued to Celery when a broker is reachable; otherwise rebuilt inline so market
+    research never goes stale on deployments that run without a worker. Failures are
+    swallowed because the listing itself is already committed.
+    """
+    try:
+        from app.workers.celery_app import rebuild_market_research_task, refresh_intents_for_property_task
+
+        refresh_intents_for_property_task.delay(location_slug, bedrooms, property_type_slug)
+        rebuild_market_research_task.delay()
+        return
+    except Exception:
+        logger.warning("Celery dispatch failed; refreshing market data inline", exc_info=True)
+
+    from app.services.intent_automation import refresh_intents_for_property_facets
+    from app.services.research import rebuild_observation_snapshots, rebuild_verified_snapshots
+
+    try:
+        await refresh_intents_for_property_facets(
+            db,
+            location_slug=location_slug,
+            bedrooms=bedrooms,
+            property_type_slug=property_type_slug,
+        )
+        await rebuild_verified_snapshots(db)
+        await rebuild_observation_snapshots(db)
+        await db.commit()
+    except Exception:
+        logger.exception("Inline market data refresh failed")
+        await db.rollback()
 
 
 def _search_params(
@@ -320,15 +363,7 @@ async def create_property(
         from app.models import PropertyType
         t = await db.get(PropertyType, prop.property_type_id)
         tslug = t.slug if t else None
-    try:
-        from app.workers.celery_app import refresh_intents_for_property_task, rebuild_market_research_task
-        refresh_intents_for_property_task.delay(nslug, prop.bedrooms, tslug)
-        rebuild_market_research_task.delay()
-    except Exception:
-        from app.services.intent_automation import refresh_intents_for_property_facets
-        await refresh_intents_for_property_facets(
-            db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug
-        )
+    await _refresh_market_data(db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
     repo = PropertyRepository(db)
     result = await repo.get_by_id(prop.id)
     return repo._to_list_item(result)
@@ -397,15 +432,7 @@ async def update_property(
     await db.commit()
     nslug = prop.neighborhood.slug if prop.neighborhood else None
     tslug = prop.property_type.slug if prop.property_type else None
-    try:
-        from app.workers.celery_app import refresh_intents_for_property_task, rebuild_market_research_task
-        refresh_intents_for_property_task.delay(nslug, prop.bedrooms, tslug)
-        rebuild_market_research_task.delay()
-    except Exception:
-        from app.services.intent_automation import refresh_intents_for_property_facets
-        await refresh_intents_for_property_facets(
-            db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug
-        )
+    await _refresh_market_data(db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
     result = await repo.get_by_id(property_id)
     return repo._to_list_item(result)
 
@@ -423,10 +450,5 @@ async def delete_property(
     await db.delete(prop)
     await sync_location_counts(db)
     await db.commit()
-    try:
-        from app.workers.celery_app import refresh_intents_for_property_task
-
-        refresh_intents_for_property_task.delay(None, None, None)
-    except Exception:
-        pass
+    await _refresh_market_data(db, location_slug=None, bedrooms=None, property_type_slug=None)
     return None

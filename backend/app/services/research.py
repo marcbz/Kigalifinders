@@ -169,6 +169,9 @@ async def rebuild_observation_snapshots(db: AsyncSession, period_end: date | Non
         obs_day = (o.observed_at or datetime.now(timezone.utc)).date()
         by_month[(obs_day.year, obs_day.month)].append(o)
 
+    # The month being rebuilt is still open, so it ends on the rebuild date rather than month end.
+    current_key = (period_end.year, period_end.month)
+
     created = 0
     for (year, month), month_rows in by_month.items():
         month_start = date(year, month, 1)

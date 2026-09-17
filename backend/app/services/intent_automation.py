@@ -874,6 +874,8 @@ async def run_daily_automation(db: AsyncSession) -> dict[str, Any]:
 
 
 async def run_weekly_audit(db: AsyncSession) -> dict[str, Any]:
+    from app.services.seo_landing import is_manual_override
+
     cfg = await load_automation_config(db)
     disc = await discover_intents(db, deep=True)
     index_stats = await apply_index_rules(db, cfg)
