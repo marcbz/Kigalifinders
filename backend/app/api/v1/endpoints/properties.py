@@ -309,6 +309,7 @@ async def create_property(
     await db.flush()
     await _sync_property_images(db, prop, data.images)
     await sync_location_counts(db)
+    await db.commit()
     nslug = None
     tslug = None
     if prop.neighborhood_id:
@@ -393,6 +394,7 @@ async def update_property(
     if images is not None:
         await _sync_property_images(db, prop, images)
     await sync_location_counts(db)
+    await db.commit()
     nslug = prop.neighborhood.slug if prop.neighborhood else None
     tslug = prop.property_type.slug if prop.property_type else None
     try:

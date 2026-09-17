@@ -35,11 +35,14 @@ def rebuild_market_research_task():
     from app.services.research import rebuild_observation_snapshots, rebuild_verified_snapshots
 
     async def _run():
+        print("Starting rebuild_market_research_task...")
         async with AsyncSessionLocal() as db:
             v = await rebuild_verified_snapshots(db)
             o = await rebuild_observation_snapshots(db)
             await db.commit()
-            return {"verified_snapshots": v, "observation_snapshots": o}
+            result = {"verified_snapshots": v, "observation_snapshots": o}
+            print(f"rebuild_market_research_task completed: {result}")
+            return result
 
     return asyncio.run(_run())
 
