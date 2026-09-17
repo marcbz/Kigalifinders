@@ -90,7 +90,7 @@ async def rebuild_verified_snapshots(db: AsyncSession, period_end: date | None =
     # Clear existing verified snapshots for this period
     existing = await db.execute(
         select(MarketStatSnapshot).where(
-            MarketStatSnapshot.period_end == period_end,
+            MarketStatSnapshot.period_start == period_start,
             MarketStatSnapshot.data_kind == MarketDataKind.VERIFIED_KIGALI_RENT.value,
         )
     )
@@ -168,11 +168,6 @@ async def rebuild_observation_snapshots(db: AsyncSession, period_end: date | Non
     for o in rows:
         obs_day = (o.observed_at or datetime.now(timezone.utc)).date()
         by_month[(obs_day.year, obs_day.month)].append(o)
-
-    # Rolling current-period view includes ALL active observations so fresh imports appear immediately
-    current_key = (period_end.year, period_end.month)
-    if rows:
-        by_month[current_key] = list(rows)
 
     created = 0
     for (year, month), month_rows in by_month.items():

@@ -23,7 +23,7 @@ from app.models import (
 )
 from app.services.fx import effective_usd_price
 
-MIN_SAMPLE_PUBLIC = 5
+MIN_SAMPLE_PUBLIC = 3
 MIN_SAMPLE_VERIFIED_NEIGHBORHOOD = 3
 MIN_SAMPLE_TREND = 3
 OUTLIER_IQR_FACTOR = 1.5
