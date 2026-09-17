@@ -1,10 +1,10 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Bath, Bed, MapPin, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PropertyListItem } from "@/types";
 import { getListingBadge, getPropertyAreaLabel, getPropertyImageAlt } from "@/lib/property-features";
 import { getPropertyHref } from "@/lib/property-url";
+import { ListingImage } from "@/components/property/listing-image";
 import { PropertyCardActions } from "@/components/property/property-card-actions";
 import { PropertyImageFrame } from "@/components/property/property-image-frame";
 import { PropertyPrice } from "@/components/property/property-price";
@@ -31,14 +31,15 @@ export function PropertyCard({ property }: PropertyCardProps) {
       />
 
       <PropertyImageFrame className="relative overflow-hidden h-64 select-none">
-        <Image
-          src={property.primary_image || "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800"}
+        <ListingImage
+          src={property.primary_image}
           alt={getPropertyImageAlt(property)}
           fill
           loading="lazy"
           fetchPriority="low"
           className="object-cover transition-transform duration-500 group-hover:scale-105 pointer-events-none"
           sizes="(max-width: 768px) 100vw, 33vw"
+          optimizeWidth={800}
           draggable={false}
         />
         <div className="absolute top-4 left-4 z-10 flex flex-col gap-2 items-start">

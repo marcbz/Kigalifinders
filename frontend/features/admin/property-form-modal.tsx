@@ -712,7 +712,8 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                     <ImageUrlOrUpload
                       label=""
                       folder="kigalifinders/properties"
-                      allowUpload={false}
+                      allowUpload
+                      hint="Upload from device (recommended) or paste a Cloudinary HTTPS URL"
                       value={row.url}
                       onChange={(url) => {
                         const next = [...imageRows];

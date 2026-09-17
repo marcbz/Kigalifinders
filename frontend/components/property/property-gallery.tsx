@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { ListingImage } from "@/components/property/listing-image";
 import { blockPropertyImageContextMenu } from "@/lib/property-image-protect";
 
 interface GalleryImage {
@@ -89,12 +89,13 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
               className="relative flex-shrink-0 w-full md:w-[85%] lg:w-[70%] h-[320px] md:h-[480px] lg:h-[560px] rounded-2xl overflow-hidden snap-center select-none"
               onContextMenu={blockPropertyImageContextMenu}
             >
-              <Image
+              <ListingImage
                 src={img.url}
                 alt={img.alt_text || title}
                 fill
                 className="object-cover pointer-events-none"
                 sizes="(max-width: 768px) 100vw, 70vw"
+                optimizeWidth={1400}
                 priority={index === 0}
                 draggable={false}
               />

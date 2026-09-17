@@ -148,7 +148,7 @@ export function fetchResearchPricesSafe(location = "kigali") {
       number_of_observations?: number;
       sources_url?: string;
     };
-  }>(`/research/kigali-rental-market/prices?location_slug=${encodeURIComponent(location)}`, 300);
+  }>(`/research/kigali-rental-market/prices?location_slug=${encodeURIComponent(location)}`, 60);
 }
 
 export function fetchResearchNeighborhoodsSafe() {

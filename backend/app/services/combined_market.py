@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import statistics
 from collections import defaultdict
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -25,12 +25,46 @@ from app.services.fx import effective_usd_price
 
 MIN_SAMPLE_PUBLIC = 3
 MIN_SAMPLE_VERIFIED_NEIGHBORHOOD = 3
+MIN_SAMPLE_VERIFIED_PUBLIC = 5
 MIN_SAMPLE_TREND = 3
 OUTLIER_IQR_FACTOR = 1.5
+# External CSV rows older than this no longer dominate live research figures.
+EXTERNAL_MAX_AGE_DAYS = 120
 
 
 def _now() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def _as_utc(dt: datetime | date | None) -> datetime | None:
+    if dt is None:
+        return None
+    if isinstance(dt, date) and not isinstance(dt, datetime):
+        return datetime(dt.year, dt.month, dt.day, tzinfo=timezone.utc)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt
+
+
+def _external_observation_is_fresh(observed_at: datetime | date | None, *, now: datetime | None = None) -> bool:
+    """Keep external market rows only while they remain recent enough for public research."""
+    observed = _as_utc(observed_at)
+    if not observed:
+        return False
+    cutoff = (now or _now()) - timedelta(days=EXTERNAL_MAX_AGE_DAYS)
+    return observed >= cutoff
+
+
+def _rows_for_public_stats(rows: list[dict[str, Any]], *, min_verified: int = MIN_SAMPLE_VERIFIED_PUBLIC) -> list[dict[str, Any]]:
+    """Prefer live verified inventory when that sample alone is large enough.
+
+    External observations remain available for sparse slices; otherwise new published
+    listings would barely move medians dominated by large historical CSV imports.
+    """
+    verified = [r for r in rows if r.get("origin") == "verified"]
+    if len(verified) >= min_verified:
+        return verified
+    return rows
 
 
 def _percentile(sorted_vals: list[float], p: float) -> float | None:
@@ -140,6 +174,7 @@ def _group_stats(
     key_fn,
     label_fn,
     min_sample: int = MIN_SAMPLE_PUBLIC,
+    min_verified: int = MIN_SAMPLE_VERIFIED_PUBLIC,
 ) -> list[dict[str, Any]]:
     groups: dict[Any, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
@@ -149,10 +184,11 @@ def _group_stats(
         groups[k].append(r)
     out: list[dict[str, Any]] = []
     for key, group in groups.items():
-        st = compute_stats([g["usd"] for g in group], min_sample=min_sample)
+        stats_rows = _rows_for_public_stats(group, min_verified=min_verified)
+        st = compute_stats([g["usd"] for g in stats_rows], min_sample=min_sample)
         if not st:
             continue
-        period_start, period_end = _period_from_rows(group)
+        period_start, period_end = _period_from_rows(stats_rows)
         out.append(
             {
                 "key": key,
@@ -277,6 +313,8 @@ def build_narrative_sections(
     ]
     methodology = [
         "Eligible observations include KigaliRent Verified listings and approved external market observations.",
+        "When enough verified listings exist for a slice, public figures prefer that live inventory so new publishes move the market.",
+        f"External observations older than {EXTERNAL_MAX_AGE_DAYS} days are excluded from the public research set.",
         "Prices are normalized to USD, deduplicated, quality-checked, and screened for unreliable outliers.",
         "Statistics are published only when the sample size meets the minimum threshold.",
         "Source streams remain separate internally for provenance and auditing; public figures use the combined eligible set.",
@@ -346,10 +384,13 @@ async def _eligible_observation_rows(db: AsyncSession) -> list[dict[str, Any]]:
             RentalObservation.usd_price.is_not(None),
         )
     )
+    now = _now()
     out: list[dict[str, Any]] = []
     for o in result.scalars().all():
         usd = float(o.usd_price or 0)
         if usd <= 0:
+            continue
+        if not _external_observation_is_fresh(o.observed_at, now=now):
             continue
         out.append(
             {
@@ -439,7 +480,8 @@ async def combined_market_answer(
         property_type=property_type,
         furnished=furnished,
     )
-    prices = [r["usd"] for r in filtered]
+    stats_rows = _rows_for_public_stats(filtered)
+    prices = [r["usd"] for r in stats_rows]
     stats = compute_stats(prices)
 
     loc_label = "Kigali" if location_slug in {"kigali", "all", None} else location_slug.replace("-", " ").title()
@@ -455,7 +497,8 @@ async def combined_market_answer(
     answer = format_answer(stats, subject=subject)
     verified_n = sum(1 for r in filtered if r["origin"] == "verified")
     external_n = sum(1 for r in filtered if r["origin"] == "external")
-    period_start, period_end = _period_from_rows(filtered)
+    period_start, period_end = _period_from_rows(stats_rows)
+    computed_on = date.today()
     if answer.get("has_enough_data") and stats:
         answer["summary"] = (
             f"Based on {stats['sample_size']} eligible rental observations"
@@ -472,13 +515,14 @@ async def combined_market_answer(
         "provenance": {
             "verified_count": verified_n,
             "external_count": external_n,
+            "stats_from_verified_only": len(stats_rows) == verified_n and verified_n > 0,
             "eligible_before_outlier_filter": len(prices),
             "outliers_removed": (stats or {}).get("outliers_removed", 0),
         },
         "period_start": period_start.isoformat() if period_start else None,
         "period_end": period_end.isoformat() if period_end else None,
-        "last_updated": period_end.isoformat() if period_end else date.today().isoformat(),
-        "last_updated_display": period_end.strftime("%B %Y") if period_end else None,
+        "last_updated": computed_on.isoformat(),
+        "last_updated_display": computed_on.strftime("%B %Y"),
         "asking_rent_note": "These figures are based on asking rents, not confirmed lease transactions.",
     }
 
@@ -508,8 +552,9 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
     for row in by_neighborhood:
         row["location_slug"] = row["key"]
 
-    furnished_prices = [r["usd"] for r in filtered if r.get("is_furnished") is True]
-    unfurnished_prices = [r["usd"] for r in filtered if r.get("is_furnished") is False]
+    public_rows = _rows_for_public_stats(filtered)
+    furnished_prices = [r["usd"] for r in public_rows if r.get("is_furnished") is True]
+    unfurnished_prices = [r["usd"] for r in public_rows if r.get("is_furnished") is False]
     furnished_stats = compute_stats(furnished_prices, min_sample=MIN_SAMPLE_PUBLIC)
     unfurnished_stats = compute_stats(unfurnished_prices, min_sample=MIN_SAMPLE_PUBLIC)
     furnished_breakdown = {
@@ -530,10 +575,10 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
     }
 
     trend = _trend_with_change(filtered)
-    budget = _budget_bands(filtered)
+    budget = _budget_bands(public_rows)
 
     insights: list[str] = []
-    overall_stats = compute_stats([r["usd"] for r in filtered])
+    overall_stats = compute_stats([r["usd"] for r in public_rows])
     if overall_stats:
         insights.append(
             f"Typical asking rent is ${overall_stats['median_usd']:,.0f}/month "
@@ -669,9 +714,10 @@ async def combined_research_payload(db: AsyncSession) -> dict[str, Any]:
         "last_updated": overall.get("last_updated"),
         "last_updated_display": overall.get("last_updated_display"),
         "methodology_summary": (
-            "Eligible asking rents from verified listings and approved external market observations "
+            "Eligible asking rents from verified listings and recent approved external market observations "
             "are normalized to USD, deduplicated, screened for outliers, and combined into a single "
-            "market estimate when sample size is sufficient."
+            "market estimate. When enough verified listings exist, those live prices are preferred so "
+            "new publishes are reflected promptly."
         ),
         "limitations": sections["limitations"],
         "how_to_interpret": sections["how_to_interpret"],

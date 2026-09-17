@@ -9,7 +9,7 @@ import {
   ResearchNarrativeSections,
 } from "@/components/research/research-narrative";
 
-export const revalidate = 300;
+export const revalidate = 60;
 
 export const metadata: Metadata = {
   title: "Kigali Rental Prices 2026: Cost of Renting in Kigali",

@@ -1,5 +1,5 @@
-import Image from "next/image";
 import Link from "next/link";
+import { ListingImage } from "@/components/property/listing-image";
 import { ResearchChart } from "@/components/research/research-charts";
 import { getPropertyImageAlt } from "@/lib/property-features";
 import { getPropertyHref } from "@/lib/property-url";
@@ -159,7 +159,7 @@ export function RentalListingsSection({
                 <Link href={getPropertyHref(p)} className="block">
                   <div className="relative aspect-[4/3] bg-navy-700">
                     {p.primary_image ? (
-                      <Image
+                      <ListingImage
                         src={p.primary_image}
                         alt={getPropertyImageAlt({
                           title: p.title,
@@ -171,6 +171,7 @@ export function RentalListingsSection({
                         fill
                         className="object-cover"
                         sizes="(max-width:768px) 100vw, 33vw"
+                        optimizeWidth={800}
                       />
                     ) : null}
                   </div>
