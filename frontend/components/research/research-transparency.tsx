@@ -104,7 +104,10 @@ export function ResearchTransparency({
 }) {
   if (!data) return null;
 
-  const sources = (data.sources || []).filter((s) => (s.observation_count || 0) > 0);
+  const sources = (data.sources || []).filter(
+    (s) => (s.observation_count || 0) > 0 && s.kind !== "reference_benchmark",
+  );
+  const benchmarks = (data.sources || []).filter((s) => s.kind === "reference_benchmark");
 
   return (
     <section className={`rounded-2xl border bg-white dark:bg-navy-800 ${compact ? "p-4" : "p-6"} space-y-4`}>
@@ -133,6 +136,25 @@ export function ResearchTransparency({
             {sources.map((s) => (
               <li key={s.source_key || s.name}>
                 {s.source_url && !sourceNameOnly(s.source_url, s.source_key) ? (
+                  <a href={s.source_url} target="_blank" rel="noreferrer" className="underline">
+                    {s.name}
+                  </a>
+                ) : (
+                  <span>{s.name}</span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {benchmarks.length > 0 && (
+        <div>
+          <h3 className="text-sm font-medium text-navy-800 dark:text-white mb-2">Reference benchmarks</h3>
+          <ul className="flex flex-wrap gap-x-3 gap-y-1 text-sm text-gray-600">
+            {benchmarks.map((s) => (
+              <li key={s.source_key || s.name}>
+                {s.source_url ? (
                   <a href={s.source_url} target="_blank" rel="noreferrer" className="underline">
                     {s.name}
                   </a>

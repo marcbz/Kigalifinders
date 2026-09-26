@@ -22,6 +22,12 @@ from app.models import (
     RentalObservation,
 )
 from app.services.fx import effective_usd_price
+from app.services.market_estimator import (
+    STANDARD_BEDROOM_MIX,
+    benchmark_prior,
+    estimate_market_rent,
+    estimate_typical_rent,
+)
 
 MIN_SAMPLE_PUBLIC = 3
 MIN_SAMPLE_TREND = 3
@@ -122,7 +128,7 @@ def format_answer(stats: dict[str, Any] | None, *, subject: str) -> dict[str, An
         f"Middle 50% of observed asking rents: ${stats['p25_usd']:,.0f}–${stats['p75_usd']:,.0f}/month."
     )
     plain = (
-        f"The typical (median) asking rent is ${typical:,.0f}/month. "
+        f"The typical asking rent is ${typical:,.0f}/month. "
         f"Half of observed listings ask between ${stats['p25_usd']:,.0f} and ${stats['p75_usd']:,.0f}/month. "
         "These are asking rents, not confirmed lease transaction prices."
     )
@@ -161,6 +167,7 @@ def _group_stats(
     key_fn,
     label_fn,
     min_sample: int = MIN_SAMPLE_PUBLIC,
+    prior_fn=None,
 ) -> list[dict[str, Any]]:
     groups: dict[Any, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
@@ -170,7 +177,11 @@ def _group_stats(
         groups[k].append(r)
     out: list[dict[str, Any]] = []
     for key, group in groups.items():
-        st = compute_stats([g["usd"] for g in group], min_sample=min_sample)
+        st = estimate_typical_rent(
+            group,
+            prior_usd=prior_fn(key) if prior_fn else None,
+            min_sample=min_sample,
+        )
         if not st:
             continue
         period_start, period_end = _period_from_rows(group)
@@ -190,7 +201,7 @@ def _group_stats(
 
 
 def _group_neighborhood_stats(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Neighborhood medians from the combined verified + external eligible set."""
+    """Neighborhood typical rents from the combined verified + external eligible set."""
     hood_rows = [r for r in rows if (r.get("location_slug") or "") not in {"kigali", "", None}]
     groups: dict[Any, list[dict[str, Any]]] = defaultdict(list)
     for row in hood_rows:
@@ -199,7 +210,7 @@ def _group_neighborhood_stats(rows: list[dict[str, Any]]) -> list[dict[str, Any]
     out: list[dict[str, Any]] = []
     for key, group in groups.items():
         verified = [g for g in group if g.get("origin") == "verified"]
-        st = compute_stats([g["usd"] for g in group], min_sample=MIN_SAMPLE_PUBLIC)
+        st = estimate_typical_rent(group, min_sample=MIN_SAMPLE_PUBLIC)
         if not st:
             continue
         period_start, period_end = _period_from_rows(group)
@@ -240,26 +251,18 @@ def _furnished_breakdown(rows: list[dict[str, Any]]) -> dict[str, Any]:
     u_cohort_medians: list[float] = []
     matched_bedrooms = 0
     for beds in bed_keys:
-        f_prices = [
-            float(r["usd"])
-            for r in furnished_rows
-            if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds
-        ]
-        u_prices = [
-            float(r["usd"])
-            for r in unfurnished_rows
-            if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds
-        ]
-        f_st = compute_stats(f_prices, min_sample=MIN_SAMPLE_PUBLIC)
-        u_st = compute_stats(u_prices, min_sample=MIN_SAMPLE_PUBLIC)
+        f_cohort = [r for r in furnished_rows if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds]
+        u_cohort = [r for r in unfurnished_rows if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds]
+        f_st = estimate_typical_rent(f_cohort, min_sample=MIN_SAMPLE_PUBLIC)
+        u_st = estimate_typical_rent(u_cohort, min_sample=MIN_SAMPLE_PUBLIC)
         if not f_st or not u_st:
             continue
         f_cohort_medians.append(f_st["median_usd"])
         u_cohort_medians.append(u_st["median_usd"])
         matched_bedrooms += 1
 
-    f_all = compute_stats([float(r["usd"]) for r in furnished_rows], min_sample=MIN_SAMPLE_PUBLIC)
-    u_all = compute_stats([float(r["usd"]) for r in unfurnished_rows], min_sample=MIN_SAMPLE_PUBLIC)
+    f_all = estimate_typical_rent(furnished_rows, min_sample=MIN_SAMPLE_PUBLIC)
+    u_all = estimate_typical_rent(unfurnished_rows, min_sample=MIN_SAMPLE_PUBLIC)
 
     if matched_bedrooms >= 1:
         f_median = round(statistics.median(f_cohort_medians), 2)
@@ -322,14 +325,14 @@ def _budget_bands(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def _trend_with_change(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    month_prices: dict[str, list[float]] = defaultdict(list)
+    month_rows: dict[str, list[dict[str, Any]]] = defaultdict(list)
     for r in rows:
         key = _month_key(r.get("observed_at"))
         if key:
-            month_prices[key].append(r["usd"])
+            month_rows[key].append(r)
     trend: list[dict[str, Any]] = []
-    for month in sorted(month_prices.keys())[-24:]:
-        st = compute_stats(month_prices[month], min_sample=MIN_SAMPLE_TREND)
+    for month in sorted(month_rows.keys())[-24:]:
+        st = estimate_typical_rent(month_rows[month], min_sample=MIN_SAMPLE_TREND)
         if not st:
             continue
         trend.append(
@@ -357,8 +360,14 @@ def build_narrative_sections(
     period_start: str | None,
     period_end: str | None,
 ) -> dict[str, Any]:
+    mix_text = ", ".join(
+        f"{int(share * 100)}% {'4+' if beds == 4 else beds}-bed" for beds, share in STANDARD_BEDROOM_MIX.items()
+    )
     how_to = [
-        "Typical asking rent means the median — half of observed listings ask less, half ask more.",
+        "Typical asking rent is a robust central estimate: extreme prices are capped and every listing "
+        "contributes a small, bounded amount, so one new or edited listing only nudges the figure.",
+        f"The Kigali-wide headline combines bedroom-level estimates using a standard rental mix ({mix_text}), "
+        "so a run of large premium houses does not inflate the whole-market figure.",
         "Middle 50% (P25–P75) is the range where the central half of observed asking rents fall.",
         "These figures are asking rents from eligible observations, not confirmed lease transactions.",
         "A listing that disappears from an external source is never assumed to have been rented.",
@@ -367,15 +376,19 @@ def build_narrative_sections(
         "Eligible observations include KigaliRent Verified listings and approved external market observations from admin market imports.",
         "External third-party observations are kept in the public set so research reflects the broader Kigali market, not only premium verified inventory.",
         f"External observations older than {EXTERNAL_MAX_AGE_DAYS} days are excluded from the public research set.",
+        "KigaliRent Verified listings are capped at 30% of the weight in any estimate because verified inventory skews premium.",
+        "Kigali-wide bedroom estimates are anchored to trusted published references (Wise cost-of-living data); "
+        "the anchor carries the weight of 25 observations, so observed listings dominate as the sample grows.",
         "Furnished vs unfurnished typical rents are compared within matching bedroom cohorts when possible.",
-        "Prices are normalized to USD, deduplicated, quality-checked, and screened for unreliable outliers.",
+        "Prices are normalized to USD, deduplicated, quality-checked, and winsorized at the 20th/80th percentiles.",
         "Statistics are published only when the sample size meets the minimum threshold.",
         "Source streams remain separate internally for provenance and auditing; public figures use the combined eligible set.",
     ]
     limitations = [
         "Asking rents are not confirmed transaction prices.",
         "Coverage varies by neighborhood, property type, and time period.",
-        "Outlier screening removes extreme prices so a single listing cannot dominate results.",
+        "Extreme prices are capped so a single listing cannot dominate results.",
+        "Reference benchmarks are periodic published estimates and may lag the live market.",
         "Insufficient samples are shown as “not enough data” rather than invented estimates.",
     ]
     period_label = None
@@ -535,9 +548,15 @@ async def combined_market_answer(
     )
     stats_rows = filtered
     prices = [r["usd"] for r in stats_rows]
-    stats = compute_stats(prices)
+    kigali_wide = location_slug in {"kigali", "all", None}
+    if bedrooms is None and property_type is None:
+        stats = estimate_market_rent(filtered, use_benchmarks=kigali_wide)
+    elif property_type is None:
+        stats = estimate_typical_rent(filtered, prior_usd=benchmark_prior(bedrooms) if kigali_wide else None)
+    else:
+        stats = estimate_typical_rent(filtered)
 
-    loc_label = "Kigali" if location_slug in {"kigali", "all", None} else location_slug.replace("-", " ").title()
+    loc_label = "Kigali" if kigali_wide else location_slug.replace("-", " ").title()
     if bedrooms is not None and property_type:
         subject = f"How much does a {bedrooms}-bedroom {property_type.replace('-', ' ')} cost in {loc_label}?"
     elif bedrooms is not None:
@@ -570,6 +589,11 @@ async def combined_market_answer(
             "external_count": external_n,
             "eligible_before_outlier_filter": len(prices),
             "outliers_removed": (stats or {}).get("outliers_removed", 0),
+            "method": (stats or {}).get("method"),
+            "benchmark_usd": (stats or {}).get("benchmark_usd"),
+            "benchmark_weight": (stats or {}).get("benchmark_weight"),
+            "verified_row_weight": (stats or {}).get("verified_row_weight"),
+            "bedroom_components": (stats or {}).get("bedroom_components"),
         },
         "period_start": period_start.isoformat() if period_start else None,
         "period_end": period_end.isoformat() if period_end else None,
@@ -580,10 +604,12 @@ async def combined_market_answer(
 
 
 def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: str) -> dict[str, Any]:
+    kigali_wide = location_slug in {"kigali", "all", None}
     by_bedroom = _group_stats(
         filtered,
         key_fn=lambda r: min(int(r["bedrooms"]), 4) if r.get("bedrooms") is not None else None,
         label_fn=lambda k, _g: "4+" if k >= 4 else str(k),
+        prior_fn=benchmark_prior if kigali_wide else None,
     )
     by_bedroom.sort(key=lambda x: int(x["key"]) if isinstance(x["key"], int) else 99)
     for row in by_bedroom:
@@ -627,7 +653,7 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
     budget = _budget_bands(public_rows)
 
     insights: list[str] = []
-    overall_stats = compute_stats([r["usd"] for r in public_rows])
+    overall_stats = estimate_market_rent(public_rows, use_benchmarks=kigali_wide)
     if overall_stats:
         insights.append(
             f"Typical asking rent is ${overall_stats['median_usd']:,.0f}/month "
@@ -780,9 +806,10 @@ async def combined_research_payload(db: AsyncSession) -> dict[str, Any]:
         "last_updated_display": overall.get("last_updated_display"),
         "methodology_summary": (
             "Eligible asking rents from verified listings and approved external market observations "
-            "(imported via admin market data) are normalized to USD, deduplicated, screened for outliers, "
-            "and combined into a single market estimate. External sources keep the research representative "
-            "of the broader Kigali market alongside premium verified inventory."
+            "(imported via admin market data) are normalized to USD, deduplicated, and combined with a robust "
+            "estimator. Verified premium inventory is capped at 30% of the weight, bedroom estimates are anchored "
+            "to trusted references such as Wise, and the headline uses a standard bedroom mix so single listing "
+            "changes only nudge the typical rent."
         ),
         "limitations": sections["limitations"],
         "how_to_interpret": sections["how_to_interpret"],

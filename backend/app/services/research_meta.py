@@ -116,6 +116,10 @@ async def research_source_attribution(db: AsyncSession) -> list[dict[str, Any]]:
             continue
         out.append({"name": key, "source_key": key, "observation_count": count, "source_url": None, "kind": "market_observation"})
     out.sort(key=lambda x: -x["observation_count"])
+
+    from app.services.market_estimator import benchmark_sources
+
+    out.extend({**b, "observation_count": 0} for b in benchmark_sources())
     return out
 
 

@@ -725,6 +725,20 @@ async def research_sources(db: AsyncSession = Depends(get_db)):
             "source_url": "https://kigalirent.com/properties",
         },
     )
+    from app.services.market_estimator import benchmark_sources
+
+    for bench in benchmark_sources():
+        sources.append(
+            {
+                "source": bench["name"],
+                "source_key": bench["source_key"],
+                "observation_count": None,
+                "kind": bench["kind"],
+                "attribution": f"Reference benchmark used to anchor estimates — Source: {bench['name']}",
+                "source_url": bench["source_url"],
+                "figures": bench["figures"],
+            }
+        )
     return {
         "combined_summary": combined_summary_line(
             verified_count=counts["verified_count"],
