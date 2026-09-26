@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useState } from "react";
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
 import { propertyService } from "@/services/api";
 import { Button } from "@/components/ui/button";
+import { Pagination } from "@/components/ui/pagination";
 import { PropertyFormModal } from "@/features/admin/property-form-modal";
 import type { PropertyListItem, PropertySearchParams } from "@/types";
 import { formatDateTime } from "@/lib/utils";
-import { Plus, Pencil, Trash2, ChevronLeft, ChevronRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
 import { TableSkeleton } from "@/components/ui/shimmer";
 
 const PAGE_SIZE = 10;
@@ -32,8 +33,8 @@ const SORT_OPTIONS: { value: AdminSortOption; label: string }[] = [
   { value: "furnished", label: "Furnished" },
 ];
 
-function buildListParams(sortBy: AdminSortOption, page: number): PropertySearchParams {
-  const base = { page, page_size: PAGE_SIZE };
+function buildListParams(sortBy: AdminSortOption, page: number, q: string): PropertySearchParams {
+  const base = { page, page_size: PAGE_SIZE, ...(q ? { q } : {}) };
   switch (sortBy) {
     case "views":
       return { ...base, sort_by: "views_count", sort_order: "desc" };
@@ -60,10 +61,22 @@ export default function AdminPropertiesPage() {
   const [editing, setEditing] = useState<PropertyListItem | null>(null);
   const [page, setPage] = useState(1);
   const [sortBy, setSortBy] = useState<AdminSortOption>("latest");
+  const [searchInput, setSearchInput] = useState("");
+  const [search, setSearch] = useState("");
 
-  const { data, isLoading, error } = useQuery({
-    queryKey: ["admin-properties", page, sortBy],
-    queryFn: () => propertyService.listAdmin(buildListParams(sortBy, page)),
+  useEffect(() => {
+    const t = window.setTimeout(() => setSearch(searchInput.trim()), 300);
+    return () => window.clearTimeout(t);
+  }, [searchInput]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
+
+  const { data, isLoading, isFetching, error } = useQuery({
+    queryKey: ["admin-properties", page, sortBy, search],
+    queryFn: () => propertyService.listAdmin(buildListParams(sortBy, page, search)),
+    placeholderData: keepPreviousData,
     retry: false,
   });
 
@@ -104,6 +117,27 @@ export default function AdminPropertiesPage() {
       </div>
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+        <div className="relative w-full sm:max-w-sm">
+          <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+          <input
+            type="search"
+            className="lux-input w-full pl-9 pr-9"
+            placeholder="Search by title, address, or description…"
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+            aria-label="Search properties"
+          />
+          {searchInput && (
+            <button
+              type="button"
+              onClick={() => setSearchInput("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-400 hover:text-gray-600"
+              aria-label="Clear search"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          )}
+        </div>
         <label className="text-sm text-gray-500 font-medium" htmlFor="admin-sort">
           Sort by
         </label>
@@ -122,6 +156,8 @@ export default function AdminPropertiesPage() {
         {data && (
           <span className="text-sm text-gray-400">
             {data.total} {data.total === 1 ? "property" : "properties"}
+            {search ? ` matching “${search}”` : ""}
+            {isFetching ? " · searching…" : ""}
           </span>
         )}
       </div>
@@ -193,48 +229,11 @@ export default function AdminPropertiesPage() {
             </tbody>
           </table>
           {(!data?.items || data.items.length === 0) && (
-            <p className="text-center text-gray-500 py-12">No properties yet. Add your first listing.</p>
+            <p className="text-center text-gray-500 py-12">
+              {search ? `No properties match “${search}”.` : "No properties yet. Add your first listing."}
+            </p>
           )}
-          {totalPages > 1 && (
-            <div className="flex flex-wrap items-center justify-center gap-2 p-4 border-t">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full gap-1"
-                disabled={page <= 1}
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-              >
-                <ChevronLeft className="w-4 h-4" />
-                Previous
-              </Button>
-              {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
-                <button
-                  key={p}
-                  type="button"
-                  onClick={() => setPage(p)}
-                  className={`min-w-9 h-9 rounded-full text-sm font-medium transition ${
-                    p === page
-                      ? "bg-navy-800 text-gold-500"
-                      : "border border-gray-200 dark:border-border hover:border-gold-500"
-                  }`}
-                >
-                  {p}
-                </button>
-              ))}
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="rounded-full gap-1"
-                disabled={page >= totalPages}
-                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-              >
-                Next
-                <ChevronRight className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
+          <Pagination page={page} totalPages={totalPages} onPageChange={setPage} />
         </div>
       )}
 

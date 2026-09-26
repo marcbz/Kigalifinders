@@ -42,6 +42,55 @@ export function ResearchChart({
   }
 
   const tip = active != null ? points[active] : null;
+  const horizontal = kind === "bar" && (points.length > 6 || points.some((p) => p.label.length > 8));
+
+  if (horizontal) {
+    return (
+      <section className="rounded-2xl border bg-white dark:bg-navy-800 p-6">
+        <h3 className="font-serif text-xl font-bold text-navy-800 dark:text-white mb-1">{title}</h3>
+        {subtitle && <p className="text-sm text-gray-500 mb-4">{subtitle}</p>}
+        <ul className="space-y-2" role="list" aria-label={title}>
+          {points.map((p, i) => (
+            <li
+              key={p.label}
+              className="grid grid-cols-[minmax(0,8rem)_1fr_auto] sm:grid-cols-[10rem_1fr_auto] items-center gap-3"
+            >
+              <span className="text-sm text-gray-600 dark:text-gray-300 truncate" title={p.label}>
+                {p.label}
+              </span>
+              <div
+                className="h-6 rounded-md bg-gray-100 dark:bg-navy-700 overflow-hidden"
+                onMouseEnter={() => setActive(i)}
+                onMouseLeave={() => setActive(null)}
+                onFocus={() => setActive(i)}
+                onBlur={() => setActive(null)}
+                tabIndex={0}
+                title={
+                  p.p25 != null && p.p75 != null
+                    ? `Most between ${unitPrefix}${p.p25.toLocaleString()}–${unitPrefix}${p.p75.toLocaleString()}`
+                    : undefined
+                }
+              >
+                <div
+                  className={`h-full rounded-md transition-colors ${
+                    active === i ? "bg-gold-500" : "bg-navy-700 dark:bg-gold-500/80"
+                  }`}
+                  style={{ width: `${Math.max(2, (p.value / max) * 100)}%` }}
+                />
+              </div>
+              <span className="text-sm font-medium text-navy-800 dark:text-white tabular-nums text-right">
+                {unitPrefix}
+                {Math.round(p.value).toLocaleString()}
+                {p.sample_size != null && (
+                  <span className="text-xs text-gray-400 font-normal ml-1">n={p.sample_size}</span>
+                )}
+              </span>
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
 
   return (
     <section className="rounded-2xl border bg-white dark:bg-navy-800 p-6">

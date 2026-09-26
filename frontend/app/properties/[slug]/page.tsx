@@ -284,12 +284,6 @@ export default async function PropertyDetailPage({ params }: Props) {
                   <dt className="text-gray-500 dark:text-gray-400">Furnished</dt>
                   <dd className="text-navy-800 dark:text-white font-medium">{property.is_furnished ? "Yes" : "No"}</dd>
                 </div>
-                {property.has_pool && (
-                  <div>
-                    <dt className="text-gray-500 dark:text-gray-400">Pool</dt>
-                    <dd className="text-navy-800 dark:text-white font-medium">Yes</dd>
-                  </div>
-                )}
                 {property.has_garden && (
                   <div>
                     <dt className="text-gray-500 dark:text-gray-400">Garden</dt>
@@ -302,6 +296,10 @@ export default async function PropertyDetailPage({ params }: Props) {
                     <dd className="text-navy-800 dark:text-white font-medium">Yes</dd>
                   </div>
                 )}
+                <div>
+                  <dt className="text-gray-500 dark:text-gray-400">Pool</dt>
+                  <dd className="text-navy-800 dark:text-white font-medium">{property.has_pool ? "Yes" : "No"}</dd>
+                </div>
               </dl>
             </div>
           </div>
