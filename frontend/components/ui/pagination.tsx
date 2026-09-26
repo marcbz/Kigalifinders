@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -22,24 +21,11 @@ export function Pagination({
   totalPages: number;
   onPageChange: (page: number) => void;
 }) {
-  const [jump, setJump] = useState(String(page));
-
-  useEffect(() => {
-    setJump(String(page));
-  }, [page]);
-
   if (totalPages <= 1) return null;
 
   const go = (target: number) => {
-    const next = Math.min(totalPages, Math.max(1, Math.round(target)));
+    const next = Math.min(totalPages, Math.max(1, target));
     if (next !== page) onPageChange(next);
-    setJump(String(next));
-  };
-
-  const submitJump = () => {
-    const n = Number(jump);
-    if (Number.isFinite(n) && jump.trim() !== "") go(n);
-    else setJump(String(page));
   };
 
   return (
@@ -81,24 +67,6 @@ export function Pagination({
         Next
         <ChevronRight className="w-4 h-4" />
       </Button>
-      <label className="flex items-center gap-1.5 text-sm text-gray-500 ml-2">
-        <span>Go to</span>
-        <input
-          type="number"
-          inputMode="numeric"
-          min={1}
-          max={totalPages}
-          value={jump}
-          onChange={(e) => setJump(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") submitJump();
-          }}
-          onBlur={submitJump}
-          className="lux-input w-16 h-9 text-center px-2"
-          aria-label="Go to page number"
-        />
-        <span>/ {totalPages}</span>
-      </label>
     </div>
   );
 }
