@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, UploadFile, status
 from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -26,6 +26,8 @@ from app.schemas import (
     UploadResponse,
     ViewingRequestResponse,
 )
+from app.core.config import settings
+from app.services.indexnow import blog_urls, last_full_sweep, run_full_sweep, site_url, submit_urls
 from app.services.media_upload import upload_image
 
 router = APIRouter(prefix="/admin", tags=["Admin"])
@@ -202,6 +204,7 @@ async def admin_get_blog_post(
 @router.post("/blog", response_model=AdminBlogPostListItem, status_code=status.HTTP_201_CREATED)
 async def create_blog_post(
     data: BlogPostCreate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_admin)],
 ):
@@ -221,6 +224,8 @@ async def create_blog_post(
     apply_blog_status(post, status_value)
     db.add(post)
     await db.flush()
+    if post.status == "published":
+        background_tasks.add_task(submit_urls, blog_urls(post.slug))
     return AdminBlogPostListItem(
         id=post.id, title=post.title, slug=post.slug, excerpt=post.excerpt,
         featured_image=post.featured_image, category_name=None,
@@ -234,6 +239,7 @@ async def create_blog_post(
 async def update_blog_post(
     post_id: UUID,
     data: BlogPostUpdate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_admin)],
 ):
@@ -241,6 +247,8 @@ async def update_blog_post(
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+    old_slug = post.slug
+    was_published = post.status == "published"
     updates = data.model_dump(exclude_unset=True)
     if "status" in updates:
         apply_blog_status(post, updates.pop("status"))
@@ -256,6 +264,8 @@ async def update_blog_post(
     for field, value in updates.items():
         setattr(post, field, value)
     await db.flush()
+    if was_published or post.status == "published":
+        background_tasks.add_task(submit_urls, blog_urls(post.slug, old_slug))
     return AdminBlogPostListItem(
         id=post.id, title=post.title, slug=post.slug, excerpt=post.excerpt,
         featured_image=post.featured_image, category_name=None,
@@ -268,6 +278,7 @@ async def update_blog_post(
 @router.delete("/blog/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_blog_post(
     post_id: UUID,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_admin)],
 ):
@@ -275,7 +286,35 @@ async def delete_blog_post(
     post = result.scalar_one_or_none()
     if not post:
         raise HTTPException(status_code=404, detail="Post not found")
+    if post.status == "published":
+        background_tasks.add_task(submit_urls, blog_urls(post.slug))
     await db.delete(post)
+
+
+@router.get("/indexnow")
+async def indexnow_status(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_admin)],
+):
+    return {
+        "enabled": settings.INDEXNOW_ENABLED and settings.is_production,
+        "key_location": site_url(f"/{settings.INDEXNOW_KEY}.txt"),
+        "last_full_sweep": await last_full_sweep(db),
+    }
+
+
+@router.post("/indexnow/submit-all")
+async def indexnow_submit_all(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_admin)],
+):
+    """Announce every sitemap URL (listings, blog, areas, rentals, research) to IndexNow now."""
+    if not (settings.INDEXNOW_ENABLED and settings.is_production):
+        raise HTTPException(status_code=400, detail="IndexNow only runs on the production site.")
+    try:
+        return await run_full_sweep(db)
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Could not read the live sitemap: {exc}") from exc
 
 
 @router.get("/faqs", response_model=list[FAQResponse])

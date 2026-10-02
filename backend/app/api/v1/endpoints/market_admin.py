@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,6 +22,7 @@ from app.schemas.market import (
     SearchIntentListResponse,
     SearchIntentUpdate,
 )
+from app.services.indexnow import site_url, submit_research_pages, submit_urls
 from app.services.market_sources import list_source_dashboard, touch_source_import
 from app.services.observations import (
     CSV_TEMPLATE,
@@ -37,6 +38,13 @@ from app.services.intent_config import (
     seo_settings_public,
 )
 from app.services.search_intent import build_path, rebuild_intent_metrics
+
+
+def _announce_intents(background_tasks: BackgroundTasks, intents: list[SearchIntent]) -> None:
+    """Index or noindex changes both deserve a recrawl, so announce either way."""
+    urls = [site_url(i.path) for i in intents if (i.path or "").startswith("/rentals/")]
+    if urls:
+        background_tasks.add_task(submit_urls, urls)
 
 
 class BulkIdsPayload(BaseModel):
@@ -220,6 +228,7 @@ async def regenerate_intent(
 @router.post("/search-intents/{intent_id}/approve", response_model=SearchIntentListItem)
 async def approve_intent(
     intent_id: UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -236,6 +245,7 @@ async def approve_intent(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(intent)
+    _announce_intents(background_tasks, [intent])
     return intent
 
 
@@ -243,6 +253,7 @@ async def approve_intent(
 async def set_intent_index_status(
     intent_id: UUID,
     payload: IndexStatusPayload,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -262,6 +273,7 @@ async def set_intent_index_status(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(intent)
+    _announce_intents(background_tasks, [intent])
     return intent
 
 
@@ -269,6 +281,7 @@ async def set_intent_index_status(
 async def set_intent_sitemap_status(
     intent_id: UUID,
     payload: SitemapStatusPayload,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -287,6 +300,7 @@ async def set_intent_sitemap_status(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     await db.commit()
     await db.refresh(intent)
+    _announce_intents(background_tasks, [intent])
     return intent
 
 
@@ -488,6 +502,7 @@ async def disable_intent(
 
 @router.post("/observations/import-csv")
 async def import_csv(
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     source_id: Optional[str] = Query(None),
     db: AsyncSession = Depends(get_db),
@@ -498,6 +513,7 @@ async def import_csv(
     await touch_source_import(db, source_id)
     research = await refresh_research_after_import(db)
     await db.commit()
+    background_tasks.add_task(submit_research_pages)
     return {
         "rows_processed": result.get("rows_processed", 0),
         "imported": result.get("imported", 0),
@@ -525,13 +541,16 @@ async def observations_csv_template(_: User = Depends(require_staff)):
 
 @router.post("/research/rebuild")
 async def rebuild_research(
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
     """Full research refresh + intent discovery/metrics (safe to run on a schedule)."""
     from app.services.intent_automation import run_daily_automation
 
-    return await run_daily_automation(db)
+    result = await run_daily_automation(db)
+    background_tasks.add_task(submit_research_pages, force=True)
+    return result
 
 
 @router.post("/automation/daily")
@@ -684,6 +703,7 @@ async def admin_list_observations(
 @router.post("/observations/bulk")
 async def admin_bulk_observations(
     payload: BulkIdsPayload,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -701,16 +721,19 @@ async def admin_bulk_observations(
     if payload.action == "reprocess":
         research = await refresh_research_after_import(db)
         await db.commit()
+        background_tasks.add_task(submit_research_pages)
         return {"updated": 0, "action": "reprocess", "research": research}
     result = await bulk_update_observations(db, payload.ids, action=payload.action)
     research = await refresh_research_after_import(db)
     await db.commit()
+    background_tasks.add_task(submit_research_pages)
     return {**result, "research": research}
 
 
 @router.post("/search-intents/bulk")
 async def admin_bulk_intents(
     payload: BulkIntentPayload,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     _: User = Depends(require_admin),
 ):
@@ -783,6 +806,7 @@ async def admin_bulk_intents(
 
     await finalize_seo_pipeline(db)
     await db.commit()
+    _announce_intents(background_tasks, intents)
     return {"updated": updated, "action": payload.action, "ok": not errors, "errors": errors}
 
 

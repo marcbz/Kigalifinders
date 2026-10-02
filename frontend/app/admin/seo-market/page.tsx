@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import Link from "next/link";
+import { IndexNowPanel } from "@/components/admin/indexnow-panel";
 import { adminService } from "@/services/api";
 import type { SearchIntentAdmin, SearchIntentListResponse } from "@/types/market";
 
@@ -546,6 +547,8 @@ export default function SeoMarketAdminPage() {
               </button>
             </div>
           </section>
+
+          <IndexNowPanel />
         </aside>
 
         {/* 2. Search Pages */}

@@ -259,6 +259,18 @@ export const adminService = {
   recalculateSeoLandings: () => api.post("/admin/market/seo-settings/recalculate").then((r) => r.data),
   getSeoSummary: () => api.get("/admin/market/seo-summary").then((r) => r.data),
   rebuildResearch: () => api.post("/admin/market/research/rebuild").then((r) => r.data),
+  indexNowStatus: () =>
+    api
+      .get<{
+        enabled: boolean;
+        key_location: string;
+        last_full_sweep: { last_run: string; submitted: number; found: number; ok: boolean } | null;
+      }>("/admin/indexnow")
+      .then((r) => r.data),
+  indexNowSubmitAll: () =>
+    api
+      .post<{ submitted: number; found: number; ok: boolean }>("/admin/indexnow/submit-all", null, { timeout: 120000 })
+      .then((r) => r.data),
   runDiscovery: (deep = true) =>
     api.post("/admin/market/automation/discover", null, { params: { deep } }).then((r) => r.data),
   listObservations: (params?: { page?: number; page_size?: number; source?: string; status?: string }) =>

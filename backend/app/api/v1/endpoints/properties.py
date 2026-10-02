@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, require_admin, require_staff
 from app.database.session import AsyncSessionLocal, get_db
 from app.models import Analytics, Property, PropertyImage, PropertyStatusEnum, User
-from app.services.indexnow import property_urls, submit_urls
+from app.services.indexnow import property_urls, submit_research_pages, submit_urls
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
 from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
@@ -126,6 +126,7 @@ async def _drain_market_refresh() -> None:
             if await asyncio.to_thread(_dispatch_to_celery, facets):
                 continue
             await _refresh_market_data_inline(facets)
+        await submit_research_pages()
     finally:
         _refresh_running = False
 

@@ -1,3 +1,5 @@
+import asyncio
+import contextlib
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -12,9 +14,24 @@ from app.core.config import settings
 limiter = Limiter(key_func=get_remote_address)
 
 
+async def _indexnow_scheduler() -> None:
+    from app.services.indexnow import run_scheduled_full_sweep
+
+    # Let the app (and the frontend sitemap that calls back into it) warm up first.
+    await asyncio.sleep(120)
+    while True:
+        await run_scheduled_full_sweep()
+        await asyncio.sleep(6 * 3600)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    task = asyncio.create_task(_indexnow_scheduler()) if settings.is_production else None
     yield
+    if task:
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
 
 
 app = FastAPI(
