@@ -25,7 +25,7 @@ from app.services.combined_market import (
 from app.services.market_estimator import estimate_typical_rent
 
 # A neighborhood needs at least this many observations to appear in comparisons.
-MIN_COMPARE_SAMPLE = 5
+MIN_COMPARE_SAMPLE = 10
 MAX_COMPARE_NEIGHBORHOODS = 14
 SIMILAR_PRICE_PCT = 7.0
 PAIR_SEPARATOR = "-vs-"

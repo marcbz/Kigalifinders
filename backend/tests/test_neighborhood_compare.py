@@ -31,8 +31,10 @@ def _rows(slug, name, prices, *, bedrooms=2, furnished=False, origin="external")
 
 def _market():
     cheap = _rows("kagarama", "Kagarama", [500, 550, 600, 620, 650, 700, 720, 750, 800, 820])
-    pricey = _rows("nyarutarama", "Nyarutarama", [1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500], furnished=True)
-    thin = _rows("gisozi", "Gisozi", [600, 700, 800])
+    pricey = _rows(
+        "nyarutarama", "Nyarutarama", [1800, 1900, 2000, 2100, 2200, 2300, 2400, 2500, 2600, 2700], furnished=True
+    )
+    thin = _rows("gisozi", "Gisozi", [600, 650, 700, 750, 800, 850, 900, 950, 1000])
     return cheap + pricey + thin
 
 
@@ -48,7 +50,7 @@ def test_thin_neighborhoods_are_not_eligible():
     slugs = eligible_slugs(rows)
     assert set(slugs) == {"kagarama", "nyarutarama"}
     assert build_profile(rows, "gisozi") is None
-    assert MIN_COMPARE_SAMPLE > 3
+    assert MIN_COMPARE_SAMPLE == 10
 
 
 def test_comparison_names_the_cheaper_area_and_bedroom_rows():
@@ -69,8 +71,8 @@ def test_comparison_names_the_cheaper_area_and_bedroom_rows():
 
 
 def test_similar_prices_are_not_called_cheaper():
-    rows = _rows("remera", "Remera", [700, 720, 740, 760, 780, 800, 820, 840]) + _rows(
-        "kimironko", "Kimironko", [710, 730, 750, 770, 790, 810, 830, 850]
+    rows = _rows("remera", "Remera", [700, 720, 740, 760, 780, 800, 820, 840, 860, 880]) + _rows(
+        "kimironko", "Kimironko", [710, 730, 750, 770, 790, 810, 830, 850, 870, 890]
     )
     result = build_comparison(build_profile(rows, "kimironko"), build_profile(rows, "remera"))
     assert result["cheaper_slug"] is None
