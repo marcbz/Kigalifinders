@@ -196,6 +196,8 @@ export type NeighborhoodComparison = {
   faqs: { question: string; answer: string }[];
   last_updated: string;
   note: string;
+  limited_data?: boolean;
+  min_listed_sample?: number;
 };
 
 export function fetchComparePairsSafe() {

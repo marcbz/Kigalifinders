@@ -51,6 +51,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     description,
     alternates: { canonical: url },
     openGraph: { title, description, url, type: "article" },
+    ...(data.limited_data ? { robots: { index: false, follow: true } } : {}),
   };
 }
 
@@ -99,6 +100,8 @@ export default async function NeighborhoodComparePage({ params }: PageProps) {
   const data = await fetchNeighborhoodComparisonSafe(canonical);
   if (!data) notFound();
   const { a, b } = data;
+  const minListed = data.min_listed_sample ?? 10;
+  const thinAreas = [a, b].filter((p) => p.sample_size < minListed);
 
   const [aListings, bListings, pairs, areas] = await Promise.all([
     fetchPropertiesSafe({ neighborhood_slug: a.slug, page_size: 6, sort_by: "created_at", sort_order: "desc" }),
@@ -164,6 +167,13 @@ export default async function NeighborhoodComparePage({ params }: PageProps) {
       <h1 className="font-serif text-4xl font-bold text-navy-800 dark:text-white mb-4">
         {a.name} vs {b.name}: rent prices compared
       </h1>
+      {data.limited_data && thinAreas.length > 0 && (
+        <p className="mb-6 max-w-3xl rounded-xl border border-gold-500/40 bg-gold-500/10 px-4 py-3 text-sm text-navy-800 dark:text-gray-200">
+          Limited data: {thinAreas.map((p) => `${p.name} (${p.sample_size} asking rents)`).join(" and ")}{" "}
+          {thinAreas.length > 1 ? "have" : "has"} fewer than {minListed} recent asking rents, so treat these
+          figures as indicative.
+        </p>
+      )}
       <div className="space-y-2 text-gray-700 dark:text-gray-300 mb-8 max-w-3xl">
         {data.summary.map((line) => (
           <p key={line}>{line}</p>

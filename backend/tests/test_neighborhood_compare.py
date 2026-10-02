@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 
 from app.services.neighborhood_compare import (
     MIN_COMPARE_SAMPLE,
+    MIN_PAGE_SAMPLE,
     build_comparison,
     build_profile,
     canonical_pair_slug,
@@ -51,6 +52,14 @@ def test_thin_neighborhoods_are_not_eligible():
     assert set(slugs) == {"kagarama", "nyarutarama"}
     assert build_profile(rows, "gisozi") is None
     assert MIN_COMPARE_SAMPLE == 10
+
+
+def test_thinner_neighborhoods_stay_reachable_but_unlisted():
+    rows = _market()
+    assert "gisozi" not in eligible_slugs(rows)
+    assert "gisozi" in eligible_slugs(rows, min_sample=MIN_PAGE_SAMPLE, limit=None)
+    profile = build_profile(rows, "gisozi", min_sample=MIN_PAGE_SAMPLE)
+    assert profile is not None and profile["sample_size"] == 9
 
 
 def test_comparison_names_the_cheaper_area_and_bedroom_rows():

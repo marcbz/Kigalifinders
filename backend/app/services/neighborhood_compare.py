@@ -24,8 +24,10 @@ from app.services.combined_market import (
 )
 from app.services.market_estimator import estimate_typical_rent
 
-# A neighborhood needs at least this many observations to appear in comparisons.
+# Listed on the compare index and in the sitemap only at this depth...
 MIN_COMPARE_SAMPLE = 10
+# ...but comparison pages still resolve (flagged as limited data, noindex) down to this.
+MIN_PAGE_SAMPLE = 5
 MAX_COMPARE_NEIGHBORHOODS = 14
 SIMILAR_PRICE_PCT = 7.0
 PAIR_SEPARATOR = "-vs-"
@@ -54,10 +56,16 @@ def _bedroom_label(beds: int) -> str:
     return "4+ bedrooms" if beds >= 4 else f"{beds} bedroom" + ("s" if beds > 1 else "")
 
 
-def build_profile(rows: list[dict[str, Any]], slug: str, listings: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+def build_profile(
+    rows: list[dict[str, Any]],
+    slug: str,
+    listings: list[dict[str, Any]] | None = None,
+    *,
+    min_sample: int = MIN_COMPARE_SAMPLE,
+) -> dict[str, Any] | None:
     hood = _filter_rows(rows, location_slug=slug)
     overall = estimate_typical_rent(hood, min_sample=MIN_SAMPLE_PUBLIC)
-    if not overall or overall["sample_size"] < MIN_COMPARE_SAMPLE:
+    if not overall or overall["sample_size"] < min_sample:
         return None
 
     by_bedroom = _group_stats(hood, key_fn=_bedroom_bucket, label_fn=lambda k, _g: _bedroom_label(k))
@@ -202,15 +210,20 @@ def build_comparison(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def eligible_slugs(rows: list[dict[str, Any]]) -> list[str]:
+def eligible_slugs(
+    rows: list[dict[str, Any]],
+    *,
+    min_sample: int = MIN_COMPARE_SAMPLE,
+    limit: int | None = MAX_COMPARE_NEIGHBORHOODS,
+) -> list[str]:
     counts: dict[str, int] = {}
     for r in rows:
         slug = (r.get("location_slug") or "").lower()
         if slug and slug not in {"kigali", "all"}:
             counts[slug] = counts.get(slug, 0) + 1
-    ranked = sorted((s for s, n in counts.items() if n >= MIN_COMPARE_SAMPLE), key=lambda s: -counts[s])
-    profiles = [s for s in ranked if build_profile(rows, s)]
-    return profiles[:MAX_COMPARE_NEIGHBORHOODS]
+    ranked = sorted((s for s, n in counts.items() if n >= min_sample), key=lambda s: -counts[s])
+    profiles = [s for s in ranked if build_profile(rows, s, min_sample=min_sample)]
+    return profiles[:limit] if limit else profiles
 
 
 async def _listing_flags(db: AsyncSession, slugs: list[str]) -> dict[str, list[dict[str, Any]]]:
@@ -258,12 +271,17 @@ async def get_comparison(db: AsyncSession, pair: str) -> dict[str, Any] | None:
         return None
     first, second = sorted(parsed)
     rows = await load_combined_rows(db)
-    eligible = eligible_slugs(rows)
-    if first not in eligible or second not in eligible:
+    reachable = eligible_slugs(rows, min_sample=MIN_PAGE_SAMPLE, limit=None)
+    if first not in reachable or second not in reachable:
         return None
     flags = await _listing_flags(db, [first, second])
-    a = build_profile(rows, first, flags.get(first))
-    b = build_profile(rows, second, flags.get(second))
+    a = build_profile(rows, first, flags.get(first), min_sample=MIN_PAGE_SAMPLE)
+    b = build_profile(rows, second, flags.get(second), min_sample=MIN_PAGE_SAMPLE)
     if not a or not b:
         return None
-    return build_comparison(a, b)
+    listed = set(eligible_slugs(rows))
+    return {
+        **build_comparison(a, b),
+        "limited_data": first not in listed or second not in listed,
+        "min_listed_sample": MIN_COMPARE_SAMPLE,
+    }
