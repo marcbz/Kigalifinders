@@ -7,6 +7,7 @@ without changing callers.
 
 from __future__ import annotations
 
+import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -44,7 +45,7 @@ class CdnCurrencyApiProvider(ExchangeRateProvider):
         base_l = base.lower()
         quote_l = quote.lower()
         url = f"https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest/v1/currencies/{base_l}.min.json"
-        async with httpx.AsyncClient(timeout=8.0) as client:
+        async with httpx.AsyncClient(timeout=4.0) as client:
             res = await client.get(url)
             res.raise_for_status()
             data = res.json()
@@ -78,8 +79,30 @@ class FallbackExchangeRateProvider(ExchangeRateProvider):
             )
 
 
+class CachedExchangeRateProvider(ExchangeRateProvider):
+    """Process-wide cache so admin saves don't wait on the public FX feed every time."""
+
+    _cache: dict[tuple[str, str], tuple[float, FxQuote]] = {}
+
+    def __init__(self, inner: ExchangeRateProvider, ttl_seconds: float = 6 * 3600, fallback_ttl_seconds: float = 600):
+        self.inner = inner
+        self.ttl_seconds = ttl_seconds
+        self.fallback_ttl_seconds = fallback_ttl_seconds
+
+    async def get_rate(self, base: str = "USD", quote: str = "RWF") -> FxQuote:
+        key = (base.upper(), quote.upper())
+        now = time.monotonic()
+        cached = self._cache.get(key)
+        if cached and cached[0] > now:
+            return cached[1]
+        fresh = await self.inner.get_rate(base, quote)
+        ttl = self.fallback_ttl_seconds if fresh.source == "fallback-static" else self.ttl_seconds
+        self._cache[key] = (now + ttl, fresh)
+        return fresh
+
+
 def get_default_fx_provider() -> ExchangeRateProvider:
-    return FallbackExchangeRateProvider(CdnCurrencyApiProvider())
+    return CachedExchangeRateProvider(FallbackExchangeRateProvider(CdnCurrencyApiProvider()))
 
 
 async def store_rate(db: AsyncSession, quote: FxQuote) -> ExchangeRate:

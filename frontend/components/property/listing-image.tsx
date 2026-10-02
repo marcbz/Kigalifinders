@@ -33,28 +33,33 @@ export function ListingImage({
   ...props
 }: ListingImageProps) {
   const placeholder = getListingImagePlaceholder();
+  const original = src || placeholder;
   const optimized = optimizeListingImageUrl(
-    src || placeholder,
+    original,
     optimizeWidth ?? widthFromSizes(props.sizes),
   );
-  const [failedSrc, setFailedSrc] = useState<string | null>(null);
+  // Cloudinary can reject on-the-fly transforms (e.g. 401 when the transformation
+  // quota is exhausted) while the untransformed original still serves fine.
+  const candidates = Array.from(new Set([optimized, original, placeholder]));
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
-    setFailedSrc(null);
+    setAttempt(0);
   }, [optimized]);
 
-  const current = failedSrc === optimized ? placeholder : optimized;
+  const current = candidates[Math.min(attempt, candidates.length - 1)];
   const bypass = shouldBypassNextImageOptimizer(current);
 
   return (
     <Image
       {...props}
+      key={current}
       src={current}
       alt={alt}
       unoptimized={unoptimized ?? bypass}
       onError={(event) => {
-        if (optimized !== placeholder) {
-          setFailedSrc(optimized);
+        if (attempt < candidates.length - 1) {
+          setAttempt(attempt + 1);
         }
         onError?.(event);
       }}

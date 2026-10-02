@@ -1,15 +1,16 @@
+import asyncio
 import logging
 from datetime import datetime, timezone
 from typing import Annotated, Any, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query, Request, Response, status
 from slugify import slugify
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_admin, require_staff
-from app.database.session import get_db
+from app.database.session import AsyncSessionLocal, get_db
 from app.models import Analytics, Property, PropertyImage, PropertyStatusEnum, User
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
@@ -76,44 +77,77 @@ async def _sync_property_images(db: AsyncSession, prop: Property, images: list[P
         )
 
 
-async def _refresh_market_data(
-    db: AsyncSession,
+Facet = tuple[str | None, int | None, str | None]
+
+_pending_facets: set[Facet] = set()
+_refresh_running = False
+
+
+def _schedule_market_refresh(
+    background_tasks: BackgroundTasks,
     *,
     location_slug: str | None,
     bedrooms: int | None,
     property_type_slug: str | None,
 ) -> None:
-    """Refresh intents and market snapshots after a listing changes.
+    """Refresh intents and market snapshots after the response is sent.
 
-    Queued to Celery when a broker is reachable; otherwise rebuilt inline so market
-    research never goes stale on deployments that run without a worker. Failures are
-    swallowed because the listing itself is already committed.
+    Rebuilding every snapshot takes seconds, so admins shouldn't wait on it. Saves that
+    land while a rebuild is running are coalesced into one follow-up pass.
     """
+    _pending_facets.add((location_slug, bedrooms, property_type_slug))
+    background_tasks.add_task(_drain_market_refresh)
+
+
+def _dispatch_to_celery(facets: list[Facet]) -> bool:
     try:
         from app.workers.celery_app import rebuild_market_research_task, refresh_intents_for_property_task
 
-        refresh_intents_for_property_task.delay(location_slug, bedrooms, property_type_slug)
-        rebuild_market_research_task.delay()
-        return
+        for facet in facets:
+            refresh_intents_for_property_task.apply_async(args=facet, retry=False)
+        rebuild_market_research_task.apply_async(retry=False)
+        return True
     except Exception:
-        logger.warning("Celery dispatch failed; refreshing market data inline", exc_info=True)
+        logger.info("Celery unavailable; refreshing market data in-process")
+        return False
 
+
+async def _drain_market_refresh() -> None:
+    global _refresh_running
+    if _refresh_running:
+        return
+    _refresh_running = True
+    try:
+        while _pending_facets:
+            facets = list(_pending_facets)
+            _pending_facets.clear()
+            # Celery's publish is blocking; keep it off the event loop.
+            if await asyncio.to_thread(_dispatch_to_celery, facets):
+                continue
+            await _refresh_market_data_inline(facets)
+    finally:
+        _refresh_running = False
+
+
+async def _refresh_market_data_inline(facets: list[Facet]) -> None:
     from app.services.intent_automation import refresh_intents_for_property_facets
     from app.services.research import rebuild_observation_snapshots, rebuild_verified_snapshots
 
-    try:
-        await refresh_intents_for_property_facets(
-            db,
-            location_slug=location_slug,
-            bedrooms=bedrooms,
-            property_type_slug=property_type_slug,
-        )
-        await rebuild_verified_snapshots(db)
-        await rebuild_observation_snapshots(db)
-        await db.commit()
-    except Exception:
-        logger.exception("Inline market data refresh failed")
-        await db.rollback()
+    async with AsyncSessionLocal() as db:
+        try:
+            for location_slug, bedrooms, property_type_slug in facets:
+                await refresh_intents_for_property_facets(
+                    db,
+                    location_slug=location_slug,
+                    bedrooms=bedrooms,
+                    property_type_slug=property_type_slug,
+                )
+            await rebuild_verified_snapshots(db)
+            await rebuild_observation_snapshots(db)
+            await db.commit()
+        except Exception:
+            logger.exception("Background market data refresh failed")
+            await db.rollback()
 
 
 def _search_params(
@@ -288,6 +322,7 @@ async def related_rental_searches(
 @router.post("", response_model=PropertyListItem, status_code=status.HTTP_201_CREATED)
 async def create_property(
     data: PropertyCreate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_staff)],
 ):
@@ -363,7 +398,7 @@ async def create_property(
         from app.models import PropertyType
         t = await db.get(PropertyType, prop.property_type_id)
         tslug = t.slug if t else None
-    await _refresh_market_data(db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
+    _schedule_market_refresh(background_tasks, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
     repo = PropertyRepository(db)
     result = await repo.get_by_id(prop.id)
     return repo._to_list_item(result)
@@ -373,6 +408,7 @@ async def create_property(
 async def update_property(
     property_id: UUID,
     data: PropertyUpdate,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_staff)],
 ):
@@ -432,7 +468,7 @@ async def update_property(
     await db.commit()
     nslug = prop.neighborhood.slug if prop.neighborhood else None
     tslug = prop.property_type.slug if prop.property_type else None
-    await _refresh_market_data(db, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
+    _schedule_market_refresh(background_tasks, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
     result = await repo.get_by_id(property_id)
     return repo._to_list_item(result)
 
@@ -440,6 +476,7 @@ async def update_property(
 @router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_property(
     property_id: UUID,
+    background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_admin)],
 ):
@@ -450,5 +487,5 @@ async def delete_property(
     await db.delete(prop)
     await sync_location_counts(db)
     await db.commit()
-    await _refresh_market_data(db, location_slug=None, bedrooms=None, property_type_slug=None)
+    _schedule_market_refresh(background_tasks, location_slug=None, bedrooms=None, property_type_slug=None)
     return None
