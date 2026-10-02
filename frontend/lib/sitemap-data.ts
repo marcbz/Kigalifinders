@@ -1,7 +1,7 @@
 import { getAreaHref, getAreaIndexHref } from "@/lib/areas";
 import type { SitemapUrlEntry } from "@/lib/sitemap-xml";
 import { fetchAllPropertiesSafe, fetchBlogPostsSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
-import { fetchRentalsSitemapSafe } from "@/lib/market-api";
+import { fetchComparePairsSafe, fetchRentalsSitemapSafe } from "@/lib/market-api";
 
 export const SITEMAP_REVALIDATE_SECONDS = 3600;
 
@@ -250,6 +250,7 @@ export function getResearchSitemapEntries(now = new Date()): SitemapUrlEntry[] {
     "/research/kigali-rental-market",
     "/research/kigali-rental-market/prices",
     "/research/kigali-rental-market/neighborhoods",
+    "/research/kigali-rental-market/compare",
     "/research/kigali-rental-market/trends",
     "/research/kigali-rental-market/methodology",
     "/research/kigali-rental-market/sources",
@@ -261,6 +262,20 @@ export function getResearchSitemapEntries(now = new Date()): SitemapUrlEntry[] {
         lastModified: now,
         changeFrequency: "weekly",
         priority: path.endsWith("/kigali-rental-market") ? 0.8 : 0.75,
+      }),
+    )
+    .filter((e): e is SitemapUrlEntry => Boolean(e));
+}
+
+/** Neighborhood vs neighborhood pages; only pairs the API deems data-backed. */
+export async function getCompareSitemapEntries(now = new Date()): Promise<SitemapUrlEntry[]> {
+  const data = await fetchComparePairsSafe();
+  return (data?.items || [])
+    .map((pair) =>
+      entryFromPath(`/research/kigali-rental-market/compare/${encodeURIComponent(pair.slug)}`, {
+        lastModified: now,
+        changeFrequency: "weekly",
+        priority: 0.7,
       }),
     )
     .filter((e): e is SitemapUrlEntry => Boolean(e));

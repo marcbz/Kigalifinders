@@ -33,6 +33,10 @@ class Settings(BaseSettings):
     API_V1_PREFIX: str = "/api/v1"
     FRONTEND_URL: str = "http://localhost:3000"
     BACKEND_URL: str = "http://localhost:8000"
+    PUBLIC_SITE_URL: str = "https://kigalirent.com"
+    # Public by design: IndexNow verifies it via {PUBLIC_SITE_URL}/{key}.txt (served by the frontend).
+    INDEXNOW_KEY: str = "kigalirent-indexnow-7f3a91c25e4b4d08"
+    INDEXNOW_ENABLED: bool = True
 
     # Supabase (set DATABASE_URL from Supabase Dashboard > Settings > Database)
     SUPABASE_URL: str = ""

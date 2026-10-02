@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, require_admin, require_staff
 from app.database.session import AsyncSessionLocal, get_db
 from app.models import Analytics, Property, PropertyImage, PropertyStatusEnum, User
+from app.services.indexnow import property_urls, submit_urls
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
 from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
@@ -399,6 +400,8 @@ async def create_property(
         t = await db.get(PropertyType, prop.property_type_id)
         tslug = t.slug if t else None
     _schedule_market_refresh(background_tasks, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
+    if prop.status == PropertyStatusEnum.PUBLISHED:
+        background_tasks.add_task(submit_urls, property_urls(prop.slug))
     repo = PropertyRepository(db)
     result = await repo.get_by_id(prop.id)
     return repo._to_list_item(result)
@@ -419,6 +422,8 @@ async def update_property(
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
 
+    old_slug = prop.slug
+    was_published = prop.status == PropertyStatusEnum.PUBLISHED
     updates = data.model_dump(exclude_unset=True)
     images = _normalize_images(updates.pop("images", None))
     if "listing_type" in updates:
@@ -469,6 +474,8 @@ async def update_property(
     nslug = prop.neighborhood.slug if prop.neighborhood else None
     tslug = prop.property_type.slug if prop.property_type else None
     _schedule_market_refresh(background_tasks, location_slug=nslug, bedrooms=prop.bedrooms, property_type_slug=tslug)
+    if was_published or prop.status == PropertyStatusEnum.PUBLISHED:
+        background_tasks.add_task(submit_urls, property_urls(prop.slug, old_slug))
     result = await repo.get_by_id(property_id)
     return repo._to_list_item(result)
 
@@ -484,8 +491,11 @@ async def delete_property(
     prop = await repo.get_by_id(property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
+    deleted_slug = prop.slug if prop.status == PropertyStatusEnum.PUBLISHED else None
     await db.delete(prop)
     await sync_location_counts(db)
     await db.commit()
     _schedule_market_refresh(background_tasks, location_slug=None, bedrooms=None, property_type_slug=None)
+    if deleted_slug:
+        background_tasks.add_task(submit_urls, property_urls(deleted_slug))
     return None

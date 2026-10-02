@@ -606,6 +606,24 @@ async def research_neighborhoods(db: AsyncSession = Depends(get_db)):
     }
 
 
+@router.get("/research/kigali-rental-market/compare")
+async def research_compare_pairs(db: AsyncSession = Depends(get_db)):
+    from app.services.neighborhood_compare import list_comparison_pairs
+
+    items = await list_comparison_pairs(db)
+    return {"items": items, "count": len(items)}
+
+
+@router.get("/research/kigali-rental-market/compare/{pair}")
+async def research_compare_pair(pair: str, db: AsyncSession = Depends(get_db)):
+    from app.services.neighborhood_compare import get_comparison
+
+    comparison = await get_comparison(db, pair)
+    if not comparison:
+        raise HTTPException(status_code=404, detail="Comparison not available")
+    return comparison
+
+
 @router.get("/research/kigali-rental-market/trends")
 async def research_trends(db: AsyncSession = Depends(get_db)):
     from app.services.combined_market import combined_research_payload

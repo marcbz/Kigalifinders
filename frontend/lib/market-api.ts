@@ -155,6 +155,60 @@ export function fetchResearchNeighborhoodsSafe() {
   return fetchSafe<{ items: MarketSnapshot[] }>("/research/kigali-rental-market/neighborhoods", 600);
 }
 
+export type ComparePairSummary = {
+  slug: string;
+  a: { slug: string; name: string; typical_usd: number };
+  b: { slug: string; name: string; typical_usd: number };
+  sample_size: number;
+};
+
+export type NeighborhoodCompareProfile = {
+  slug: string;
+  name: string;
+  typical_usd: number;
+  p25_usd: number | null;
+  p75_usd: number | null;
+  sample_size: number;
+  verified_count: number;
+  external_count: number;
+  furnished_share_pct: number | null;
+  furnished_median_usd: number | null;
+  unfurnished_median_usd: number | null;
+  active_listings: number;
+  amenities: { pool_pct: number | null; garden_pct: number | null; parking_pct: number | null };
+};
+
+export type NeighborhoodComparison = {
+  slug: string;
+  a: NeighborhoodCompareProfile;
+  b: NeighborhoodCompareProfile;
+  cheaper_slug: string | null;
+  price_difference_pct: number;
+  bedroom_rows: {
+    bedrooms: number;
+    label: string;
+    a_median_usd: number | null;
+    a_sample_size: number;
+    b_median_usd: number | null;
+    b_sample_size: number;
+  }[];
+  summary: string[];
+  faqs: { question: string; answer: string }[];
+  last_updated: string;
+  note: string;
+};
+
+export function fetchComparePairsSafe() {
+  return fetchSafe<{ items: ComparePairSummary[]; count: number }>("/research/kigali-rental-market/compare", 3600);
+}
+
+export function fetchNeighborhoodComparisonSafe(pair: string) {
+  return fetchSafe<NeighborhoodComparison>(
+    `/research/kigali-rental-market/compare/${encodeURIComponent(pair)}`,
+    3600,
+  );
+}
+
 export function fetchResearchTrendsSafe() {
   return fetchSafe<{
     median_series: { period_end: string; median_usd?: number; sample_size: number }[];

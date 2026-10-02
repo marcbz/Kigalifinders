@@ -22,9 +22,14 @@ export default async function ResearchNeighborhoodsPage() {
       <h1 className="font-serif text-4xl font-bold text-navy-800 dark:text-white mb-4">
         Neighborhood comparison
       </h1>
-      <p className="text-gray-600 mb-8">
+      <p className="text-gray-600 mb-4">
         Typical asking rent (USD/month) from combined eligible observations. Neighborhoods without enough
         data are omitted.
+      </p>
+      <p className="mb-8">
+        <Link href="/research/kigali-rental-market/compare" className="underline font-medium">
+          Compare two neighborhoods side by side →
+        </Link>
       </p>
       <table className="w-full text-sm">
         <thead>
