@@ -199,13 +199,13 @@ export type NeighborhoodComparison = {
 };
 
 export function fetchComparePairsSafe() {
-  return fetchSafe<{ items: ComparePairSummary[]; count: number }>("/research/kigali-rental-market/compare", 3600);
+  return fetchSafe<{ items: ComparePairSummary[]; count: number }>("/research/kigali-rental-market/compare", 600);
 }
 
 export function fetchNeighborhoodComparisonSafe(pair: string) {
   return fetchSafe<NeighborhoodComparison>(
     `/research/kigali-rental-market/compare/${encodeURIComponent(pair)}`,
-    3600,
+    600,
   );
 }
 

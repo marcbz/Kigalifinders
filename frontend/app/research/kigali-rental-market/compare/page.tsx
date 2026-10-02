@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchComparePairsSafe } from "@/lib/market-api";
 
-export const revalidate = 3600;
+export const revalidate = 600;
 
 const HUB = "/research/kigali-rental-market";
 

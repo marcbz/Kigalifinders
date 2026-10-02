@@ -10,7 +10,7 @@ import {
 } from "@/lib/market-api";
 import { fetchPropertiesSafe, fetchSearchFilterNeighborhoodsSafe } from "@/lib/server-api";
 
-export const revalidate = 3600;
+export const revalidate = 600;
 
 const SITE = "https://kigalirent.com";
 const HUB = "/research/kigali-rental-market";
