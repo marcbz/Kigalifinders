@@ -6,6 +6,7 @@ Public answers use ONE combined, quality-filtered dataset — never competing ra
 
 from __future__ import annotations
 
+import math
 import statistics
 from collections import defaultdict
 from datetime import date, datetime, timedelta, timezone
@@ -24,12 +25,16 @@ from app.models import (
 from app.services.fx import effective_usd_price
 from app.services.market_estimator import (
     STANDARD_BEDROOM_MIX,
+    _bedroom_bucket,
     benchmark_prior,
     estimate_market_rent,
     estimate_typical_rent,
 )
 
 MIN_SAMPLE_PUBLIC = 3
+# Furnished homes usually ask a premium for the same size; data moves this, the prior steadies it.
+FURNISHED_PREMIUM_PRIOR = 0.20
+FURNISHED_PREMIUM_STRENGTH = 8.0
 MIN_SAMPLE_TREND = 3
 OUTLIER_IQR_FACTOR = 1.5
 # Drop very old external CSV rows, but keep a wide window — third-party market
@@ -230,48 +235,72 @@ def _group_neighborhood_stats(rows: list[dict[str, Any]]) -> list[dict[str, Any]
     return out
 
 
-def _furnished_breakdown(rows: list[dict[str, Any]]) -> dict[str, Any]:
-    """Compare furnished vs unfurnished on a bedroom-matched basis.
+def furnishing_premium(rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Furnished vs unfurnished price ratio, measured like-for-like by bedroom bucket.
 
-    Global medians often look identical when the bedroom mix differs (e.g. more
-    unfurnished family houses vs furnished apartments). Matching by bedroom keeps
-    the two market segments comparable.
+    Each bucket with enough data on both sides contributes its log price ratio,
+    weighted by the harmonic mean of the two sample sizes, so a handful of odd
+    5-bed listings cannot outvote dozens of 2- and 4-bed ones. The pooled ratio is
+    shrunk toward a modest market prior and never allowed below parity.
     """
     furnished_rows = [r for r in rows if r.get("is_furnished") is True]
     unfurnished_rows = [r for r in rows if r.get("is_furnished") is False]
 
-    bed_keys = sorted(
-        {
-            int(r["bedrooms"])
-            for r in furnished_rows + unfurnished_rows
-            if r.get("bedrooms") is not None
-        }
-    )
-    f_cohort_medians: list[float] = []
-    u_cohort_medians: list[float] = []
-    matched_bedrooms = 0
-    for beds in bed_keys:
-        f_cohort = [r for r in furnished_rows if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds]
-        u_cohort = [r for r in unfurnished_rows if r.get("bedrooms") is not None and int(r["bedrooms"]) == beds]
-        f_st = estimate_typical_rent(f_cohort, min_sample=MIN_SAMPLE_PUBLIC)
-        u_st = estimate_typical_rent(u_cohort, min_sample=MIN_SAMPLE_PUBLIC)
+    weighted_log_sum = FURNISHED_PREMIUM_STRENGTH * math.log(1 + FURNISHED_PREMIUM_PRIOR)
+    weight_sum = FURNISHED_PREMIUM_STRENGTH
+    matched = 0
+    for beds in sorted(STANDARD_BEDROOM_MIX):
+        f_st = estimate_typical_rent(
+            [r for r in furnished_rows if _bedroom_bucket(r) == beds], min_sample=MIN_SAMPLE_PUBLIC
+        )
+        u_st = estimate_typical_rent(
+            [r for r in unfurnished_rows if _bedroom_bucket(r) == beds], min_sample=MIN_SAMPLE_PUBLIC
+        )
         if not f_st or not u_st:
             continue
-        f_cohort_medians.append(f_st["median_usd"])
-        u_cohort_medians.append(u_st["median_usd"])
-        matched_bedrooms += 1
+        n_f, n_u = f_st["sample_size"], u_st["sample_size"]
+        weight = 2 * n_f * n_u / (n_f + n_u)
+        weighted_log_sum += weight * math.log(f_st["sample_centre_usd"] / u_st["sample_centre_usd"])
+        weight_sum += weight
+        matched += 1
 
+    ratio = max(1.0, math.exp(weighted_log_sum / weight_sum))
+    known = len(furnished_rows) + len(unfurnished_rows)
+    share = len(furnished_rows) / known if known else 0.0
+    mix = share * ratio + (1 - share)
+    return {
+        "ratio": ratio,
+        "furnished_share": share,
+        "matched_bedroom_cohorts": matched,
+        # Multipliers that turn an all-stock typical rent into each segment's typical rent.
+        "furnished_factor": ratio / mix,
+        "unfurnished_factor": 1 / mix,
+    }
+
+
+def _furnished_breakdown(rows: list[dict[str, Any]], *, use_benchmarks: bool = False) -> dict[str, Any]:
+    """Typical furnished and unfurnished rents that stay consistent with the headline.
+
+    Splitting raw rows by furnishing compares different stock (furnished apartments vs
+    unfurnished family houses), and medians of small bedroom cohorts swing wildly. So we
+    take the stable all-stock typical rent and split it with the like-for-like premium.
+    """
+    furnished_rows = [r for r in rows if r.get("is_furnished") is True]
+    unfurnished_rows = [r for r in rows if r.get("is_furnished") is False]
     f_all = estimate_typical_rent(furnished_rows, min_sample=MIN_SAMPLE_PUBLIC)
     u_all = estimate_typical_rent(unfurnished_rows, min_sample=MIN_SAMPLE_PUBLIC)
 
-    if matched_bedrooms >= 1:
-        f_median = round(statistics.median(f_cohort_medians), 2)
-        u_median = round(statistics.median(u_cohort_medians), 2)
-        comparison = "bedroom_matched"
+    premium = furnishing_premium(rows)
+    overall = estimate_market_rent(furnished_rows + unfurnished_rows, use_benchmarks=use_benchmarks)
+    if overall and f_all and u_all:
+        f_median = round(overall["median_usd"] * premium["furnished_factor"], 2)
+        u_median = round(overall["median_usd"] * premium["unfurnished_factor"], 2)
+        comparison = "premium_adjusted"
     else:
         f_median = f_all["median_usd"] if f_all else None
         u_median = u_all["median_usd"] if u_all else None
         comparison = "overall"
+    matched_bedrooms = premium["matched_bedroom_cohorts"]
 
     return {
         "furnished": {
@@ -549,10 +578,16 @@ async def combined_market_answer(
     stats_rows = filtered
     prices = [r["usd"] for r in stats_rows]
     kigali_wide = location_slug in {"kigali", "all", None}
+    # Benchmarks describe the whole rental stock; scale them for furnished-only or unfurnished-only slices.
+    prior_scale = 1.0
+    if kigali_wide and furnished is not None:
+        premium = furnishing_premium(all_rows)
+        prior_scale = premium["furnished_factor"] if furnished else premium["unfurnished_factor"]
     if bedrooms is None and property_type is None:
-        stats = estimate_market_rent(filtered, use_benchmarks=kigali_wide)
+        stats = estimate_market_rent(filtered, use_benchmarks=kigali_wide, prior_scale=prior_scale)
     elif property_type is None:
-        stats = estimate_typical_rent(filtered, prior_usd=benchmark_prior(bedrooms) if kigali_wide else None)
+        prior = benchmark_prior(bedrooms) if kigali_wide else None
+        stats = estimate_typical_rent(filtered, prior_usd=prior * prior_scale if prior else None)
     else:
         stats = estimate_typical_rent(filtered)
 
@@ -631,7 +666,7 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
         row["location_slug"] = row["key"]
 
     public_rows = filtered
-    furnished_breakdown = _furnished_breakdown(public_rows)
+    furnished_breakdown = _furnished_breakdown(public_rows, use_benchmarks=kigali_wide)
     furnished_stats = (
         {
             "median_usd": furnished_breakdown["furnished"]["median_usd"],
@@ -684,7 +719,7 @@ def _build_slice_comparisons(filtered: list[dict[str, Any]], *, location_slug: s
             insights.append(
                 f"Furnished listings typically ask around ${f_med:,.0f}/month versus "
                 f"${u_med:,.0f}/month for unfurnished "
-                f"({abs(premium_pct):.1f}% {direction}, bedroom-matched where possible)."
+                f"({abs(premium_pct):.1f}% {direction}, compared like-for-like by bedroom count)."
             )
         else:
             insights.append(

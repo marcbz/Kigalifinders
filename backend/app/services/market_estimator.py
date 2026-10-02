@@ -212,28 +212,25 @@ def estimate_market_rent(
     *,
     use_benchmarks: bool = True,
     min_sample: int = 3,
+    prior_scale: float = 1.0,
 ) -> dict[str, Any] | None:
     """Headline typical rent: bedroom-level estimates combined with the standard mix.
 
     Falls back to the pooled estimate when too little of the mix has data.
     The P25/P75 range always describes the observed (weighted) asking rents.
     """
-    pooled = estimate_typical_rent(
-        rows,
-        prior_usd=benchmark_prior(None) if use_benchmarks else None,
-        min_sample=min_sample,
-    )
+    def prior(beds: int | None) -> float | None:
+        base = benchmark_prior(beds) if use_benchmarks else None
+        return base * prior_scale if base else None
+
+    pooled = estimate_typical_rent(rows, prior_usd=prior(None), min_sample=min_sample)
     if not pooled:
         return None
 
     components: dict[int, float] = {}
     for beds in STANDARD_BEDROOM_MIX:
         slice_rows = [r for r in rows if _bedroom_bucket(r) == beds]
-        est = estimate_typical_rent(
-            slice_rows,
-            prior_usd=benchmark_prior(beds) if use_benchmarks else None,
-            min_sample=min_sample,
-        )
+        est = estimate_typical_rent(slice_rows, prior_usd=prior(beds), min_sample=min_sample)
         if est:
             components[beds] = est["median_usd"]
 
