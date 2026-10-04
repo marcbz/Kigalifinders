@@ -5,11 +5,15 @@ import { useSearchParams } from "next/navigation";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { propertyService } from "@/services/api";
 import { PropertyCard } from "@/components/property/property-card";
-import { buildPropertyListParams } from "@/lib/property-search-params";
+import { buildPropertyListParams, PROPERTIES_PAGE_SIZE } from "@/lib/property-search-params";
+import type { PaginatedResponse, PropertyListItem } from "@/types";
 
-const PAGE_SIZE = 12;
-
-export function PropertiesInfiniteGrid() {
+export function PropertiesInfiniteGrid({
+  initialPage,
+}: {
+  /** Server-fetched first page for the unfiltered list. */
+  initialPage?: PaginatedResponse<PropertyListItem>;
+}) {
   const searchParams = useSearchParams();
   const loadMoreRef = useRef<HTMLDivElement>(null);
   const filterKey = searchParams.toString();
@@ -17,10 +21,11 @@ export function PropertiesInfiniteGrid() {
   const { data, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading, isError } = useInfiniteQuery({
     queryKey: ["properties-list", filterKey],
     queryFn: ({ pageParam = 1 }) =>
-      propertyService.list(buildPropertyListParams(searchParams, pageParam as number, PAGE_SIZE)),
+      propertyService.list(buildPropertyListParams(searchParams, pageParam as number, PROPERTIES_PAGE_SIZE)),
     getNextPageParam: (lastPage) =>
       lastPage.page < lastPage.pages ? lastPage.page + 1 : undefined,
     initialPageParam: 1,
+    initialData: filterKey === "" && initialPage ? { pages: [initialPage], pageParams: [1] } : undefined,
   });
 
   useEffect(() => {

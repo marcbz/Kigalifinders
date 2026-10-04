@@ -1,14 +1,23 @@
 import type { FAQ } from "@/types";
 
-export function FAQSection({ faqs }: { faqs: FAQ[] }) {
+export function FAQSection({
+  faqs,
+  headingLevel = "h2",
+  heading = "Your Questions Answered",
+}: {
+  faqs: FAQ[];
+  headingLevel?: "h1" | "h2";
+  heading?: string;
+}) {
+  const Heading = headingLevel;
   return (
     <section id="faq" className="py-20 px-6 bg-cream dark:bg-secondary">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-14">
           <span className="text-gold-500 tracking-[0.3em] text-xs font-semibold">FREQUENTLY ASKED</span>
-          <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-4">
-            Your Questions Answered
-          </h2>
+          <Heading className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-4">
+            {heading}
+          </Heading>
           <div className="section-divider mx-auto" />
         </div>
         <div className="space-y-4">

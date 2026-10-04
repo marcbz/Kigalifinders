@@ -31,8 +31,6 @@ export const metadata: Metadata = {
   },
   description: "Kigali housing costs, neighbourhood guides, and current rentals and homes for sale. See what is actually available with Kigali Rent.",
   openGraph: {
-    title: "Kigali Rent | Kigali's Rental and Property Marketplace",
-    description: "We know what housing costs in Kigali, where to live, and which properties are actually available.",
     type: "website",
     locale: "en_RW",
     siteName: "Kigali Rent",

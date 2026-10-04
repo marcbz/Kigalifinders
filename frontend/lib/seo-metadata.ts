@@ -11,6 +11,27 @@ export function normalizeSeoTitle(title: string): string {
     .trim();
 }
 
+/** Page-specific Open Graph block; pages without one would inherit only the root brand defaults. */
+export function pageOpenGraph(opts: {
+  title: string;
+  description?: string;
+  url?: string;
+  image?: string | null;
+  imageAlt?: string;
+}) {
+  return {
+    title: opts.title,
+    description: opts.description,
+    url: opts.url,
+    type: "website" as const,
+    siteName: "Kigali Rent",
+    locale: "en_RW",
+    images: opts.image
+      ? [{ url: opts.image, alt: opts.imageAlt || opts.title }]
+      : [{ url: "/logo.png", width: 512, height: 512, alt: "Kigali Rent logo" }],
+  };
+}
+
 export function buildPropertyMetaDescription(property: {
   title: string;
   short_description?: string | null;

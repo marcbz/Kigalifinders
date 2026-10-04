@@ -73,6 +73,8 @@ export function sanitizeBlogHtml(html: string): string {
       img: ["http", "https"],
     },
     transformTags: {
+      // The page template renders the post title as the only <h1>.
+      h1: "h2",
       a: (tagName, attribs) => {
         const href = attribs.href || "";
         if (!isSafeHref(href)) {

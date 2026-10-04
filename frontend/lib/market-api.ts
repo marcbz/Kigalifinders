@@ -1,7 +1,9 @@
 import type { MarketSnapshot, SearchLandingPage } from "@/types/market";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
-const FETCH_TIMEOUT_MS = 8000;
+// Rental/research pages call notFound() when this returns null, so a timeout during
+// ISR regeneration would publish a 404. Render's free tier can take 7s+ on these endpoints.
+const FETCH_TIMEOUT_MS = 20000;
 
 async function fetchSafe<T>(path: string, revalidate = 300): Promise<T | null> {
   try {

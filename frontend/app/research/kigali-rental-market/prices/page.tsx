@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchResearchPricesSafe } from "@/lib/market-api";
 import { ResearchChart } from "@/components/research/research-charts";
+import { ResearchDatasetJsonLd } from "@/components/research/research-dataset-jsonld";
+import { pageOpenGraph } from "@/lib/seo-metadata";
 import {
   BudgetBandsTable,
   CombinedTrendChart,
@@ -16,6 +18,10 @@ export const metadata: Metadata = {
   description:
     "Typical asking rents in Kigali with middle-50% ranges, bedroom and neighbourhood comparisons, trends, and sample sizes from combined eligible observations.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market/prices" },
+  openGraph: pageOpenGraph({
+    title: "Kigali Rental Prices 2026: Cost of Renting in Kigali",
+    url: "https://kigalirent.com/research/kigali-rental-market/prices",
+  }),
 };
 
 export default async function ResearchPricesPage() {
@@ -25,6 +31,13 @@ export default async function ResearchPricesPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-10">
+      <ResearchDatasetJsonLd
+        name="Kigali Rental Prices by Bedroom"
+        description="Typical monthly asking rents and middle-50% ranges for 1- to 4+-bedroom rentals in Kigali, Rwanda, with furnished vs unfurnished comparisons."
+        path="/research/kigali-rental-market/prices"
+        observationCount={answer?.sample_size}
+        keywords={["1 bedroom rent Kigali", "2 bedroom rent Kigali", "4 bedroom house rent Kigali"]}
+      />
       <div>
         <p className="text-sm mb-4">
           <Link href="/research/kigali-rental-market" className="underline">

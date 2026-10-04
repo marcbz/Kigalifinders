@@ -4,6 +4,7 @@ import { HeroSection } from "@/features/home/hero-section";
 import { SearchBarPlaceholder } from "@/components/search/search-bar-placeholder";
 import { DeferredSearchBar } from "@/components/search/deferred-search-bar";
 import { HomePageContent, HomePageFallback } from "@/features/home/home-page-content";
+import { HomeWebPageJsonLd } from "@/components/seo/organization-jsonld";
 import { DEFAULT_HERO_IMAGE } from "@/lib/hero-image";
 import { fetchHomepageSafe } from "@/lib/server-api";
 import { getPropertyImageAlt } from "@/lib/property-features";
@@ -82,6 +83,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default function HomePage() {
   return (
     <>
+      <HomeWebPageJsonLd />
       <HeroSection backgroundImage={DEFAULT_HERO_IMAGE} />
       <Suspense fallback={<SearchBarPlaceholder />}>
         <DeferredSearchBar />

@@ -60,10 +60,32 @@ export default async function BlogDetailPage({ params }: Props) {
   if (!post) notFound();
 
   const faqJsonLd = buildFaqJsonLd(extractBlogFaqs(post.content, post.content_format));
+  const canonical = `https://kigalirent.com/blog/${slug}`;
+  const articleJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BlogPosting",
+    "@id": `${canonical}#article`,
+    mainEntityOfPage: canonical,
+    url: canonical,
+    headline: post.title,
+    description: post.meta_description?.trim() || post.excerpt?.trim() || undefined,
+    image: post.featured_image || undefined,
+    ...(post.published_at ? { datePublished: post.published_at } : {}),
+    author: { "@id": "https://kigalirent.com/#organization", "@type": "Organization", name: "Kigali Rent" },
+    publisher: { "@id": "https://kigalirent.com/#organization" },
+    articleSection: post.category_name || undefined,
+    keywords: post.tags?.length ? post.tags.join(", ") : undefined,
+    inLanguage: "en",
+    about: { "@type": "City", name: "Kigali", containedInPlace: { "@type": "Country", name: "Rwanda" } },
+  };
+  const publishedLabel = post.published_at
+    ? new Date(post.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : null;
 
   return (
     <article className="py-20 px-6">
       <TrackBlogView slug={slug} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
       {faqJsonLd && (
         <script
           type="application/ld+json"
@@ -77,6 +99,11 @@ export default async function BlogDetailPage({ params }: Props) {
         <div className="text-xs text-gold-500 tracking-widest mb-4">
           {post.category_name?.toUpperCase()} · {post.read_time_minutes} MIN READ
         </div>
+        {publishedLabel && post.published_at && (
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+            By Kigali Rent · Published <time dateTime={post.published_at}>{publishedLabel}</time>
+          </p>
+        )}
         <h1 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mb-8">
           {post.title}
         </h1>

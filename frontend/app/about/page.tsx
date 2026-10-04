@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { pageOpenGraph } from "@/lib/seo-metadata";
 import { SITE_ADDRESS, SITE_BOOKING_URL, SITE_HOURS, SITE_SOCIAL } from "@/lib/site-defaults";
 
 export const metadata: Metadata = {
   title: "About Us",
+  alternates: { canonical: "https://kigalirent.com/about" },
+  openGraph: pageOpenGraph({ title: "About Kigali Rent", url: "https://kigalirent.com/about" }),
   description:
     "Kigali Rent is Kigali's rental and property marketplace — verified listings, neighbourhood guides, and published asking-rent research.",
 };

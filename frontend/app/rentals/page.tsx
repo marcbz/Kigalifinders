@@ -3,17 +3,25 @@ import Link from "next/link";
 import { fetchRentalDirectorySafe } from "@/lib/market-api";
 import { RentalHubPage } from "@/components/rentals/rental-hub-page";
 import { RentalHubSeoJsonLd } from "@/components/rentals/rental-seo-jsonld";
-import { normalizeSeoTitle } from "@/lib/seo-metadata";
+import { normalizeSeoTitle, pageOpenGraph } from "@/lib/seo-metadata";
 
 export const revalidate = 300;
 
 export async function generateMetadata(): Promise<Metadata> {
   const page = await fetchRentalDirectorySafe();
   if (!page) return { title: "Kigali Rentals" };
+  const title = normalizeSeoTitle(page.title);
+  const canonical = page.canonical || "https://kigalirent.com/rentals";
   return {
-    title: normalizeSeoTitle(page.title),
+    title,
     description: page.meta_description,
-    alternates: { canonical: page.canonical || "https://kigalirent.com/rentals" },
+    alternates: { canonical },
+    openGraph: pageOpenGraph({
+      title,
+      description: page.meta_description,
+      url: canonical,
+      image: page.verified_listings?.find((l) => l.primary_image)?.primary_image,
+    }),
     robots: { index: true, follow: true },
   };
 }

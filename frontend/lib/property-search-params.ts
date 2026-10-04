@@ -31,6 +31,8 @@ export function formatBedroomsFilterChip(value: string | null | undefined): stri
   return `${selectValue} bedrooms`;
 }
 
+export const PROPERTIES_PAGE_SIZE = 12;
+
 export function buildPropertyListParams(
   searchParams: URLSearchParams,
   page: number,

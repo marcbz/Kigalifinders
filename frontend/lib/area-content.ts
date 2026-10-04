@@ -173,14 +173,14 @@ export function getAreaSeoContent(neighborhood: NeighborhoodSummary): AreaSeoCon
   const isOutside = neighborhood.slug === "bugesera" || neighborhood.slug === "musanze";
 
   const metaTitle = isOutside
-    ? `${neighborhood.name} Housing Guide | Kigali Rent`
+    ? `${neighborhood.name} Housing Guide: Homes for Rent & Sale`
     : isHub
-      ? `${neighborhood.name} District Housing Guide | Kigali Rent`
+      ? `${neighborhood.name} District Housing Guide, Kigali`
       : `Living in ${neighborhood.name}, Kigali | Area Guide`;
 
   const metaDescription = isOutside
-    ? `A short guide to housing in ${neighborhood.name}, plus current Kigali Rent listings.`
-    : `A short guide to living in ${neighborhood.name}${district}, with current Kigali Rent listings.`;
+    ? `What it's like to live in ${neighborhood.name}, Rwanda: the local housing and current houses and apartments for rent or sale.`
+    : `Living in ${neighborhood.name}${district}, Kigali: what the area is like day to day, where it sits in the city, and current houses and apartments for rent.`;
 
   const headline = isOutside
     ? `${neighborhood.name} housing`

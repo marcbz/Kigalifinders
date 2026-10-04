@@ -42,19 +42,21 @@ const graph = {
       publisher: { "@id": `${siteUrl}/#organization` },
       inLanguage: "en-RW",
     },
-    {
-      "@type": "WebPage",
-      "@id": `${siteUrl}/#webpage`,
-      url: siteUrl,
-      name: "Kigali Rent — Houses for Rent & Sale in Kigali",
-      description:
-        "Find houses for rent, furnished homes, and properties for sale in Kigali. Neighbourhood guides, real prices, and listings that are actually available.",
-      isPartOf: { "@id": `${siteUrl}/#website` },
-      about: { "@id": `${siteUrl}/#organization` },
-      publisher: { "@id": `${siteUrl}/#organization` },
-      inLanguage: "en-RW",
-    },
   ],
+};
+
+const homeWebPage = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  "@id": `${siteUrl}/#webpage`,
+  url: siteUrl,
+  name: "Kigali Rent — Houses for Rent & Sale in Kigali",
+  description:
+    "Find houses for rent, furnished homes, and properties for sale in Kigali. Neighbourhood guides, real prices, and listings that are actually available.",
+  isPartOf: { "@id": `${siteUrl}/#website` },
+  about: { "@id": `${siteUrl}/#organization` },
+  publisher: { "@id": `${siteUrl}/#organization` },
+  inLanguage: "en-RW",
 };
 
 export function OrganizationJsonLd() {
@@ -62,6 +64,16 @@ export function OrganizationJsonLd() {
     <script
       type="application/ld+json"
       dangerouslySetInnerHTML={{ __html: JSON.stringify(graph) }}
+    />
+  );
+}
+
+/** Homepage-only: the root layout renders on every route, so this must not live in `graph`. */
+export function HomeWebPageJsonLd() {
+  return (
+    <script
+      type="application/ld+json"
+      dangerouslySetInnerHTML={{ __html: JSON.stringify(homeWebPage) }}
     />
   );
 }

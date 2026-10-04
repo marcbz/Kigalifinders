@@ -6,6 +6,7 @@ import { api } from "@/services/api";
 export const metadata: Metadata = {
   title: "Our Agents",
   description: "Meet the expert real estate agents at Kigali Rent.",
+  alternates: { canonical: "https://kigalirent.com/agents" },
 };
 
 interface Agent {

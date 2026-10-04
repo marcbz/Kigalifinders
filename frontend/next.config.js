@@ -22,6 +22,10 @@ const nextConfig = {
       "@radix-ui/react-tabs",
     ],
   },
+  // Next streams <title>/<meta> into <body> for clients it doesn't recognise as
+  // "HTML-limited" bots. AI crawlers (GPTBot, OAI-SearchBot, PerplexityBot,
+  // ClaudeBot) don't run JS, so they never saw page titles. Block for everyone.
+  htmlLimitedBots: /.*/,
   poweredByHeader: false,
   compress: true,
   // Next.js injects polyfill-module regardless of browserslist; drop it for our

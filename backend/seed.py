@@ -245,8 +245,8 @@ async def seed():
         faqs = [
             ("Where can I rent a house in Kigali?",
              "You can rent a house in any of Kigali's prime neighborhoods, including Nyarutarama, Kibagabaga, Kacyiru, Kicukiro, Rebero, and Gacuriro."),
-            ("Which is the best real estate agency in Kigali?",
-             "Kigali Rent is widely recognized as one of Rwanda's most trusted real estate agencies with 10+ years of experience."),
+            ("How do I choose a real estate agency in Kigali?",
+             "Look for verified listings with real photos, prices shown in USD or RWF, clear viewing arrangements, and no fees before you have seen the home. Kigali Rent publishes asking-rent data for each neighbourhood so you can check whether a price is fair before viewing."),
             ("How much does it cost to rent a furnished house in Kigali?",
              "Furnished houses in Kigali typically range from $800/month for a 2-bedroom apartment to $5,000+/month for a luxury villa."),
             ("Can I book a property viewing online?",

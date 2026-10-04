@@ -15,6 +15,8 @@ import {
   ResearchNarrativeSections,
 } from "@/components/research/research-narrative";
 import { ResearchChart } from "@/components/research/research-charts";
+import { ResearchDatasetJsonLd } from "@/components/research/research-dataset-jsonld";
+import { pageOpenGraph } from "@/lib/seo-metadata";
 
 export const revalidate = 60;
 
@@ -23,6 +25,10 @@ export const metadata: Metadata = {
   description:
     "Independent Kigali rental market research: typical asking rents, trends, and neighborhood comparisons from combined eligible observations.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market" },
+  openGraph: pageOpenGraph({
+    title: "Kigali Rental Market Data & Research",
+    url: "https://kigalirent.com/research/kigali-rental-market",
+  }),
 };
 
 export default async function ResearchHubPage() {
@@ -37,6 +43,15 @@ export default async function ResearchHubPage() {
 
   return (
     <div className="bg-cream dark:bg-navy-900 min-h-screen">
+      <ResearchDatasetJsonLd
+        name="Kigali Rental Market Data"
+        description="Typical asking rents in Kigali, Rwanda by bedroom count, neighbourhood and furnishing, built from eligible observed rental listings."
+        path="/research/kigali-rental-market"
+        observationCount={about?.observation_count ?? primary?.sample_size}
+        periodStart={about?.period_start}
+        periodEnd={about?.period_end}
+        dateModified={about?.last_updated}
+      />
       <header className="bg-navy-800 text-white py-14 px-6">
         <div className="max-w-5xl mx-auto">
           <p className="text-xs tracking-[0.2em] uppercase text-gray-300 mb-3">Market research</p>

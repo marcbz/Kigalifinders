@@ -1,26 +1,40 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchResearchNeighborhoodsSafe } from "@/lib/market-api";
+import { ResearchDatasetJsonLd } from "@/components/research/research-dataset-jsonld";
+import { pageOpenGraph } from "@/lib/seo-metadata";
 
 export const revalidate = 600;
 
 export const metadata: Metadata = {
-  title: "Kigali Neighborhood Rents",
-  description: "Compare typical asking rents across Kigali neighborhoods from combined eligible observations.",
+  title: "Kigali Rent Prices by Neighbourhood (2026)",
+  description:
+    "Compare typical monthly asking rents across Kigali neighbourhoods, from Kibagabaga and Kimironko to Nyarutarama and Gacuriro, with ranges and sample sizes.",
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market/neighborhoods" },
+  openGraph: pageOpenGraph({
+    title: "Kigali Rent Prices by Neighbourhood (2026)",
+    url: "https://kigalirent.com/research/kigali-rental-market/neighborhoods",
+  }),
 };
 
 export default async function ResearchNeighborhoodsPage() {
   const data = await fetchResearchNeighborhoodsSafe();
   return (
     <div className="max-w-4xl mx-auto px-6 py-14">
+      <ResearchDatasetJsonLd
+        name="Kigali Rent by Neighbourhood"
+        description="Typical monthly asking rents and common ranges for Kigali neighbourhoods such as Kibagabaga, Kimironko, Gacuriro, Nyarutarama and Rebero."
+        path="/research/kigali-rental-market/neighborhoods"
+        observationCount={(data?.items || []).reduce((sum, n) => sum + (n.sample_size || 0), 0) || null}
+        keywords={(data?.items || []).slice(0, 8).map((n) => `${n.label} rent`)}
+      />
       <p className="text-sm mb-4">
         <Link href="/research/kigali-rental-market" className="underline">
           ← Research hub
         </Link>
       </p>
       <h1 className="font-serif text-4xl font-bold text-navy-800 dark:text-white mb-4">
-        Neighborhood comparison
+        Kigali rent prices by neighbourhood
       </h1>
       <p className="text-gray-600 mb-4">
         Typical asking rent (USD/month) from combined eligible observations. Neighborhoods without enough

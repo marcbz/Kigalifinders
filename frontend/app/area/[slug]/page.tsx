@@ -27,6 +27,13 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const content = getAreaSeoContent(neighborhood);
   const canonical = `https://kigalirent.com${getAreaHref(neighborhood.slug)}`;
+  const listings = await fetchPropertiesSafe({
+    neighborhood_slug: neighborhood.slug,
+    page_size: 24,
+    sort_by: "created_at",
+    sort_order: "desc",
+  });
+  const cover = listings.items.find((p) => p.primary_image)?.primary_image;
   return {
     title: content.metaTitle,
     description: content.metaDescription,
@@ -36,6 +43,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description: content.metaDescription,
       type: "website",
       url: canonical,
+      siteName: "Kigali Rent",
+      locale: "en_RW",
+      ...(cover ? { images: [{ url: cover, alt: `Homes for rent in ${neighborhood.name}, Kigali` }] } : {}),
     },
   };
 }

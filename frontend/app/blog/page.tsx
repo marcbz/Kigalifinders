@@ -1,12 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { fetchBlogPostsSafe } from "@/lib/server-api";
+import { pageOpenGraph } from "@/lib/seo-metadata";
 
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "Blog",
-  description: "Real estate insights and guides for Kigali.",
+  title: "Kigali Renting Guides & Housing Blog",
+  description:
+    "Practical guides to renting and buying in Kigali: rent prices, neighbourhoods, costs for expats and newcomers, and how to view homes safely.",
+  alternates: { canonical: "https://kigalirent.com/blog" },
+  openGraph: pageOpenGraph({ title: "Kigali Renting Guides & Housing Blog", url: "https://kigalirent.com/blog" }),
 };
 
 export default async function BlogPage() {

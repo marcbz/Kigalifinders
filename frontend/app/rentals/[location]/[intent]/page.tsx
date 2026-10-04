@@ -14,7 +14,7 @@ import { RentalIntentSeoJsonLd } from "@/components/rentals/rental-seo-jsonld";
 import { WhatsAppMatchAlert } from "@/components/property/whatsapp-match-alert";
 import { fetchRentalLandingSafe } from "@/lib/market-api";
 import { getAreaHref } from "@/lib/areas";
-import { normalizeSeoTitle } from "@/lib/seo-metadata";
+import { normalizeSeoTitle, pageOpenGraph } from "@/lib/seo-metadata";
 
 interface Props {
   params: Promise<{ location: string; intent: string }>;
@@ -26,10 +26,17 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { location, intent } = await params;
   const page = await fetchRentalLandingSafe(location, intent);
   if (!page) return { title: "Rentals", robots: { index: false } };
+  const title = normalizeSeoTitle(page.title);
   return {
-    title: normalizeSeoTitle(page.title),
+    title,
     description: page.meta_description,
     alternates: { canonical: page.canonical },
+    openGraph: pageOpenGraph({
+      title,
+      description: page.meta_description,
+      url: page.canonical,
+      image: page.verified_matches?.find((l) => l.primary_image)?.primary_image,
+    }),
     robots: page.robots.includes("noindex")
       ? { index: false, follow: true }
       : { index: true, follow: true },

@@ -46,11 +46,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `${a.name} vs ${b.name}: Rent Prices Compared (${new Date(data.last_updated).getFullYear()})`;
   const description = `${data.summary[0]} Compare rent by bedroom, furnished homes and amenities in ${a.name} and ${b.name}, Kigali.`;
   const url = `${SITE}${HUB}/compare/${data.slug}`;
+  const listings = await fetchPropertiesSafe({
+    neighborhood_slug: a.slug,
+    page_size: 6,
+    sort_by: "created_at",
+    sort_order: "desc",
+  });
+  const cover = listings.items.find((p) => p.primary_image)?.primary_image;
   return {
     title,
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, type: "article" },
+    openGraph: {
+      title,
+      description,
+      url,
+      type: "article",
+      siteName: "Kigali Rent",
+      locale: "en_RW",
+      ...(cover ? { images: [{ url: cover, alt: `Homes for rent in ${a.name}, Kigali` }] } : {}),
+    },
     ...(data.limited_data ? { robots: { index: false, follow: true } } : {}),
   };
 }
