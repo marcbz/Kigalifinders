@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ListingImage } from "@/components/property/listing-image";
+import { PropertyLightbox } from "@/components/property/property-lightbox";
 import { blockPropertyImageContextMenu } from "@/lib/property-image-protect";
 
 interface GalleryImage {
@@ -17,6 +18,7 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
   const scrollRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
   const [paused, setPaused] = useState(false);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
 
   const scrollToIndex = useCallback((index: number) => {
     const el = scrollRef.current;
@@ -34,7 +36,7 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
   };
 
   useEffect(() => {
-    if (images.length <= 1 || paused) return;
+    if (images.length <= 1 || paused || lightboxIndex !== null) return;
     const timer = window.setInterval(() => {
       setActiveIndex((prev) => {
         const next = (prev + 1) % images.length;
@@ -43,7 +45,7 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
       });
     }, AUTO_SCROLL_MS);
     return () => window.clearInterval(timer);
-  }, [images.length, paused, scrollToIndex]);
+  }, [images.length, paused, lightboxIndex, scrollToIndex]);
 
   useEffect(() => {
     const el = scrollRef.current;
@@ -84,9 +86,12 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
           style={{ scrollbarWidth: "none" }}
         >
           {images.map((img, index) => (
-            <div
+            <button
               key={img.id}
-              className="relative flex-shrink-0 w-full md:w-[85%] lg:w-[70%] h-[320px] md:h-[480px] lg:h-[560px] rounded-2xl overflow-hidden snap-center select-none"
+              type="button"
+              onClick={() => setLightboxIndex(index)}
+              aria-label={`View photo ${index + 1} of ${images.length} full screen`}
+              className="relative flex-shrink-0 w-full md:w-[85%] lg:w-[70%] h-[320px] md:h-[480px] lg:h-[560px] rounded-2xl overflow-hidden snap-center select-none cursor-zoom-in"
               onContextMenu={blockPropertyImageContextMenu}
             >
               <ListingImage
@@ -99,7 +104,7 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
                 priority={index === 0}
                 draggable={false}
               />
-            </div>
+            </button>
           ))}
         </div>
         {images.length > 1 && (
@@ -139,6 +144,19 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
           </>
         )}
       </div>
+      {lightboxIndex !== null && (
+        <PropertyLightbox
+          images={images}
+          title={title}
+          index={lightboxIndex}
+          onIndexChange={(i) => {
+            setLightboxIndex(i);
+            setActiveIndex(i);
+            scrollToIndex(i);
+          }}
+          onClose={() => setLightboxIndex(null)}
+        />
+      )}
     </div>
   );
 }
