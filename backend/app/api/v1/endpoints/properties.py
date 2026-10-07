@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.deps import get_current_user, require_admin, require_staff
 from app.database.session import AsyncSessionLocal, get_db
 from app.models import Analytics, Property, PropertyImage, PropertyStatusEnum, User
+from app.services import crm as crm_svc
 from app.services.indexnow import property_urls, submit_research_pages, submit_urls
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
@@ -387,6 +388,10 @@ async def create_property(
     )
     db.add(prop)
     await db.flush()
+    crm_svc.log_activity(
+        db, crm_svc.Event.PROPERTY_CREATED, f"{prop.crm_ref or prop.title}: property created",
+        user=user, property_id=prop.id,
+    )
     await _sync_property_images(db, prop, data.images)
     await sync_location_counts(db)
     await db.commit()
@@ -452,8 +457,16 @@ async def update_property(
         updates["property_type_id"] = primary_type_id
         updates["property_type_ids"] = type_ids
 
+    old_price, old_currency = prop.price, prop.currency
     for field, value in updates.items():
         setattr(prop, field, value)
+    if (prop.price, prop.currency) != (old_price, old_currency):
+        crm_svc.log_activity(
+            db, crm_svc.Event.PRICE_CHANGED,
+            f"{prop.crm_ref or prop.title}: price {old_price:,.0f} {old_currency} → {prop.price:,.0f} {prop.currency}",
+            user=user, property_id=prop.id, landlord_id=prop.landlord_id,
+            meta={"from": {"price": old_price, "currency": old_currency}, "to": {"price": prop.price, "currency": prop.currency}},
+        )
 
     if "price" in updates or "currency" in updates or "status" in updates:
         from app.services.fx import get_default_fx_provider, resolve_property_usd_fields, store_rate

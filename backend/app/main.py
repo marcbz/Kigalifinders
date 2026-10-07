@@ -57,6 +57,17 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_PREFIX)
 
+_ADMIN_API_PREFIX = f"{settings.API_V1_PREFIX}/admin"
+
+
+@app.middleware("http")
+async def private_admin_headers(request, call_next):
+    response = await call_next(request)
+    if request.url.path.startswith(_ADMIN_API_PREFIX):
+        response.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive"
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
 
 @app.get("/health")
 async def health():

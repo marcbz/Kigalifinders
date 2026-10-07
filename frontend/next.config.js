@@ -39,7 +39,13 @@ const nextConfig = {
     return config;
   },
   async headers() {
+    const privateHeaders = [
+      { key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" },
+      { key: "Cache-Control", value: "private, no-store" },
+    ];
     return [
+      { source: "/admin", headers: privateHeaders },
+      { source: "/admin/:path*", headers: privateHeaders },
       {
         source: "/robots.txt",
         headers: [
