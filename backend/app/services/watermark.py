@@ -143,6 +143,11 @@ async def _render_and_store(data: bytes, mime_type: str | None) -> tuple[str, st
     except ValueError:
         raise
     except Exception as exc:
+        if "cloud_name" in str(exc):
+            raise ValueError(
+                f"Cloudinary rejected the server's CLOUDINARY_CLOUD_NAME ({settings.CLOUDINARY_CLOUD_NAME!r}). "
+                "In Render → Environment, set it to your cloud name — the part after res.cloudinary.com/ in your image links"
+            ) from exc
         raise ValueError(f"Watermarking failed: {exc}") from exc
 
 
