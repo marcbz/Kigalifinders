@@ -424,7 +424,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       is_featured: form.is_featured,
       has_title_deed: form.has_title_deed,
       badge_label: form.badge_label.trim() || undefined,
-      ...(includeImages ? { images } : {}),
+      ...(includeImages ? { images, watermark_images: watermarkNew } : {}),
     };
   };
 
@@ -732,6 +732,9 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                   <input type="checkbox" checked={watermarkNew} onChange={(e) => toggleWatermarkNew(e.target.checked)} />
                   Add KigaliRent watermark to new photos
                 </label>
+                <span className="text-gray-400 basis-full">
+                  Uploaded files are watermarked straight away; pasted links are watermarked when you click Save.
+                </span>
                 <button
                   type="button"
                   className="text-navy-800 dark:text-gold-500 font-semibold hover:underline disabled:opacity-50"
@@ -822,7 +825,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose} className="rounded-full">Cancel</Button>
             <Button type="submit" disabled={saveMutation.isPending || detailLoading} className="rounded-full">
-              {saveMutation.isPending ? "Saving..." : property ? "Update Property" : "Create Property"}
+              {saveMutation.isPending ? (watermarkNew ? "Saving & watermarking..." : "Saving...") : property ? "Update Property" : "Create Property"}
             </Button>
           </div>
         </form>

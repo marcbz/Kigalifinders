@@ -17,7 +17,7 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 import httpx
-from PIL import Image, ImageDraw, ImageFont, ImageOps
+from PIL import Image, ImageOps
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,93 +25,48 @@ from app.core.config import settings
 from app.models import ImageWatermark
 from app.services.media_upload import MAX_IMAGE_BYTES, _validate_image
 
-ASSETS = Path(__file__).resolve().parent.parent / "assets"
-LOGO_PATH = ASSETS / "watermark-logo.png"
-FONT_PATH = ASSETS / "DejaVuSans-Bold.ttf"
-WATERMARK_TEXT = "kigalirent.com"
+LOGO_PATH = Path(__file__).resolve().parent.parent / "assets" / "watermark-logo.png"
 PUBLIC_FOLDER = "kigalifinders/properties"
 ORIGINALS_FOLDER = "kigalifinders/originals"
-MAX_EDGE = 2560
-TEXT_OPACITY = 0.62
-LOGO_OPACITY = 0.70
+MAX_EDGE = 2000
+JPEG_QUALITY = 82
+LOGO_WIDTH_RATIO = 0.55
+LOGO_WIDTH_RATIO_PORTRAIT = 0.75
+LOGO_OPACITY = 0.6
+CONCURRENCY = 4
 
 
 @lru_cache(maxsize=1)
-def _logo() -> Image.Image | None:
-    try:
-        return Image.open(LOGO_PATH).convert("RGBA")
-    except Exception:
-        return None
+def _logo() -> Image.Image:
+    with Image.open(LOGO_PATH) as im:
+        logo = im.convert("RGBA")
+    logo.putalpha(logo.getchannel("A").point(lambda a: int(a * LOGO_OPACITY)))
+    return logo
 
 
-def _font(size: int) -> ImageFont.ImageFont | ImageFont.FreeTypeFont:
-    for name in (str(FONT_PATH), "DejaVuSans-Bold.ttf", "arialbd.ttf"):
-        try:
-            return ImageFont.truetype(name, size)
-        except OSError:
-            continue
-    return ImageFont.load_default(size=size)
-
-
-def _with_opacity(img: Image.Image, opacity: float) -> Image.Image:
-    alpha = img.getchannel("A").point(lambda a: int(a * opacity))
-    out = img.copy()
-    out.putalpha(alpha)
-    return out
+@lru_cache(maxsize=16)
+def _logo_at(width: int) -> Image.Image:
+    logo = _logo()
+    height = max(1, round(logo.height * width / logo.width))
+    return logo.resize((width, height), Image.Resampling.LANCZOS)
 
 
 def apply_watermark(data: bytes) -> bytes:
-    """Return JPEG bytes with a centered, semi-transparent "Kr" logo + kigalirent.com mark."""
+    """Return JPEG bytes with the semi-transparent KigaliRent logo centered on the photo."""
     with Image.open(io.BytesIO(data)) as src:
-        img = ImageOps.exif_transpose(src)
-        img = img.convert("RGBA")
+        img = ImageOps.exif_transpose(src).convert("RGB")
     if max(img.size) > MAX_EDGE:
         img.thumbnail((MAX_EDGE, MAX_EDGE), Image.Resampling.LANCZOS)
     w, h = img.size
 
-    font_size = max(14, int(w * 0.068))
-    font = _font(font_size)
-    stroke = max(1, font_size // 14)
-    probe = ImageDraw.Draw(Image.new("RGBA", (1, 1)))
-    left, top, right, bottom = probe.textbbox((0, 0), WATERMARK_TEXT, font=font, stroke_width=stroke)
-    text_w, text_h = right - left, bottom - top
+    # Bucket widths so the resized logo is reused across photos of similar size.
+    ratio = LOGO_WIDTH_RATIO_PORTRAIT if h > w * 1.1 else LOGO_WIDTH_RATIO
+    mark_w = max(80, int(w * ratio) // 20 * 20)
+    mark = _logo_at(mark_w)
+    img.paste(mark, ((w - mark.width) // 2, (h - mark.height) // 2), mark)
 
-    logo = _logo()
-    logo_size = int(text_h * 1.9) if logo is not None else 0
-    gap = int(font_size * 0.35) if logo is not None else 0
-    total_w = logo_size + gap + text_w
-    if total_w > w * 0.9:
-        scale = (w * 0.9) / total_w
-        font_size = max(12, int(font_size * scale))
-        font = _font(font_size)
-        stroke = max(1, font_size // 14)
-        left, top, right, bottom = probe.textbbox((0, 0), WATERMARK_TEXT, font=font, stroke_width=stroke)
-        text_w, text_h = right - left, bottom - top
-        logo_size = int(text_h * 1.9) if logo is not None else 0
-        gap = int(font_size * 0.35) if logo is not None else 0
-        total_w = logo_size + gap + text_w
-
-    layer = Image.new("RGBA", img.size, (0, 0, 0, 0))
-    x0 = (w - total_w) // 2
-    cy = h // 2
-    if logo is not None and logo_size > 0:
-        mark = _with_opacity(logo.resize((logo_size, logo_size), Image.Resampling.LANCZOS), LOGO_OPACITY)
-        layer.alpha_composite(mark, (x0, cy - logo_size // 2))
-    draw = ImageDraw.Draw(layer)
-    text_x = x0 + logo_size + gap - left
-    text_y = cy - text_h // 2 - top
-    draw.text(
-        (text_x, text_y),
-        WATERMARK_TEXT,
-        font=font,
-        fill=(255, 255, 255, int(255 * TEXT_OPACITY)),
-        stroke_width=stroke,
-        stroke_fill=(10, 31, 68, int(255 * TEXT_OPACITY * 0.8)),
-    )
-
-    out = Image.alpha_composite(img, layer).convert("RGB")
     buf = io.BytesIO()
-    out.save(buf, format="JPEG", quality=88, optimize=True, progressive=True)
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
     return buf.getvalue()
 
 
@@ -179,18 +134,26 @@ def _process(data: bytes) -> tuple[str, str, str]:
     return _store_public(marked), storage, key
 
 
-async def watermark_bytes(db: AsyncSession, data: bytes, mime_type: str | None = None, source_url: str | None = None) -> str:
-    """Validate, watermark and store an image; returns the public (watermarked) URL."""
+async def _render_and_store(data: bytes, mime_type: str | None) -> tuple[str, str, str]:
     if not storage_configured():
         raise ValueError("Image upload is not configured. Set Cloudinary or AWS S3 credentials on the server.")
     _validate_image(data, mime_type)
     try:
-        url, storage, key = await asyncio.to_thread(_process, data)
+        return await asyncio.to_thread(_process, data)
     except ValueError:
         raise
     except Exception as exc:
         raise ValueError(f"Watermarking failed: {exc}") from exc
+
+
+def _record(db: AsyncSession, url: str, storage: str, key: str, source_url: str | None) -> None:
     db.add(ImageWatermark(url=url, original_storage=storage, original_key=key, source_url=(source_url or "")[:1000] or None))
+
+
+async def watermark_bytes(db: AsyncSession, data: bytes, mime_type: str | None = None, source_url: str | None = None) -> str:
+    """Validate, watermark and store an image; returns the public (watermarked) URL."""
+    url, storage, key = await _render_and_store(data, mime_type)
+    _record(db, url, storage, key, source_url)
     await db.flush()
     return url
 
@@ -247,3 +210,33 @@ async def watermark_url(db: AsyncSession, url: str) -> tuple[str, bool]:
         return url, True
     data, mime = await fetch_image(url)
     return await watermark_bytes(db, data, mime, source_url=url), False
+
+
+async def watermark_urls(db: AsyncSession, urls: list[str]) -> dict[str, str]:
+    """Watermark several pasted URLs in parallel. Returns {original_url: watermarked_url}.
+
+    URLs that are already watermarked map to themselves. Raises ValueError naming the first
+    URL that failed, so the caller can refuse to save an un-watermarked photo silently.
+    """
+    unique = list(dict.fromkeys(u.strip() for u in urls if u and u.strip()))
+    if not unique:
+        return {}
+    known = set((await db.execute(select(ImageWatermark.url).where(ImageWatermark.url.in_(unique)))).scalars())
+    result = {u: u for u in unique if u in known}
+    todo = [u for u in unique if u not in known]
+    sem = asyncio.Semaphore(CONCURRENCY)
+
+    async def one(u: str) -> tuple[str, str, str]:
+        async with sem:
+            data, mime = await fetch_image(u)
+            return await _render_and_store(data, mime)
+
+    outcomes = await asyncio.gather(*(one(u) for u in todo), return_exceptions=True)
+    for u, out in zip(todo, outcomes):
+        if isinstance(out, BaseException):
+            raise ValueError(f"Could not add the watermark to {u[:120]}: {out}")
+        url, storage, key = out
+        _record(db, url, storage, key, u)
+        result[u] = url
+    await db.flush()
+    return result

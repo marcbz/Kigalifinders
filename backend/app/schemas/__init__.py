@@ -196,6 +196,7 @@ class PropertyCreate(BaseModel):
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     images: List[PropertyImageInput] = []
+    watermark_images: bool = False
 
 
 class PropertyUpdate(BaseModel):
@@ -238,6 +239,7 @@ class PropertyUpdate(BaseModel):
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     images: Optional[List[PropertyImageInput]] = None
+    watermark_images: bool = False
 
 
 class PropertySearchParams(BaseModel):

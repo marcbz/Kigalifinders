@@ -127,6 +127,8 @@ export interface PropertyCreatePayload {
   meta_title?: string;
   meta_description?: string;
   images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];
+  /** Burn the watermark into image URLs that are new to this listing when it is saved. */
+  watermark_images?: boolean;
 }
 
 export type PropertyUpdatePayload = Partial<PropertyCreatePayload>;
