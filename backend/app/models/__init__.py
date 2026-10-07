@@ -416,19 +416,6 @@ class PropertyImage(Base):
     property: Mapped[Property] = relationship(back_populates="images")
 
 
-class ImageWatermark(Base):
-    """Public image URLs that carry the KigaliRent watermark, with a private key for the clean original."""
-
-    __tablename__ = "image_watermarks"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    url: Mapped[str] = mapped_column(String(500), unique=True, index=True, nullable=False)
-    original_storage: Mapped[str] = mapped_column(String(20), nullable=False)
-    original_key: Mapped[str] = mapped_column(String(500), nullable=False)
-    source_url: Mapped[str | None] = mapped_column(String(1000))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-
-
 class PropertyVideo(Base):
     __tablename__ = "property_videos"
 

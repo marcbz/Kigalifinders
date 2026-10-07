@@ -9,7 +9,6 @@ import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import { FeaturedImageSeoPanel } from "@/components/admin/featured-image-seo-panel";
 import type { PropertyDetail, PropertyListItem } from "@/types";
 import {
-  adminService,
   locationService,
   propertyService,
   type PropertyCreatePayload,
@@ -22,8 +21,6 @@ import {
   loadAdminDraft,
   saveAdminDraft,
 } from "@/lib/admin-drafts";
-
-const WATERMARK_PREF_KEY = "kr-admin-watermark-new-photos";
 
 interface PropertyFormModalProps {
   property?: PropertyListItem | null;
@@ -217,36 +214,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
   const detailHydrated = useRef(false);
   const hydratedPropertyId = useRef<string | null>(null);
   const draftKey = propertyDraftKey(property?.id);
-  const [watermarkNew, setWatermarkNew] = useState(true);
-  const [watermarking, setWatermarking] = useState<{ done: number; total: number; failed: number } | null>(null);
-  useEffect(() => {
-    setWatermarkNew(window.localStorage.getItem(WATERMARK_PREF_KEY) !== "0");
-  }, []);
-
-  const toggleWatermarkNew = (on: boolean) => {
-    setWatermarkNew(on);
-    window.localStorage.setItem(WATERMARK_PREF_KEY, on ? "1" : "0");
-  };
-
-  const watermarkListingPhotos = async () => {
-    const targets = imageRows.map((r, i) => ({ i, url: r.url.trim() })).filter((t) => /^https?:\/\//i.test(t.url));
-    if (!targets.length) return;
-    if (!window.confirm(`Add the KigaliRent watermark to ${targets.length} photo(s) in this listing? Click Save afterwards to publish the change.`)) return;
-    const next = [...imageRows];
-    let failed = 0;
-    setWatermarking({ done: 0, total: targets.length, failed: 0 });
-    for (const [n, t] of targets.entries()) {
-      try {
-        const res = await adminService.watermarkImageUrl(t.url);
-        next[t.i] = { ...next[t.i], url: res.url };
-      } catch {
-        failed += 1;
-      }
-      setWatermarking({ done: n + 1, total: targets.length, failed });
-    }
-    setImageRows(next);
-    if (failed) setError(`${failed} photo(s) could not be watermarked. Check the image URLs and try again.`);
-  };
 
   const { data: districts = [] } = useQuery({
     queryKey: ["districts"],
@@ -424,7 +391,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       is_featured: form.is_featured,
       has_title_deed: form.has_title_deed,
       badge_label: form.badge_label.trim() || undefined,
-      ...(includeImages ? { images, watermark_images: watermarkNew } : {}),
+      ...(includeImages ? { images } : {}),
     };
   };
 
@@ -727,30 +694,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
               <p className="text-xs text-gray-400">
                 Paste image URLs. Mark one as featured — it powers Google Images, listing cards, and social link previews.
               </p>
-              <div className="flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-dashed px-3 py-2 text-xs">
-                <label className="flex items-center gap-1.5 font-medium">
-                  <input type="checkbox" checked={watermarkNew} onChange={(e) => toggleWatermarkNew(e.target.checked)} />
-                  Add KigaliRent watermark to new photos
-                </label>
-                <span className="text-gray-400 basis-full">
-                  Uploaded files are watermarked straight away; pasted links are watermarked when you click Save.
-                </span>
-                <button
-                  type="button"
-                  className="text-navy-800 dark:text-gold-500 font-semibold hover:underline disabled:opacity-50"
-                  disabled={watermarking !== null && watermarking.done < watermarking.total}
-                  onClick={watermarkListingPhotos}
-                >
-                  Watermark existing photos in this listing
-                </button>
-                {watermarking ? (
-                  <span className="text-gray-500">
-                    {watermarking.done < watermarking.total
-                      ? `Watermarking ${watermarking.done}/${watermarking.total}…`
-                      : `Done (${watermarking.total - watermarking.failed} watermarked${watermarking.failed ? `, ${watermarking.failed} failed` : ""}) — click Save to apply.`}
-                  </span>
-                ) : null}
-              </div>
               {primaryImageRow ? (
                 <FeaturedImageSeoPanel
                   context={featuredSeoContext}
@@ -770,7 +713,6 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                       label=""
                       folder="kigalifinders/properties"
                       allowUpload
-                      watermark={watermarkNew}
                       hint="Upload from device (recommended) or paste a Cloudinary HTTPS URL"
                       value={row.url}
                       onChange={(url) => {
@@ -825,7 +767,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
           <div className="flex justify-end gap-3 pt-4 border-t">
             <Button type="button" variant="outline" onClick={onClose} className="rounded-full">Cancel</Button>
             <Button type="submit" disabled={saveMutation.isPending || detailLoading} className="rounded-full">
-              {saveMutation.isPending ? (watermarkNew ? "Saving & watermarking..." : "Saving...") : property ? "Update Property" : "Create Property"}
+              {saveMutation.isPending ? "Saving..." : property ? "Update Property" : "Create Property"}
             </Button>
           </div>
         </form>

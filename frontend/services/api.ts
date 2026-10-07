@@ -127,8 +127,6 @@ export interface PropertyCreatePayload {
   meta_title?: string;
   meta_description?: string;
   images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];
-  /** Burn the watermark into image URLs that are new to this listing when it is saved. */
-  watermark_images?: boolean;
 }
 
 export type PropertyUpdatePayload = Partial<PropertyCreatePayload>;
@@ -218,27 +216,12 @@ export const adminService = {
   createBlogPost: (data: Record<string, unknown>) => api.post("/admin/blog", data).then((r) => r.data),
   updateBlogPost: (id: string, data: Record<string, unknown>) => api.patch(`/admin/blog/${id}`, data).then((r) => r.data),
   deleteBlogPost: (id: string) => api.delete(`/admin/blog/${id}`),
-  uploadImage: (file: File, folder = "kigalifinders", watermark = false) => {
+  uploadImage: (file: File, folder = "kigalifinders") => {
     const formData = new FormData();
     formData.append("file", file);
     formData.append("folder", folder);
-    if (watermark) formData.append("watermark", "true");
     return api.post<{ url: string }>("/admin/upload", formData).then((r) => r.data.url);
   },
-  watermarkImageUrl: (url: string) =>
-    api.post<{ url: string; already_watermarked: boolean }>("/admin/images/watermark", { url }).then((r) => r.data),
-  watermarkStatus: () =>
-    api
-      .get<{
-        total: number;
-        watermarked: number;
-        pending: number;
-        storage_configured: boolean;
-        job: { running: boolean; done?: number; failed?: number; total?: number | null; last_error?: string | null; finished_at?: string | null };
-      }>("/admin/images/watermark/status")
-      .then((r) => r.data),
-  watermarkExisting: (propertyId?: string) =>
-    api.post("/admin/images/watermark/existing", { property_id: propertyId ?? null }).then((r) => r.data),
   faqs: () => api.get("/admin/faqs").then((r) => r.data),
   createFaq: (data: Record<string, unknown>) => api.post("/admin/faqs", data).then((r) => r.data),
   updateFaq: (id: string, data: Record<string, unknown>) => api.patch(`/admin/faqs/${id}`, data).then((r) => r.data),

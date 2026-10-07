@@ -58,37 +58,20 @@ def _resolve_property_types(
     return primary, ids
 
 
-async def _sync_property_images(
-    db: AsyncSession, prop: Property, images: list[PropertyImageInput] | None, watermark: bool = False
-) -> None:
+async def _sync_property_images(db: AsyncSession, prop: Property, images: list[PropertyImageInput] | None) -> None:
     if images is None:
         return
     result = await db.execute(select(PropertyImage).where(PropertyImage.property_id == prop.id))
-    existing = result.scalars().all()
-    marked: dict[str, str] = {}
-    if watermark:
-        from app.services.watermark import watermark_urls
-
-        kept = {img.url for img in existing}
-        added = [img.url.strip() for img in images if img.url.strip() and img.url.strip() not in kept]
-        try:
-            marked = await watermark_urls(db, added)
-        except ValueError as exc:
-            raise HTTPException(
-                status_code=400,
-                detail=f"{exc}. Fix or remove that photo, or untick “Add KigaliRent watermark”, then save again.",
-            ) from exc
-    for img in existing:
+    for img in result.scalars().all():
         await db.delete(img)
     await db.flush()
     for i, img in enumerate(images):
-        url = img.url.strip()
-        if not url:
+        if not img.url.strip():
             continue
         db.add(
             PropertyImage(
                 property_id=prop.id,
-                url=marked.get(url, url),
+                url=img.url.strip(),
                 alt_text=img.alt_text,
                 is_primary=img.is_primary,
                 sort_order=img.sort_order if img.sort_order else i,
@@ -405,7 +388,7 @@ async def create_property(
     )
     db.add(prop)
     await db.flush()
-    await _sync_property_images(db, prop, data.images, watermark=data.watermark_images)
+    await _sync_property_images(db, prop, data.images)
     await sync_location_counts(db)
     await db.commit()
     nslug = None
@@ -445,7 +428,6 @@ async def update_property(
     was_published = prop.status == PropertyStatusEnum.PUBLISHED
     updates = data.model_dump(exclude_unset=True)
     images = _normalize_images(updates.pop("images", None))
-    watermark_images = bool(updates.pop("watermark_images", False))
     if "listing_type" in updates:
         updates["listing_type"] = ListingType(updates["listing_type"])
     if "status" in updates:
@@ -496,7 +478,7 @@ async def update_property(
 
     await db.flush()
     if images is not None:
-        await _sync_property_images(db, prop, images, watermark=watermark_images)
+        await _sync_property_images(db, prop, images)
     await sync_location_counts(db)
     await db.commit()
     nslug = prop.neighborhood.slug if prop.neighborhood else None
