@@ -119,15 +119,23 @@ async def delete_inquiry(
 @router.post("/upload", response_model=UploadResponse)
 async def upload_media(
     user: Annotated[User, Depends(require_staff)],
+    db: Annotated[AsyncSession, Depends(get_db)],
     file: UploadFile = File(...),
     folder: str = Form("kigalifinders"),
+    watermark: bool = Form(False),
 ):
     data = await file.read()
     if not data:
         raise HTTPException(status_code=400, detail="No file received")
     mime = file.content_type
     try:
-        url = upload_image(data, file.filename or "image.jpg", folder=folder, mime_type=mime)
+        if watermark:
+            from app.services.watermark import watermark_bytes
+
+            url = await watermark_bytes(db, data, mime)
+            await db.commit()
+        else:
+            url = upload_image(data, file.filename or "image.jpg", folder=folder, mime_type=mime)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except Exception as exc:

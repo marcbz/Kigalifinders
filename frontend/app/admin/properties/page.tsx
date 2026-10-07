@@ -7,6 +7,7 @@ import { propertyService } from "@/services/api";
 import { Button } from "@/components/ui/button";
 import { Pagination } from "@/components/ui/pagination";
 import { PropertyFormModal } from "@/features/admin/property-form-modal";
+import { WatermarkExistingPanel } from "@/features/admin/watermark-existing-panel";
 import type { PropertyListItem, PropertySearchParams } from "@/types";
 import { formatDateTime } from "@/lib/utils";
 import { Plus, Pencil, Trash2, Search, X } from "lucide-react";
@@ -115,6 +116,8 @@ export default function AdminPropertiesPage() {
           <Plus className="w-4 h-4" /> Add Property
         </Button>
       </div>
+
+      <WatermarkExistingPanel />
 
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
         <div className="relative w-full sm:max-w-sm">
