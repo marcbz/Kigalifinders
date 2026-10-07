@@ -75,10 +75,22 @@ export function CommissionInputs({ value, onChange }: { value: CommissionState; 
 
 // --- Landlord ---------------------------------------------------------------------------
 
-export function LandlordFormModal({ landlord, onClose, onSaved }: { landlord?: Landlord; onClose: () => void; onSaved?: (l: Landlord) => void }) {
+export function LandlordFormModal({
+  landlord,
+  defaultType = "OWNER",
+  onClose,
+  onSaved,
+}: {
+  landlord?: Landlord;
+  defaultType?: string;
+  onClose: () => void;
+  onSaved?: (l: Landlord) => void;
+}) {
   const { data } = useLookups();
   const [f, setF] = useState({
     name: landlord?.name ?? "",
+    contact_type: landlord?.contact_type ?? defaultType,
+    company: landlord?.company ?? "",
     phone: landlord?.phone ?? "",
     whatsapp: landlord?.whatsapp ?? "",
     email: landlord?.email ?? "",
@@ -97,14 +109,19 @@ export function LandlordFormModal({ landlord, onClose, onSaved }: { landlord?: L
   );
   const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
 
+  const manager = f.contact_type === "PROPERTY_MANAGER";
+  const kind = manager ? "property manager" : "landlord";
+
   return (
-    <Modal title={landlord ? "Edit landlord" : "New landlord"} onClose={onClose} wide>
+    <Modal title={landlord ? `Edit ${kind}` : `New ${kind}`} onClose={onClose} wide>
       <form
         className="space-y-3"
         onSubmit={(e) => {
           e.preventDefault();
           m.mutate({
             name: f.name.trim(),
+            contact_type: f.contact_type,
+            company: manager ? strOrNull(f.company) : null,
             phone: strOrNull(f.phone),
             whatsapp: strOrNull(f.whatsapp),
             email: strOrNull(f.email),
@@ -116,11 +133,36 @@ export function LandlordFormModal({ landlord, onClose, onSaved }: { landlord?: L
           });
         }}
       >
+        <div className="flex gap-1 rounded-md border p-0.5 text-xs w-fit" role="radiogroup" aria-label="Contact type">
+          {[
+            { id: "OWNER", label: "Landlord (owner)" },
+            { id: "PROPERTY_MANAGER", label: "Property manager" },
+          ].map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              role="radio"
+              aria-checked={f.contact_type === t.id}
+              onClick={() => setF({ ...f, contact_type: t.id })}
+              className={`rounded px-3 py-1 font-semibold ${f.contact_type === t.id ? "bg-navy-800 text-gold-500" : "text-gray-600 hover:text-navy-800"}`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+        {manager ? (
+          <p className="text-[12px] text-gray-500">A property manager handles properties on the owner&apos;s behalf. Link them to properties the same way as a landlord.</p>
+        ) : null}
         <div className="grid grid-cols-2 gap-2">
           <Field label="Name *"><input className={inputCls} required value={f.name} onChange={set("name")} /></Field>
           <Field label="Status">
             <ChoiceSelect value={f.status} onChange={(v) => setF({ ...f, status: v })} options={data?.vocab.landlord_status ?? []} blank={null} />
           </Field>
+          {manager ? (
+            <Field label="Company / agency" className="col-span-2">
+              <input className={inputCls} value={f.company} onChange={set("company")} placeholder="e.g. Kigali Homes Management Ltd" />
+            </Field>
+          ) : null}
           <Field label="Phone"><input className={inputCls} value={f.phone} onChange={set("phone")} /></Field>
           <Field label="WhatsApp"><input className={inputCls} value={f.whatsapp} onChange={set("whatsapp")} placeholder="+250…" /></Field>
           <Field label="Email"><input className={inputCls} type="email" value={f.email} onChange={set("email")} /></Field>
@@ -718,7 +760,7 @@ export function PropertyFormModal({ property, onClose, onSaved }: { property?: C
           <label className="flex items-center gap-1.5 text-xs pt-5">
             <input type="checkbox" checked={f.is_furnished} onChange={(e) => setF({ ...f, is_furnished: e.target.checked })} /> Furnished
           </label>
-          <Field label="Landlord"><LandlordSelect value={f.landlord_id} onChange={(v) => setF({ ...f, landlord_id: v })} /></Field>
+          <Field label="Landlord / manager"><LandlordSelect value={f.landlord_id} onChange={(v) => setF({ ...f, landlord_id: v })} /></Field>
           {!property ? (
             <Field label="Availability">
               <ChoiceSelect value={f.availability_status} onChange={(v) => setF({ ...f, availability_status: v })} options={data?.vocab.availability ?? []} blank={null} />

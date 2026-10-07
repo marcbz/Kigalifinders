@@ -67,6 +67,8 @@ class AvailabilityConfirm(_Body):
 
 class LandlordBase(CommissionFields):
     name: Optional[str] = Field(default=None, max_length=200)
+    contact_type: Optional[str] = None
+    company: Optional[str] = Field(default=None, max_length=200)
     phone: Optional[str] = Field(default=None, max_length=40)
     whatsapp: Optional[str] = Field(default=None, max_length=40)
     email: Optional[str] = Field(default=None, max_length=255)

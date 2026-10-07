@@ -22,6 +22,7 @@ import {
   tdCls,
   thCls,
   EmptyRow,
+  ManagerTag,
   useCrmMutation,
 } from "@/components/admin/crm/ui";
 import {
@@ -43,7 +44,7 @@ function LandlordCard({ p }: { p: CrmPropertyDetail }) {
   const m = useCrmMutation(() => crmApi.updateProperty(p.id, { landlord_id: landlordId || null }), () => setEditing(false));
   const ll = p.landlord;
   return (
-    <Card title="Landlord" actions={<SmallButton variant="ghost" onClick={() => setEditing((v) => !v)}>{editing ? "Cancel" : ll ? "Change" : "Link"}</SmallButton>}>
+    <Card title={ll?.contact_type === "PROPERTY_MANAGER" ? "Property manager" : "Landlord / manager"} actions={<SmallButton variant="ghost" onClick={() => setEditing((v) => !v)}>{editing ? "Cancel" : ll ? "Change" : "Link"}</SmallButton>}>
       {editing ? (
         <div className="space-y-2">
           <LandlordSelect value={landlordId} onChange={setLandlordId} />
@@ -53,11 +54,12 @@ function LandlordCard({ p }: { p: CrmPropertyDetail }) {
       ) : ll ? (
         <div className="text-[13px] space-y-1">
           <Link href={landlordHref(ll.id)} className={linkCls}>{ll.name}</Link> <StatusBadge value={ll.status} />
+          <ManagerTag type={ll.contact_type} company={ll.company} />
           <div><ContactLinks phone={ll.phone} whatsapp={ll.whatsapp} email={ll.email} /></div>
           {ll.preferred_contact ? <p className="text-[11px] text-gray-500">Prefers {ll.preferred_contact.toLowerCase()}</p> : null}
         </div>
       ) : (
-        <p className="text-sm text-gray-500">No landlord linked.</p>
+        <p className="text-sm text-gray-500">No landlord or property manager linked.</p>
       )}
     </Card>
   );
@@ -66,7 +68,9 @@ function LandlordCard({ p }: { p: CrmPropertyDetail }) {
 function CommissionCard({ p }: { p: CrmPropertyDetail }) {
   const [editing, setEditing] = useState(false);
   const [c, setC] = useState(commissionState(p));
-  useEffect(() => setC(commissionState(p)), [p]);
+  useEffect(() => {
+    if (!editing) setC(commissionState(p));
+  }, [p.commission_type, p.commission_value, p.commission_currency, editing]); // eslint-disable-line react-hooks/exhaustive-deps
   const m = useCrmMutation(() => crmApi.updateProperty(p.id, commissionBody(c)), () => setEditing(false));
   const eff = p.effective_commission;
   return (

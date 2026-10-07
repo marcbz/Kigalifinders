@@ -110,6 +110,15 @@ export function StatusBadge({ value, className }: { value?: string | null; class
   );
 }
 
+export function ManagerTag({ type, company }: { type?: string | null; company?: string | null }) {
+  if (type !== "PROPERTY_MANAGER") return null;
+  return (
+    <span className="ml-1 inline-flex items-center rounded bg-indigo-50 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-200">
+      Property manager{company ? ` · ${company}` : ""}
+    </span>
+  );
+}
+
 export function KpiCard({ label, value, hint, tone }: { label: string; value: React.ReactNode; hint?: React.ReactNode; tone?: "warn" | "good" | "bad" }) {
   return (
     <div className="rounded-lg border bg-white dark:bg-navy-800 px-3 py-2.5">

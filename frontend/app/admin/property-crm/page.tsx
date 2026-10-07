@@ -35,13 +35,14 @@ function VerifySetting() {
   return (
     <form
       className="flex items-center gap-1.5 text-xs text-gray-600"
+      title="If a property's availability hasn't been confirmed within this many days, it is marked Verify so you remember to call the landlord or manager."
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate(undefined);
       }}
     >
-      Flag for verification after
-      <input className={`${inputCls} w-16 py-1`} type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} />
+      Re-check availability every
+      <input className={`${inputCls} w-16 py-1`} type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} aria-label="Days between availability checks" />
       days
       <SmallButton type="submit" disabled={m.isPending || !data || Number(days) === data.verify_after_days}>Save</SmallButton>
       <ErrorText error={m.error} />
@@ -51,7 +52,7 @@ function VerifySetting() {
 
 export default function PropertyCrmDashboard() {
   const { data, isLoading, error } = useQuery({ queryKey: ["crm", "dashboard"], queryFn: crmApi.dashboard });
-  const [modal, setModal] = useState<"landlord" | "lead" | null>(null);
+  const [modal, setModal] = useState<"landlord" | "manager" | "lead" | null>(null);
   const k = data?.kpis;
 
   return (
@@ -63,6 +64,7 @@ export default function PropertyCrmDashboard() {
           <>
             <VerifySetting />
             <SmallButton onClick={() => setModal("landlord")}>+ Landlord</SmallButton>
+            <SmallButton onClick={() => setModal("manager")}>+ Property manager</SmallButton>
             <SmallButton variant="primary" onClick={() => setModal("lead")}>+ Client</SmallButton>
           </>
         }
@@ -152,7 +154,9 @@ export default function PropertyCrmDashboard() {
         </>
       )}
 
-      {modal === "landlord" ? <LandlordFormModal onClose={() => setModal(null)} /> : null}
+      {modal === "landlord" || modal === "manager" ? (
+        <LandlordFormModal defaultType={modal === "manager" ? "PROPERTY_MANAGER" : "OWNER"} onClose={() => setModal(null)} />
+      ) : null}
       {modal === "lead" ? <LeadFormModal onClose={() => setModal(null)} /> : null}
     </div>
   );

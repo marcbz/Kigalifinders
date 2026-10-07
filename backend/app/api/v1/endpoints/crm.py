@@ -103,17 +103,25 @@ async def lookups(db: DbSession):
         )
     ).all()
     landlords = (
-        await db.execute(select(CrmLandlord.id, CrmLandlord.name).order_by(CrmLandlord.name).limit(1000))
+        await db.execute(
+            select(CrmLandlord.id, CrmLandlord.name, CrmLandlord.contact_type, CrmLandlord.company)
+            .order_by(CrmLandlord.name)
+            .limit(1000)
+        )
     ).all()
     return {
         "districts": [{"id": str(r.id), "name": r.name} for r in districts],
         "neighborhoods": [{"id": str(r.id), "name": r.name, "district_id": str(r.district_id)} for r in neighborhoods],
         "property_types": [{"id": str(r.id), "name": r.name} for r in types],
         "users": [{"id": str(r.id), "name": r.name} for r in users],
-        "landlords": [{"id": str(r.id), "name": r.name} for r in landlords],
+        "landlords": [
+            {"id": str(r.id), "name": svc.landlord_label(r.name, r.contact_type, r.company), "contact_type": r.contact_type}
+            for r in landlords
+        ],
         "vocab": {
             "availability": svc.AVAILABILITY_STATUSES,
             "landlord_status": svc.LANDLORD_STATUSES,
+            "landlord_type": svc.LANDLORD_TYPES,
             "contact_methods": svc.CONTACT_METHODS,
             "lead_status": svc.LEAD_STATUSES,
             "lead_source": svc.LEAD_SOURCES,
@@ -309,6 +317,7 @@ def _property_list_select():
             P.availability_updated_at, P.availability_verified_at, P.availability_note, P.landlord_id,
             P.created_at, P.commission_type, P.commission_value, P.commission_currency, P.in_crm,
             CrmLandlord.name.label("landlord_name"),
+            CrmLandlord.contact_type.label("landlord_type"),
             District.name.label("district_name"),
             Neighborhood.name.label("neighborhood_name"),
             PropertyType.name.label("property_type_name"),
@@ -347,6 +356,7 @@ def _property_row(r, cutoff: datetime) -> dict:
         or (r.availability_status == "AVAILABLE" and last_check is not None and last_check < cutoff),
         "landlord_id": str(r.landlord_id) if r.landlord_id else None,
         "landlord_name": r.landlord_name,
+        "landlord_type": r.landlord_type,
         "district_name": r.district_name,
         "neighborhood_name": r.neighborhood_name,
         "property_type_name": r.property_type_name,
@@ -723,6 +733,8 @@ def _landlord_basic(ll: CrmLandlord) -> dict:
     return {
         "id": str(ll.id),
         "name": ll.name,
+        "contact_type": ll.contact_type or "OWNER",
+        "company": ll.company,
         "phone": ll.phone,
         "whatsapp": ll.whatsapp,
         "email": ll.email,
@@ -762,6 +774,7 @@ async def list_landlords(
     db: DbSession,
     q: str | None = None,
     status: str | None = None,
+    contact_type: str | None = None,
     sort: str = "name",
     order: Literal["asc", "desc"] = "asc",
     page: int = 1,
@@ -777,9 +790,12 @@ async def list_landlords(
     pattern = search_pattern(q)
     if pattern:
         stmt = stmt.where(or_(CrmLandlord.name.ilike(pattern), CrmLandlord.phone.ilike(pattern),
-                              CrmLandlord.whatsapp.ilike(pattern), CrmLandlord.email.ilike(pattern)))
+                              CrmLandlord.whatsapp.ilike(pattern), CrmLandlord.email.ilike(pattern),
+                              CrmLandlord.company.ilike(pattern)))
     if status:
         stmt = stmt.where(CrmLandlord.status == svc.check_choice(status, svc.LANDLORD_STATUSES, "status"))
+    if contact_type:
+        stmt = stmt.where(CrmLandlord.contact_type == svc.check_choice(contact_type, svc.LANDLORD_TYPES, "type"))
     sort_col = LANDLORD_SORTS.get(sort, CrmLandlord.name)
     stmt = stmt.order_by(sort_col.asc().nulls_last() if order == "asc" else sort_col.desc().nulls_last(), CrmLandlord.id)
     rows, total, page, page_size = await paginate(db, stmt, page, page_size)
@@ -794,7 +810,7 @@ async def list_landlords(
 
 
 def _apply_landlord(ll: CrmLandlord, data: dict) -> None:
-    for field in ("name", "phone", "whatsapp", "email", "notes", "commission_notes"):
+    for field in ("name", "company", "phone", "whatsapp", "email", "notes", "commission_notes"):
         if field in data:
             value = clean_text(data[field])
             if field == "name" and not value:
@@ -804,6 +820,8 @@ def _apply_landlord(ll: CrmLandlord, data: dict) -> None:
         ll.preferred_contact = svc.check_choice(data["preferred_contact"], svc.CONTACT_METHODS, "preferred contact")
     if "status" in data:
         ll.status = svc.check_choice(data["status"], svc.LANDLORD_STATUSES, "status", required=True)
+    if "contact_type" in data:
+        ll.contact_type = svc.check_choice(data["contact_type"], svc.LANDLORD_TYPES, "type", required=True)
     if "next_follow_up_at" in data:
         ll.next_follow_up_at = svc.as_aware(data["next_follow_up_at"])
     _apply_commission_fields(ll, data)
@@ -811,11 +829,11 @@ def _apply_landlord(ll: CrmLandlord, data: dict) -> None:
 
 @router.post("/landlords", status_code=201)
 async def create_landlord(body: LandlordCreate, db: DbSession, user: AdminUser):
-    ll = CrmLandlord(created_by_id=user.id, status="ACTIVE")
+    ll = CrmLandlord(created_by_id=user.id, status="ACTIVE", contact_type="OWNER")
     _apply_landlord(ll, body.model_dump(exclude_unset=True))
     db.add(ll)
     await db.flush()
-    svc.log_activity(db, Event.LANDLORD_CREATED, f"Landlord added: {ll.name}", user=user, landlord_id=ll.id)
+    svc.log_activity(db, Event.LANDLORD_CREATED, f"{svc.landlord_kind(ll.contact_type)} added: {ll.name}", user=user, landlord_id=ll.id)
     await db.commit()
     return _landlord_basic(ll)
 
@@ -885,7 +903,7 @@ async def update_landlord(landlord_id: UUID, body: LandlordUpdate, db: DbSession
     data = body.model_dump(exclude_unset=True)
     _apply_landlord(ll, data)
     if data:
-        svc.log_activity(db, Event.LANDLORD_UPDATED, f"Landlord updated: {ll.name}", user=user, landlord_id=ll.id,
+        svc.log_activity(db, Event.LANDLORD_UPDATED, f"{svc.landlord_kind(ll.contact_type)} updated: {ll.name}", user=user, landlord_id=ll.id,
                          meta={"fields": sorted(data.keys())})
     await db.commit()
     return _landlord_basic(ll)
@@ -897,7 +915,7 @@ async def landlord_contacted(landlord_id: UUID, body: ContactLog, db: DbSession,
     method = svc.check_choice(body.method, svc.CONTACT_METHODS, "contact method")
     ll.last_contacted_at = svc.utcnow()
     svc.log_activity(
-        db, Event.LANDLORD_CONTACTED, f"Landlord contacted: {ll.name}" + (f" via {method.title()}" if method else ""),
+        db, Event.LANDLORD_CONTACTED, f"{svc.landlord_kind(ll.contact_type)} contacted: {ll.name}" + (f" via {method.title()}" if method else ""),
         user=user, note=body.note, landlord_id=ll.id, meta={"method": method} if method else None,
     )
     await db.commit()

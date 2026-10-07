@@ -13,6 +13,7 @@ import {
   ErrorText,
   KpiCard,
   SmallButton,
+  ManagerTag,
   StatusBadge,
   Tabs,
   fmtCommission,
@@ -108,6 +109,7 @@ export default function CrmLandlordPage() {
         <div>
           <h2 className="text-lg font-bold text-navy-800 dark:text-white">
             {l.name} <StatusBadge value={l.status} className="align-middle" />
+            <ManagerTag type={l.contact_type} company={l.company} />
           </h2>
           <ContactLinks phone={l.phone} whatsapp={l.whatsapp} email={l.email} />
           <p className="text-[11px] text-gray-500">
@@ -121,7 +123,7 @@ export default function CrmLandlordPage() {
           <SmallButton
             variant="danger"
             onClick={() => {
-              if (confirm(`Delete landlord ${l.name}?`)) remove.mutate(undefined);
+              if (confirm(`Delete ${l.contact_type === "PROPERTY_MANAGER" ? "property manager" : "landlord"} ${l.name}?`)) remove.mutate(undefined);
             }}
           >
             Delete

@@ -24,10 +24,11 @@ export interface Lookups {
   neighborhoods: (Option & { district_id: string })[];
   property_types: Option[];
   users: Option[];
-  landlords: Option[];
+  landlords: (Option & { contact_type: string })[];
   vocab: Record<
     | "availability"
     | "landlord_status"
+    | "landlord_type"
     | "contact_methods"
     | "lead_status"
     | "lead_source"
@@ -86,6 +87,7 @@ export interface CrmPropertyRow {
   verification_due: boolean;
   landlord_id: string | null;
   landlord_name: string | null;
+  landlord_type: string | null;
   district_name: string | null;
   neighborhood_name: string | null;
   property_type_name: string | null;
@@ -108,6 +110,8 @@ export interface PropertyCandidate {
 export interface Landlord {
   id: string;
   name: string;
+  contact_type: "OWNER" | "PROPERTY_MANAGER" | string;
+  company: string | null;
   phone: string | null;
   whatsapp: string | null;
   email: string | null;

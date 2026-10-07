@@ -51,6 +51,14 @@ def test_deal_commission_always_has_usd_total(fixed_fx, ctype, value, rent, curr
         assert d.commission_currency == currency
 
 
+def test_landlord_labels_mark_property_managers():
+    assert svc.landlord_label("Jean", "OWNER") == "Jean"
+    assert svc.landlord_label("Eric", "PROPERTY_MANAGER", "Acme Homes") == "Eric (Property manager · Acme Homes)"
+    assert svc.landlord_label("Eric", "PROPERTY_MANAGER") == "Eric (Property manager)"
+    assert svc.landlord_kind("PROPERTY_MANAGER") == "Property manager"
+    assert svc.landlord_kind(None) == "Landlord"
+
+
 def test_crm_ref_format():
     assert svc.format_crm_ref("Gasabo", "Kibagabaga", "House", 1) == "GKH-0001"
     assert svc.format_crm_ref("Kicukiro", None, "Apartment", 27) == "KXA-0027"

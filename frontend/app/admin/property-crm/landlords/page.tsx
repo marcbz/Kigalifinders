@@ -12,6 +12,7 @@ import {
   ErrorText,
   PageHeader,
   SmallButton,
+  ManagerTag,
   StatusBadge,
   fmtCommission,
   fmtDateTime,
@@ -28,7 +29,7 @@ import { landlordHref } from "@/components/admin/crm/panels";
 import { LandlordFormModal } from "@/components/admin/crm/forms";
 import { useUrlFilters } from "@/components/admin/crm/use-url-filters";
 
-const KEYS = ["q", "status", "sort", "order"] as const;
+const KEYS = ["q", "status", "contact_type", "sort", "order"] as const;
 
 function LandlordsInner() {
   const { data: lookups } = useLookups();
@@ -38,7 +39,7 @@ function LandlordsInner() {
   useEffect(() => {
     if (debouncedQ !== f.q) setF({ q: debouncedQ });
   }, [debouncedQ]); // eslint-disable-line react-hooks/exhaustive-deps
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<string | null>(null);
   const page = Number(f.page) || 1;
   const params = { ...f, sort: f.sort || "name", order: f.order || "asc", page, page_size: 30 };
   const { data, error, isFetching } = useQuery({
@@ -49,9 +50,25 @@ function LandlordsInner() {
 
   return (
     <div className="space-y-3">
-      <PageHeader title="Landlords" actions={<SmallButton variant="primary" onClick={() => setCreating(true)}>+ New landlord</SmallButton>} />
+      <PageHeader
+        title="Landlords & property managers"
+        subtitle="Owners and the property managers who handle properties on their behalf."
+        actions={
+          <>
+            <SmallButton onClick={() => setCreating("PROPERTY_MANAGER")}>+ Property manager</SmallButton>
+            <SmallButton variant="primary" onClick={() => setCreating("OWNER")}>+ New landlord</SmallButton>
+          </>
+        }
+      />
       <div className="rounded-lg border bg-white dark:bg-navy-800 p-2 flex flex-wrap gap-2">
-        <input className={`${inputCls} max-w-xs`} placeholder="Search name, phone, email…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <input className={`${inputCls} max-w-xs`} placeholder="Search name, company, phone, email…" value={q} onChange={(e) => setQ(e.target.value)} />
+        <ChoiceSelect
+          className="max-w-[180px]"
+          value={f.contact_type}
+          onChange={(v) => setF({ contact_type: v })}
+          options={[{ id: "OWNER", name: "Landlords (owners)" }, { id: "PROPERTY_MANAGER", name: "Property managers" }]}
+          blank="Landlords & managers"
+        />
         <ChoiceSelect className="max-w-[180px]" value={f.status} onChange={(v) => setF({ status: v })} options={lookups?.vocab.landlord_status ?? []} blank="Any status" />
         <ChoiceSelect
           className="max-w-[200px]"
@@ -66,7 +83,7 @@ function LandlordsInner() {
         <table className={tableCls}>
           <thead>
             <tr>
-              <th className={thCls}>Landlord</th>
+              <th className={thCls}>Name</th>
               <th className={thCls}>Contact</th>
               <th className={thCls}>Status</th>
               <th className={thCls}>Properties</th>
@@ -76,11 +93,12 @@ function LandlordsInner() {
             </tr>
           </thead>
           <tbody>
-            {data && data.items.length === 0 ? <EmptyRow cols={7} text="No landlords yet." /> : null}
+            {data && data.items.length === 0 ? <EmptyRow cols={7} text="No landlords or property managers yet." /> : null}
             {data?.items.map((l) => (
               <tr key={l.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/40">
                 <td className={tdCls}>
                   <Link href={landlordHref(l.id)} className={linkCls}>{l.name}</Link>
+                  <ManagerTag type={l.contact_type} company={l.company} />
                   {l.preferred_contact ? <span className="block text-[11px] text-gray-500">Prefers {l.preferred_contact.toLowerCase()}</span> : null}
                 </td>
                 <td className={tdCls}><ContactLinks phone={l.phone} whatsapp={l.whatsapp} email={l.email} /></td>
@@ -99,12 +117,12 @@ function LandlordsInner() {
         </table>
         {data ? (
           <div className="flex items-center justify-between px-3 text-xs text-gray-500">
-            <span>{data.total} landlords</span>
+            <span>{data.total} contacts</span>
             <Pagination page={page} totalPages={data.pages} onPageChange={(p) => setF({ page: String(p) })} />
           </div>
         ) : null}
       </div>
-      {creating ? <LandlordFormModal onClose={() => setCreating(false)} /> : null}
+      {creating ? <LandlordFormModal defaultType={creating} onClose={() => setCreating(null)} /> : null}
     </div>
   );
 }

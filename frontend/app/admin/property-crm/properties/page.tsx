@@ -38,7 +38,7 @@ const SORTS: { key: string; label: string }[] = [
   { key: "ref", label: "Ref" },
   { key: "title", label: "Property" },
   { key: "location", label: "Location" },
-  { key: "landlord", label: "Landlord" },
+  { key: "landlord", label: "Landlord / manager" },
   { key: "rent", label: "Rent" },
   { key: "bedrooms", label: "Beds" },
   { key: "availability", label: "Availability" },
@@ -115,8 +115,8 @@ function PropertiesInner() {
         <ChoiceSelect
           value={f.no_landlord === "1" ? "__none" : f.landlord_id}
           onChange={(v) => setF(v === "__none" ? { landlord_id: "", no_landlord: "1" } : { landlord_id: v, no_landlord: "" })}
-          options={[{ id: "__none", name: "— No landlord linked —" }, ...(lookups?.landlords ?? [])]}
-          blank="Any landlord"
+          options={[{ id: "__none", name: "— No landlord / manager —" }, ...(lookups?.landlords ?? [])]}
+          blank="Any landlord / manager"
         />
         <ChoiceSelect
           value={f.bedrooms}
@@ -184,7 +184,10 @@ function PropertiesInner() {
                   {p.neighborhood_name || "—"}
                   <span className="block text-gray-500">{p.district_name}</span>
                 </td>
-                <td className={`${tdCls} text-[12px]`}><RefLink id={p.landlord_id} label={p.landlord_name} kind="landlord" /></td>
+                <td className={`${tdCls} text-[12px]`}>
+                  <RefLink id={p.landlord_id} label={p.landlord_name} kind="landlord" />
+                  {p.landlord_type === "PROPERTY_MANAGER" ? <span className="block text-[11px] text-indigo-700">Property manager</span> : null}
+                </td>
                 <td className={`${tdCls} whitespace-nowrap tabular-nums`}>
                   {fmtMoney(p.price, p.currency)}
                   {p.currency !== "USD" && p.usd_price ? <span className="block text-[11px] text-gray-500">≈ {fmtMoney(p.usd_price, "USD")}</span> : null}

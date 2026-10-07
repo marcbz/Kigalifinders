@@ -25,6 +25,7 @@ KIGALI_TZ = timezone(timedelta(hours=2), "CAT")
 
 AVAILABILITY_STATUSES = ("AVAILABLE", "VERIFY", "RESERVED", "RENTED", "UNAVAILABLE")
 LANDLORD_STATUSES = ("ACTIVE", "PROSPECT", "INACTIVE", "DO_NOT_CONTACT")
+LANDLORD_TYPES = ("OWNER", "PROPERTY_MANAGER")
 CONTACT_METHODS = ("PHONE", "WHATSAPP", "EMAIL")
 LEAD_STATUSES = ("NEW", "CONTACTED", "SEARCHING", "VIEWING", "NEGOTIATING", "CONVERTED", "LOST", "INACTIVE")
 ACTIVE_LEAD_STATUSES = ("NEW", "CONTACTED", "SEARCHING", "VIEWING", "NEGOTIATING")
@@ -97,6 +98,17 @@ class Event:
 
 def utcnow() -> datetime:
     return datetime.now(timezone.utc)
+
+
+def landlord_kind(contact_type: str | None) -> str:
+    return "Property manager" if contact_type == "PROPERTY_MANAGER" else "Landlord"
+
+
+def landlord_label(name: str, contact_type: str | None, company: str | None = None) -> str:
+    """Name as shown in pickers, e.g. "Eric M. (Property manager · Acme Homes)"."""
+    if contact_type != "PROPERTY_MANAGER":
+        return name
+    return f"{name} (Property manager{f' · {company}' if company else ''})"
 
 
 def check_choice(value: str | None, allowed: tuple[str, ...], field: str, *, required: bool = False) -> str | None:

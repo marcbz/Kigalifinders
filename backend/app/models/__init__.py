@@ -1025,6 +1025,8 @@ class CrmLandlord(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
+    contact_type: Mapped[str] = mapped_column(String(20), default="OWNER", server_default="OWNER", index=True)
+    company: Mapped[str | None] = mapped_column(String(200))
     phone: Mapped[str | None] = mapped_column(String(40))
     whatsapp: Mapped[str | None] = mapped_column(String(40))
     email: Mapped[str | None] = mapped_column(String(255))

@@ -11,7 +11,7 @@ import { useUrlFilters } from "@/components/admin/crm/use-url-filters";
 const KEYS = ["q", "event"] as const;
 
 const EVENTS = [
-  "property_created", "property_updated", "price_changed", "availability_changed", "availability_confirmed", "availability_flagged",
+  "property_added", "property_removed", "property_deleted", "property_updated", "price_changed", "availability_changed", "availability_confirmed", "availability_flagged",
   "landlord_created", "landlord_updated", "landlord_contacted", "lead_created", "lead_updated", "lead_status_changed", "lead_contacted",
   "lead_property_linked", "viewing_scheduled", "viewing_updated", "viewing_completed", "deal_created", "deal_status_changed",
   "deal_completed", "commission_updated", "commission_paid", "follow_up_created", "follow_up_completed", "document_added",
