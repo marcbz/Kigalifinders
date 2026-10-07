@@ -64,7 +64,8 @@ export interface Activity {
 
 export interface CrmPropertyRow {
   id: string;
-  crm_ref: string;
+  crm_ref: string | null;
+  in_crm: boolean;
   slug: string;
   public_url: string | null;
   title: string;
@@ -92,6 +93,16 @@ export interface CrmPropertyRow {
   commission_value: number | null;
   commission_currency: string | null;
   created_at: string;
+}
+
+export interface PropertyCandidate {
+  id: string;
+  title: string;
+  publication_status: string;
+  price: number;
+  currency: string;
+  bedrooms: number | null;
+  neighborhood_name: string | null;
 }
 
 export interface Landlord {
@@ -246,6 +257,9 @@ export interface CrmPropertyDetail extends CrmPropertyRow {
   crm_notes: string | null;
   address: string | null;
   area_sqm: number | null;
+  district_id: string | null;
+  neighborhood_id: string | null;
+  property_type_id: string | null;
   availability_verified_by: string | null;
   image_url: string | null;
   verify_after_days: number;
@@ -342,6 +356,13 @@ export const crmApi = {
 
   properties: (params?: Params) => get<Page<CrmPropertyRow> & { verify_after_days: number }>("/properties", params),
   property: (id: string) => get<CrmPropertyDetail>(`/properties/${id}`),
+  createProperty: (body: Body) => post<CrmPropertyDetail>("/properties", body),
+  updatePropertyDetails: (id: string, body: Body) => patch<CrmPropertyDetail>(`/properties/${id}/details`, body),
+  propertyCandidates: (q?: string) => get<{ items: PropertyCandidate[] }>("/properties/candidates", { q }),
+  addPropertyToCrm: (id: string, availability_status?: string) =>
+    post<CrmPropertyDetail>(`/properties/${id}/add`, { availability_status: availability_status || undefined }),
+  removePropertyFromCrm: (id: string) => post<{ ok: boolean }>(`/properties/${id}/remove`),
+  deleteProperty: (id: string) => del(`/properties/${id}`),
   updateProperty: (id: string, body: Body) => patch<CrmPropertyDetail>(`/properties/${id}`, body),
   setAvailability: (id: string, status: string, note?: string) =>
     post<CrmPropertyDetail>(`/properties/${id}/availability`, { status, note: note || undefined }),

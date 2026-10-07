@@ -64,6 +64,9 @@ _last_stale_sweep = 0.0
 
 class Event:
     PROPERTY_CREATED = "property_created"
+    PROPERTY_ADDED = "property_added"
+    PROPERTY_REMOVED = "property_removed"
+    PROPERTY_DELETED = "property_deleted"
     PROPERTY_UPDATED = "property_updated"
     PRICE_CHANGED = "price_changed"
     AVAILABILITY_CHANGED = "availability_changed"
@@ -257,7 +260,69 @@ def verification_cutoff(verify_after_days: int, now: datetime | None = None) -> 
 
 def stale_condition(cutoff: datetime):
     last_check = func.coalesce(Property.availability_verified_at, Property.availability_updated_at, Property.created_at)
-    return and_(Property.availability_status == "AVAILABLE", last_check < cutoff)
+    return and_(Property.in_crm.is_(True), Property.availability_status == "AVAILABLE", last_check < cutoff)
+
+
+# --- Internal property IDs ----------------------------------------------------------
+
+
+def ref_letter(name: str | None) -> str:
+    for ch in (name or "").upper():
+        if "A" <= ch <= "Z":
+            return ch
+    return "X"
+
+
+def format_crm_ref(district: str | None, neighborhood: str | None, property_type: str | None, number: int) -> str:
+    """District, neighborhood and property-type initials plus a unique number: Gasabo/Kibagabaga/House -> GKH-0001."""
+    return f"{ref_letter(district)}{ref_letter(neighborhood)}{ref_letter(property_type)}-{number:04d}"
+
+
+async def assign_crm_ref(db: AsyncSession, prop: Property) -> str:
+    """Give a property its internal ID the first time it enters the CRM; it never changes afterwards."""
+    if prop.crm_ref:
+        return prop.crm_ref
+    from app.models import District, Neighborhood, PropertyType
+
+    async def name_of(model, obj_id):
+        return (await db.execute(select(model.name).where(model.id == obj_id))).scalar_one_or_none() if obj_id else None
+
+    number = (await db.execute(select(func.nextval("crm_property_ref_seq")))).scalar_one()
+    prop.crm_ref = format_crm_ref(
+        await name_of(District, prop.district_id),
+        await name_of(Neighborhood, prop.neighborhood_id),
+        await name_of(PropertyType, prop.property_type_id),
+        int(number),
+    )
+    return prop.crm_ref
+
+
+def initial_availability(prop: Property) -> str:
+    status = getattr(prop.status, "value", prop.status)
+    return {"rented": "RENTED", "sold": "RENTED", "archived": "UNAVAILABLE"}.get(str(status).lower(), "AVAILABLE")
+
+
+async def add_to_crm(db: AsyncSession, prop: Property, *, user: User | None, availability: str | None = None) -> None:
+    if prop.in_crm:
+        return
+    prop.in_crm = True
+    await assign_crm_ref(db, prop)
+    now = utcnow()
+    prop.availability_status = check_choice(availability, AVAILABILITY_STATUSES, "availability status") or initial_availability(prop)
+    prop.availability_updated_at = now
+    if user is not None:
+        prop.availability_verified_at = now
+        prop.availability_verified_by_id = user.id
+    log_activity(db, Event.PROPERTY_ADDED, f"{prop.crm_ref}: added to CRM ({prop.title})", user=user,
+                 property_id=prop.id, landlord_id=prop.landlord_id)
+
+
+def remove_from_crm(db: AsyncSession, prop: Property, *, user: User | None) -> None:
+    if not prop.in_crm:
+        return
+    prop.in_crm = False
+    log_activity(db, Event.PROPERTY_REMOVED, f"{prop.crm_ref}: removed from CRM", user=user,
+                 property_id=prop.id, landlord_id=prop.landlord_id)
 
 
 async def flag_stale_properties(db: AsyncSession, *, force: bool = False) -> int:

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { crmApi, type Body, type Deal, type FollowUp, type Landlord, type Lead, type Viewing } from "@/services/crm-api";
+import { useQuery } from "@tanstack/react-query";
+import { crmApi, type Body, type CrmPropertyDetail, type Deal, type FollowUp, type Landlord, type Lead, type Viewing } from "@/services/crm-api";
 import {
   ChoiceSelect,
   ErrorText,
@@ -14,6 +15,7 @@ import {
   strOrNull,
   toKigaliInput,
   useCrmMutation,
+  useDebounced,
   useLookups,
 } from "@/components/admin/crm/ui";
 import { LandlordSelect, LeadPicker, PropertyPicker, UserSelect, type Picked } from "@/components/admin/crm/entity-picker";
@@ -612,6 +614,171 @@ export function ContactLogModal({ title, onSubmit, onClose }: { title: string; o
         <ErrorText error={m.error} />
         <FormActions pending={m.isPending} onCancel={onClose} label="Log contact" />
       </form>
+    </Modal>
+  );
+}
+
+// --- Property ---------------------------------------------------------------------------
+
+const LISTING_TYPES = ["rent", "sale", "furnished"] as const;
+
+/** Create a new CRM property (saved as an unpublished draft) or edit an existing one's details. */
+export function PropertyFormModal({ property, onClose, onSaved }: { property?: CrmPropertyDetail; onClose: () => void; onSaved?: (p: CrmPropertyDetail) => void }) {
+  const { data } = useLookups();
+  const num = (v: number | null | undefined) => (v != null ? String(v) : "");
+  const [f, setF] = useState({
+    title: property?.title ?? "",
+    listing_type: property?.listing_type ?? "rent",
+    price: num(property?.price),
+    currency: property?.currency ?? "USD",
+    price_period: property?.price_period ?? "month",
+    bedrooms: num(property?.bedrooms),
+    bathrooms: num(property?.bathrooms),
+    area_sqm: num(property?.area_sqm),
+    district_id: property?.district_id ?? "",
+    neighborhood_id: property?.neighborhood_id ?? "",
+    property_type_id: property?.property_type_id ?? "",
+    address: property?.address ?? "",
+    is_furnished: property?.is_furnished ?? false,
+    landlord_id: property?.landlord_id ?? "",
+    availability_status: "AVAILABLE",
+    crm_notes: property?.crm_notes ?? "",
+  });
+  const [c, setC] = useState(commissionState(property));
+  const m = useCrmMutation(
+    (body: Body) => (property ? crmApi.updatePropertyDetails(property.id, body) : crmApi.createProperty(body)),
+    (r) => {
+      onSaved?.(r);
+      onClose();
+    },
+  );
+  const set = (k: keyof typeof f) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setF({ ...f, [k]: e.target.value });
+  const neighborhoods = (data?.neighborhoods ?? []).filter((n) => !f.district_id || n.district_id === f.district_id);
+
+  return (
+    <Modal title={property ? `Edit ${property.crm_ref ?? "property"}` : "New CRM property"} onClose={onClose} wide>
+      <form
+        className="space-y-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          m.mutate({
+            title: f.title.trim(),
+            listing_type: f.listing_type,
+            price: Number(f.price),
+            currency: f.currency,
+            price_period: strOrNull(f.price_period),
+            bedrooms: numOrNull(f.bedrooms),
+            bathrooms: numOrNull(f.bathrooms),
+            area_sqm: numOrNull(f.area_sqm),
+            district_id: f.district_id || null,
+            neighborhood_id: f.neighborhood_id || null,
+            property_type_id: f.property_type_id || null,
+            address: strOrNull(f.address),
+            is_furnished: f.is_furnished,
+            landlord_id: f.landlord_id || null,
+            crm_notes: strOrNull(f.crm_notes),
+            ...(property ? {} : { availability_status: f.availability_status }),
+            ...commissionBody(c),
+          });
+        }}
+      >
+        {!property ? (
+          <p className="text-[12px] text-gray-500">
+            The ID is generated from district, area and type (e.g. <b>GKH-0001</b> for a house in Kibagabaga, Gasabo). New properties are
+            saved as unpublished drafts — they only appear on the website if you publish them from Admin → Properties.
+          </p>
+        ) : null}
+        <div className="grid grid-cols-3 gap-2">
+          <Field label="Title *" className="col-span-3"><input className={inputCls} required value={f.title} onChange={set("title")} placeholder="3 bedroom house for rent in Kibagabaga" /></Field>
+          <Field label="District">
+            <ChoiceSelect value={f.district_id} onChange={(v) => setF({ ...f, district_id: v, neighborhood_id: "" })} options={data?.districts ?? []} />
+          </Field>
+          <Field label="Area / neighborhood">
+            <ChoiceSelect value={f.neighborhood_id} onChange={(v) => setF({ ...f, neighborhood_id: v })} options={neighborhoods} />
+          </Field>
+          <Field label="Property type">
+            <ChoiceSelect value={f.property_type_id} onChange={(v) => setF({ ...f, property_type_id: v })} options={data?.property_types ?? []} />
+          </Field>
+          <Field label="Listing type">
+            <ChoiceSelect value={f.listing_type} onChange={(v) => setF({ ...f, listing_type: v })} options={LISTING_TYPES} blank={null} />
+          </Field>
+          <Field label="Price *"><input className={inputCls} type="number" min={0} step="any" required value={f.price} onChange={set("price")} /></Field>
+          <div className="grid grid-cols-2 gap-2">
+            <Field label="Currency">
+              <ChoiceSelect value={f.currency} onChange={(v) => setF({ ...f, currency: v })} options={data?.vocab.currency ?? []} blank={null} />
+            </Field>
+            <Field label="Per">
+              <ChoiceSelect value={f.price_period} onChange={(v) => setF({ ...f, price_period: v })} options={["month", "night", "year"]} blank="—" />
+            </Field>
+          </div>
+          <Field label="Bedrooms"><input className={inputCls} type="number" min={0} value={f.bedrooms} onChange={set("bedrooms")} /></Field>
+          <Field label="Bathrooms"><input className={inputCls} type="number" min={0} value={f.bathrooms} onChange={set("bathrooms")} /></Field>
+          <Field label="Area (m²)"><input className={inputCls} type="number" min={0} step="any" value={f.area_sqm} onChange={set("area_sqm")} /></Field>
+          <Field label="Address / directions" className="col-span-2"><input className={inputCls} value={f.address} onChange={set("address")} /></Field>
+          <label className="flex items-center gap-1.5 text-xs pt-5">
+            <input type="checkbox" checked={f.is_furnished} onChange={(e) => setF({ ...f, is_furnished: e.target.checked })} /> Furnished
+          </label>
+          <Field label="Landlord"><LandlordSelect value={f.landlord_id} onChange={(v) => setF({ ...f, landlord_id: v })} /></Field>
+          {!property ? (
+            <Field label="Availability">
+              <ChoiceSelect value={f.availability_status} onChange={(v) => setF({ ...f, availability_status: v })} options={data?.vocab.availability ?? []} blank={null} />
+            </Field>
+          ) : null}
+        </div>
+        <div>
+          <p className="text-xs font-semibold text-gray-600 mb-1">Commission (leave empty to use the landlord&apos;s agreement)</p>
+          <CommissionInputs value={c} onChange={setC} />
+        </div>
+        <Field label="Internal notes"><textarea className={`${inputCls} min-h-[60px]`} value={f.crm_notes} onChange={set("crm_notes")} placeholder="Private — never shown on the website" /></Field>
+        <ErrorText error={m.error} />
+        <FormActions pending={m.isPending} onCancel={onClose} label={property ? "Save" : "Add to CRM"} />
+      </form>
+    </Modal>
+  );
+}
+
+/** Pull an existing website listing (published or draft) into the CRM. */
+export function AddExistingPropertyModal({ onClose, onAdded }: { onClose: () => void; onAdded?: (p: CrmPropertyDetail) => void }) {
+  const { data: lookups } = useLookups();
+  const [q, setQ] = useState("");
+  const debouncedQ = useDebounced(q);
+  const [availability, setAvailability] = useState("AVAILABLE");
+  const { data, isFetching, error } = useQuery({
+    queryKey: ["crm", "property-candidates", debouncedQ],
+    queryFn: () => crmApi.propertyCandidates(debouncedQ),
+  });
+  const m = useCrmMutation((id: string) => crmApi.addPropertyToCrm(id, availability), (r) => {
+    onAdded?.(r);
+    onClose();
+  });
+  return (
+    <Modal title="Add an existing listing to the CRM" onClose={onClose} wide>
+      <div className="space-y-2">
+        <div className="flex gap-2">
+          <input className={inputCls} autoFocus placeholder="Search listings not yet in the CRM…" value={q} onChange={(e) => setQ(e.target.value)} />
+          <div className="w-40">
+            <ChoiceSelect value={availability} onChange={setAvailability} options={lookups?.vocab.availability ?? []} blank={null} />
+          </div>
+        </div>
+        <ErrorText error={error || m.error} />
+        <ul className={`divide-y rounded-md border max-h-[50vh] overflow-y-auto ${isFetching ? "opacity-70" : ""}`}>
+          {data && data.items.length === 0 ? <li className="p-3 text-sm text-gray-500">No matching listings outside the CRM.</li> : null}
+          {data?.items.map((c) => (
+            <li key={c.id} className="flex items-center justify-between gap-2 px-3 py-2 text-[13px]">
+              <div className="min-w-0">
+                <p className="truncate font-medium">{c.title}</p>
+                <p className="text-[11px] text-gray-500">
+                  <span className="capitalize">{c.publication_status}</span>
+                  {c.neighborhood_name ? ` · ${c.neighborhood_name}` : ""}
+                  {c.bedrooms != null ? ` · ${c.bedrooms} bed` : ""}
+                  {` · ${c.currency} ${Math.round(c.price).toLocaleString()}`}
+                </p>
+              </div>
+              <SmallButton variant="primary" disabled={m.isPending} onClick={() => m.mutate(c.id)}>Add</SmallButton>
+            </li>
+          ))}
+        </ul>
+      </div>
     </Modal>
   );
 }

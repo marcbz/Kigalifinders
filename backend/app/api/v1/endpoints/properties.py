@@ -388,10 +388,6 @@ async def create_property(
     )
     db.add(prop)
     await db.flush()
-    crm_svc.log_activity(
-        db, crm_svc.Event.PROPERTY_CREATED, f"{prop.crm_ref or prop.title}: property created",
-        user=user, property_id=prop.id,
-    )
     await _sync_property_images(db, prop, data.images)
     await sync_location_counts(db)
     await db.commit()
@@ -460,7 +456,7 @@ async def update_property(
     old_price, old_currency = prop.price, prop.currency
     for field, value in updates.items():
         setattr(prop, field, value)
-    if (prop.price, prop.currency) != (old_price, old_currency):
+    if prop.in_crm and (prop.price, prop.currency) != (old_price, old_currency):
         crm_svc.log_activity(
             db, crm_svc.Event.PRICE_CHANGED,
             f"{prop.crm_ref or prop.title}: price {old_price:,.0f} {old_currency} → {prop.price:,.0f} {prop.currency}",

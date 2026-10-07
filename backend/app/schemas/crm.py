@@ -28,6 +28,34 @@ class PropertyCrmUpdate(CommissionFields):
     crm_notes: Optional[str] = None
 
 
+class PropertyDetailsUpdate(CommissionFields):
+    title: Optional[str] = Field(default=None, min_length=3, max_length=255)
+    listing_type: Optional[str] = None
+    price: Optional[float] = Field(default=None, ge=0)
+    currency: Optional[str] = None
+    price_period: Optional[str] = Field(default=None, max_length=20)
+    bedrooms: Optional[int] = Field(default=None, ge=0, le=50)
+    bathrooms: Optional[int] = Field(default=None, ge=0, le=50)
+    area_sqm: Optional[float] = Field(default=None, ge=0)
+    district_id: Optional[UUID] = None
+    neighborhood_id: Optional[UUID] = None
+    property_type_id: Optional[UUID] = None
+    address: Optional[str] = Field(default=None, max_length=500)
+    is_furnished: Optional[bool] = None
+    landlord_id: Optional[UUID] = None
+    crm_notes: Optional[str] = None
+
+
+class PropertyCrmCreate(PropertyDetailsUpdate):
+    title: str = Field(min_length=3, max_length=255)
+    price: float = Field(ge=0)
+    availability_status: Optional[str] = None
+
+
+class AddToCrm(_Body):
+    availability_status: Optional[str] = None
+
+
 class AvailabilityChange(_Body):
     status: str
     note: Optional[str] = Field(default=None, max_length=2000)

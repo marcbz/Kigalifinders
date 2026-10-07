@@ -2,6 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowDown, ArrowUp, ExternalLink } from "lucide-react";
 import { crmApi } from "@/services/crm-api";
@@ -26,6 +27,7 @@ import {
 } from "@/components/admin/crm/ui";
 import { RefLink, propertyHref } from "@/components/admin/crm/panels";
 import { useUrlFilters } from "@/components/admin/crm/use-url-filters";
+import { AddExistingPropertyModal, PropertyFormModal } from "@/components/admin/crm/forms";
 
 const KEYS = [
   "q", "availability", "district_id", "neighborhood_id", "landlord_id", "no_landlord", "property_type_id",
@@ -71,6 +73,10 @@ function PropertiesInner() {
     placeholderData: keepPreviousData,
   });
   const confirm = useCrmMutation((id: string) => crmApi.confirmAvailable(id));
+  const remove = useCrmMutation((id: string) => crmApi.removePropertyFromCrm(id));
+  const destroy = useCrmMutation((id: string) => crmApi.deleteProperty(id));
+  const [modal, setModal] = useState<"new" | "existing" | null>(null);
+  const router = useRouter();
   const neighborhoods = (lookups?.neighborhoods ?? []).filter((n) => !f.district_id || n.district_id === f.district_id);
 
   const toggleSort = (key: string) => {
@@ -85,11 +91,20 @@ function PropertiesInner() {
         title="Properties"
         subtitle={
           <>
-            Existing KigaliRent listings with CRM data. Availability is independent of publication. Properties not verified for{" "}
-            {data?.verify_after_days ?? "…"} days are flagged <b>Verify</b>.
+            Properties you manage in the CRM. Add new ones or pull in existing listings; removing a property from the CRM never touches the
+            website. Availability is independent of publication; properties not verified for {data?.verify_after_days ?? "…"} days are
+            flagged <b>Verify</b>.
+          </>
+        }
+        actions={
+          <>
+            <SmallButton onClick={() => setModal("existing")}>Add existing listing</SmallButton>
+            <SmallButton variant="primary" onClick={() => setModal("new")}>+ New property</SmallButton>
           </>
         }
       />
+      {modal === "new" ? <PropertyFormModal onClose={() => setModal(null)} onSaved={(p) => router.push(propertyHref(p.id))} /> : null}
+      {modal === "existing" ? <AddExistingPropertyModal onClose={() => setModal(null)} /> : null}
 
       <div className="rounded-lg border bg-white dark:bg-navy-800 p-2 grid grid-cols-2 md:grid-cols-4 xl:grid-cols-8 gap-2 text-sm">
         <input className={`${inputCls} col-span-2`} placeholder="Search ref, title, landlord, area…" value={q} onChange={(e) => setQ(e.target.value)} />
@@ -137,7 +152,7 @@ function PropertiesInner() {
         ) : null}
       </div>
 
-      <ErrorText error={error || confirm.error} />
+      <ErrorText error={error || confirm.error || remove.error || destroy.error} />
       <div className={`rounded-lg border bg-white dark:bg-navy-800 overflow-x-auto ${isFetching ? "opacity-70" : ""}`}>
         <table className={tableCls}>
           <thead>
@@ -155,7 +170,7 @@ function PropertiesInner() {
             </tr>
           </thead>
           <tbody>
-            {data && data.items.length === 0 ? <EmptyRow cols={10} text="No properties match these filters." /> : null}
+            {data && data.items.length === 0 ? <EmptyRow cols={10} text={hasFilters ? "No properties match these filters." : "No properties in the CRM yet — add a new property or an existing listing."} /> : null}
             {data?.items.map((p) => (
               <tr key={p.id} className="hover:bg-gray-50 dark:hover:bg-navy-700/40">
                 <td className={`${tdCls} whitespace-nowrap`}>
@@ -197,6 +212,26 @@ function PropertiesInner() {
                   {p.availability_status !== "AVAILABLE" || p.verification_due ? (
                     <SmallButton disabled={confirm.isPending} onClick={() => confirm.mutate(p.id)} title="Confirm available">
                       ✓ Available
+                    </SmallButton>
+                  ) : null}
+                  <SmallButton
+                    variant="ghost"
+                    className="ml-1"
+                    disabled={remove.isPending}
+                    title="Remove from the CRM (the listing itself is kept)"
+                    onClick={() => window.confirm(`Remove ${p.crm_ref} from the CRM? The listing itself is not changed.`) && remove.mutate(p.id)}
+                  >
+                    Remove
+                  </SmallButton>
+                  {!p.published ? (
+                    <SmallButton
+                      variant="danger"
+                      className="ml-1"
+                      disabled={destroy.isPending}
+                      title="Permanently delete this unpublished property"
+                      onClick={() => window.confirm(`Permanently delete ${p.crm_ref} (${p.title})? This cannot be undone.`) && destroy.mutate(p.id)}
+                    >
+                      Delete
                     </SmallButton>
                   ) : null}
                 </td>

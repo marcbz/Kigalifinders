@@ -57,7 +57,10 @@ from app.schemas.crm import (
     LeadCreate,
     LeadPropertyLink,
     LeadUpdate,
+    AddToCrm,
+    PropertyCrmCreate,
     PropertyCrmUpdate,
+    PropertyDetailsUpdate,
 )
 from app.services import crm as svc
 from app.services.crm import Event
@@ -182,7 +185,11 @@ async def dashboard(db: DbSession):
         )
     ).one()
     by_availability = dict(
-        (await db.execute(select(P.availability_status, func.count(P.id)).group_by(P.availability_status))).all()
+        (
+            await db.execute(
+                select(P.availability_status, func.count(P.id)).where(P.in_crm.is_(True)).group_by(P.availability_status)
+            )
+        ).all()
     )
 
     verify_rows = (
@@ -193,7 +200,7 @@ async def dashboard(db: DbSession):
             )
             .outerjoin(CrmLandlord, CrmLandlord.id == P.landlord_id)
             .outerjoin(Neighborhood, Neighborhood.id == P.neighborhood_id)
-            .where(P.availability_status == "VERIFY")
+            .where(P.in_crm.is_(True), P.availability_status == "VERIFY")
             .order_by(func.coalesce(P.availability_verified_at, P.created_at).asc())
             .limit(8)
         )
@@ -300,7 +307,7 @@ def _property_list_select():
             P.id, P.crm_ref, P.slug, P.title, P.status, P.listing_type, P.price, P.currency, P.usd_price,
             P.price_period, P.bedrooms, P.bathrooms, P.is_furnished, P.availability_status,
             P.availability_updated_at, P.availability_verified_at, P.availability_note, P.landlord_id,
-            P.created_at, P.commission_type, P.commission_value, P.commission_currency,
+            P.created_at, P.commission_type, P.commission_value, P.commission_currency, P.in_crm,
             CrmLandlord.name.label("landlord_name"),
             District.name.label("district_name"),
             Neighborhood.name.label("neighborhood_name"),
@@ -318,6 +325,7 @@ def _property_row(r, cutoff: datetime) -> dict:
     return {
         "id": str(r.id),
         "crm_ref": r.crm_ref,
+        "in_crm": r.in_crm,
         "slug": r.slug,
         "public_url": public_property_url(r.slug),
         "title": r.title,
@@ -373,7 +381,7 @@ async def list_properties(
     cfg = await svc.get_crm_settings(db)
     cutoff = svc.verification_cutoff(int(cfg["verify_after_days"]))
     P = Property
-    stmt = _property_list_select()
+    stmt = _property_list_select().where(P.in_crm.is_(True))
     pattern = search_pattern(q)
     if pattern:
         stmt = stmt.where(
@@ -421,6 +429,153 @@ async def list_properties(
     )
 
 
+@router.get("/properties/candidates")
+async def property_candidates(db: DbSession, q: str | None = None, limit: int = Query(default=15, ge=1, le=50)):
+    """Website listings that are not in the CRM yet, for the "add existing listing" picker."""
+    P = Property
+    stmt = (
+        select(P.id, P.title, P.status, P.price, P.currency, P.bedrooms, Neighborhood.name.label("neighborhood_name"))
+        .outerjoin(Neighborhood, Neighborhood.id == P.neighborhood_id)
+        .where(P.in_crm.is_(False))
+    )
+    pattern = search_pattern(q)
+    if pattern:
+        stmt = stmt.where(or_(P.title.ilike(pattern), P.slug.ilike(pattern), Neighborhood.name.ilike(pattern)))
+    rows = (await db.execute(stmt.order_by(P.created_at.desc()).limit(limit))).all()
+    return {
+        "items": [
+            {"id": str(r.id), "title": r.title, "publication_status": enum_value(r.status), "price": r.price,
+             "currency": r.currency, "bedrooms": r.bedrooms, "neighborhood_name": r.neighborhood_name}
+            for r in rows
+        ]
+    }
+
+
+async def _apply_property_details(db: AsyncSession, prop: Property, data: dict) -> None:
+    from slugify import slugify
+
+    from app.api.v1.endpoints.properties import _resolve_property_types, _unique_slug
+    from app.models import PropertyStatusEnum
+    from app.services.fx import get_default_fx_provider, resolve_property_usd_fields, store_rate
+
+    await ensure_exists(db, [
+        (District, data.get("district_id"), "District"),
+        (Neighborhood, data.get("neighborhood_id"), "Area"),
+        (PropertyType, data.get("property_type_id"), "Property type"),
+        (CrmLandlord, data.get("landlord_id"), "Landlord"),
+    ])
+    if "title" in data and data["title"]:
+        prop.title = data["title"].strip()
+        if prop.status != PropertyStatusEnum.PUBLISHED:
+            prop.slug = await _unique_slug(db, slugify(prop.title), exclude_id=prop.id)
+    if data.get("listing_type"):
+        try:
+            prop.listing_type = ListingType(data["listing_type"].lower())
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail="Invalid listing type.") from exc
+    if data.get("price") is not None:
+        prop.price = float(data["price"])
+    if data.get("currency"):
+        prop.currency = svc.check_choice(data["currency"], svc.CURRENCIES, "currency")
+    if "price_period" in data:
+        prop.price_period = clean_text(data["price_period"])
+    for field in ("bedrooms", "bathrooms", "area_sqm", "district_id", "neighborhood_id", "landlord_id"):
+        if field in data:
+            setattr(prop, field, data[field])
+    if "property_type_id" in data:
+        prop.property_type_id, prop.property_type_ids = _resolve_property_types(data["property_type_id"], [])
+    if "address" in data:
+        prop.address = clean_text(data["address"])
+    if data.get("is_furnished") is not None:
+        prop.is_furnished = bool(data["is_furnished"])
+    if "crm_notes" in data:
+        prop.crm_notes = clean_text(data["crm_notes"])
+    _apply_commission_fields(prop, data)
+    if "price" in data or "currency" in data:
+        fx = await get_default_fx_provider().get_rate("USD", "RWF")
+        await store_rate(db, fx)
+        for k, v in resolve_property_usd_fields(prop.price, prop.currency, fx).items():
+            setattr(prop, k, v)
+
+
+@router.post("/properties", status_code=201)
+async def create_crm_property(body: PropertyCrmCreate, db: DbSession, user: AdminUser):
+    """A new CRM property. It is saved as an unpublished draft, so it is not on the website until published."""
+    from app.models import PropertyStatusEnum
+
+    data = body.model_dump(exclude_unset=True)
+    availability = data.pop("availability_status", None)
+    prop = Property(
+        title=data["title"].strip(), slug="", price=data["price"], currency="USD", price_period="month",
+        status=PropertyStatusEnum.DRAFT, listing_type=ListingType.RENT, data_source_kind="verified_kigali_rent",
+    )
+    data.setdefault("currency", "USD")
+    await _apply_property_details(db, prop, data)
+    if not prop.slug:
+        from slugify import slugify
+
+        from app.api.v1.endpoints.properties import _unique_slug
+
+        prop.slug = await _unique_slug(db, slugify(prop.title))
+    db.add(prop)
+    await db.flush()
+    await svc.add_to_crm(db, prop, user=user, availability=availability)
+    await db.commit()
+    return await get_property(prop.id, db)
+
+
+@router.patch("/properties/{property_id}/details")
+async def update_property_details(property_id: UUID, body: PropertyDetailsUpdate, db: DbSession, user: AdminUser):
+    prop = await get_or_404(db, Property, property_id, "Property")
+    data = body.model_dump(exclude_unset=True)
+    old_price, old_currency = prop.price, prop.currency
+    await _apply_property_details(db, prop, data)
+    if (prop.price, prop.currency) != (old_price, old_currency):
+        svc.log_activity(
+            db, Event.PRICE_CHANGED, f"{prop.crm_ref}: price {old_price:,.0f} {old_currency} → {prop.price:,.0f} {prop.currency}",
+            user=user, property_id=prop.id, landlord_id=prop.landlord_id,
+        )
+    if data:
+        svc.log_activity(db, Event.PROPERTY_UPDATED, f"{prop.crm_ref}: details updated", user=user,
+                         property_id=prop.id, landlord_id=prop.landlord_id, meta={"fields": sorted(data.keys())})
+    await db.commit()
+    return await get_property(property_id, db)
+
+
+@router.post("/properties/{property_id}/add")
+async def add_property_to_crm(property_id: UUID, body: AddToCrm, db: DbSession, user: AdminUser):
+    prop = await get_or_404(db, Property, property_id, "Property")
+    await svc.add_to_crm(db, prop, user=user, availability=body.availability_status)
+    await db.commit()
+    return await get_property(property_id, db)
+
+
+@router.post("/properties/{property_id}/remove")
+async def remove_property_from_crm(property_id: UUID, db: DbSession, user: AdminUser):
+    """Take a property out of the CRM. The listing itself (and any website page) is untouched."""
+    prop = await get_or_404(db, Property, property_id, "Property")
+    svc.remove_from_crm(db, prop, user=user)
+    await db.commit()
+    return {"ok": True}
+
+
+@router.delete("/properties/{property_id}", status_code=204)
+async def delete_crm_property(property_id: UUID, db: DbSession, user: AdminUser):
+    """Permanently delete an unpublished property. Published listings must be unpublished or removed from the CRM instead."""
+    from app.models import PropertyStatusEnum
+
+    prop = await get_or_404(db, Property, property_id, "Property")
+    if prop.status == PropertyStatusEnum.PUBLISHED:
+        raise HTTPException(
+            status_code=400,
+            detail="This listing is live on the website. Remove it from the CRM, or unpublish it first if you really want to delete it.",
+        )
+    svc.log_activity(db, Event.PROPERTY_DELETED, f"{prop.crm_ref or prop.title}: property deleted ({prop.title})", user=user,
+                     landlord_id=prop.landlord_id)
+    await db.delete(prop)
+    await db.commit()
+
+
 @router.get("/properties/{property_id}")
 async def get_property(property_id: UUID, db: DbSession):
     cfg = await svc.get_crm_settings(db)
@@ -433,7 +588,10 @@ async def get_property(property_id: UUID, db: DbSession):
 
     extra = (
         await db.execute(
-            select(P.crm_notes, P.address, P.area_sqm, user_name_expr().label("verified_by_name"))
+            select(
+                P.crm_notes, P.address, P.area_sqm, P.district_id, P.neighborhood_id, P.property_type_id,
+                user_name_expr().label("verified_by_name"),
+            )
             .outerjoin(User, User.id == P.availability_verified_by_id)
             .where(P.id == property_id)
         )
@@ -478,6 +636,9 @@ async def get_property(property_id: UUID, db: DbSession):
         "crm_notes": extra.crm_notes,
         "address": extra.address,
         "area_sqm": extra.area_sqm,
+        "district_id": str(extra.district_id) if extra.district_id else None,
+        "neighborhood_id": str(extra.neighborhood_id) if extra.neighborhood_id else None,
+        "property_type_id": str(extra.property_type_id) if extra.property_type_id else None,
         "availability_verified_by": extra.verified_by_name if base["availability_verified_at"] else None,
         "image_url": image,
         "verify_after_days": int(cfg["verify_after_days"]),
@@ -587,7 +748,7 @@ def _landlord_counts_subquery():
             func.count(P.id).filter(P.availability_status.in_(("AVAILABLE", "VERIFY", "RESERVED"))).label("properties_active"),
             func.count(P.id).filter(P.availability_status == "RENTED").label("properties_rented"),
         )
-        .where(P.landlord_id.is_not(None))
+        .where(P.landlord_id.is_not(None), P.in_crm.is_(True))
         .group_by(P.landlord_id)
         .subquery()
     )
@@ -665,7 +826,11 @@ async def get_landlord(landlord_id: UUID, db: DbSession):
     cfg = await svc.get_crm_settings(db)
     cutoff = svc.verification_cutoff(int(cfg["verify_after_days"]))
     properties = (
-        await db.execute(_property_list_select().where(Property.landlord_id == landlord_id).order_by(Property.crm_ref.desc()))
+        await db.execute(
+            _property_list_select()
+            .where(Property.landlord_id == landlord_id, Property.in_crm.is_(True))
+            .order_by(Property.crm_ref.desc())
+        )
     ).all()
     property_items = [_property_row(r, cutoff) for r in properties]
     today = svc.kigali_today()
@@ -901,7 +1066,7 @@ async def get_lead(lead_id: UUID, db: DbSession):
             _property_list_select()
             .add_columns(CrmLeadProperty.note.label("link_note"), CrmLeadProperty.created_at.label("linked_at"))
             .join(CrmLeadProperty, CrmLeadProperty.property_id == Property.id)
-            .where(CrmLeadProperty.lead_id == lead_id)
+            .where(CrmLeadProperty.lead_id == lead_id, Property.in_crm.is_(True))
             .order_by(CrmLeadProperty.created_at.desc())
         )
     ).all()
@@ -997,6 +1162,7 @@ async def lead_matches(lead_id: UUID, db: DbSession, limit: int = Query(default=
     P = Property
     linked = select(CrmLeadProperty.property_id).where(CrmLeadProperty.lead_id == lead_id)
     stmt = _property_list_select().where(
+        P.in_crm.is_(True),
         P.availability_status.in_(("AVAILABLE", "VERIFY")),
         P.listing_type != ListingType.SALE,
         P.id.notin_(linked),
@@ -1097,7 +1263,7 @@ async def reports(db: DbSession, date_from: date | None = None, date_to: date | 
     totals = (
         await db.execute(
             select(
-                _scalar(select(func.count(P.id)).where(in_range(P.created_at))).label("properties_added"),
+                _scalar(select(func.count(P.id)).where(P.in_crm.is_(True), in_range(P.created_at))).label("properties_added"),
                 _scalar(
                     select(func.count(func.distinct(CrmActivity.property_id))).where(
                         CrmActivity.event == Event.AVAILABILITY_CHANGED,
@@ -1134,7 +1300,9 @@ async def reports(db: DbSession, date_from: date | None = None, date_to: date | 
 
     by_availability = [
         {"status": s, "count": c}
-        for s, c in (await db.execute(select(P.availability_status, func.count(P.id)).group_by(P.availability_status))).all()
+        for s, c in (
+            await db.execute(select(P.availability_status, func.count(P.id)).where(P.in_crm.is_(True)).group_by(P.availability_status))
+        ).all()
     ]
     by_district = (
         await db.execute(
@@ -1145,6 +1313,7 @@ async def reports(db: DbSession, date_from: date | None = None, date_to: date | 
                 func.count(P.id).filter(P.availability_status == "RENTED").label("rented"),
             )
             .outerjoin(District, District.id == P.district_id)
+            .where(P.in_crm.is_(True))
             .group_by(District.name)
             .order_by(func.count(P.id).desc())
         )

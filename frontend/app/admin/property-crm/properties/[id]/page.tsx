@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { ExternalLink } from "lucide-react";
 import { crmApi, type CrmPropertyDetail } from "@/services/crm-api";
@@ -34,7 +34,7 @@ import {
   landlordHref,
   leadHref,
 } from "@/components/admin/crm/panels";
-import { CommissionInputs, commissionBody, commissionState } from "@/components/admin/crm/forms";
+import { CommissionInputs, PropertyFormModal, commissionBody, commissionState } from "@/components/admin/crm/forms";
 import { LandlordSelect, LeadPicker, type Picked } from "@/components/admin/crm/entity-picker";
 
 function LandlordCard({ p }: { p: CrmPropertyDetail }) {
@@ -143,6 +143,49 @@ function LinkedClients({ p }: { p: CrmPropertyDetail }) {
   );
 }
 
+function AddBackButton({ id }: { id: string }) {
+  const m = useCrmMutation(() => crmApi.addPropertyToCrm(id));
+  return (
+    <span className="flex items-center gap-2">
+      <ErrorText error={m.error} />
+      <SmallButton variant="primary" disabled={m.isPending} onClick={() => m.mutate(undefined)}>Add to CRM</SmallButton>
+    </span>
+  );
+}
+
+function PropertyActions({ p }: { p: CrmPropertyDetail }) {
+  const router = useRouter();
+  const [editing, setEditing] = useState(false);
+  const remove = useCrmMutation(() => crmApi.removePropertyFromCrm(p.id), () => router.push("/admin/property-crm/properties"));
+  const destroy = useCrmMutation(() => crmApi.deleteProperty(p.id), () => router.push("/admin/property-crm/properties"));
+  return (
+    <>
+      <SmallButton onClick={() => setEditing(true)}>Edit details</SmallButton>
+      {p.in_crm ? (
+        <SmallButton
+          variant="ghost"
+          disabled={remove.isPending}
+          onClick={() => window.confirm(`Remove ${p.crm_ref} from the CRM? The listing itself is not changed.`) && remove.mutate(undefined)}
+        >
+          Remove from CRM
+        </SmallButton>
+      ) : null}
+      {!p.published ? (
+        <SmallButton
+          variant="danger"
+          disabled={destroy.isPending}
+          onClick={() => window.confirm(`Permanently delete ${p.crm_ref ?? p.title}? This cannot be undone.`) && destroy.mutate(undefined)}
+        >
+          Delete
+        </SmallButton>
+      ) : null}
+      <Link href="/admin/properties" className="rounded-md border px-2 py-1 hover:border-navy-800">Photos &amp; publishing</Link>
+      <ErrorText error={remove.error || destroy.error} />
+      {editing ? <PropertyFormModal property={p} onClose={() => setEditing(false)} /> : null}
+    </>
+  );
+}
+
 export default function CrmPropertyDetailPage() {
   const { id } = useParams<{ id: string }>();
   const { data: p, isLoading, error } = useQuery({ queryKey: ["crm", "property", id], queryFn: () => crmApi.property(id) });
@@ -150,8 +193,8 @@ export default function CrmPropertyDetailPage() {
   if (isLoading) return <Shimmer className="h-64 w-full" />;
   if (error || !p) return <ErrorText error={error || new Error("Property not found")} />;
 
-  const picked: Picked = { id: p.id, label: `${p.crm_ref} · ${p.title}` };
-  const relation = { property_id: p.id, landlord_id: p.landlord_id ?? undefined, label: p.crm_ref };
+  const picked: Picked = { id: p.id, label: p.crm_ref ? `${p.crm_ref} · ${p.title}` : p.title };
+  const relation = { property_id: p.id, landlord_id: p.landlord_id ?? undefined, label: p.crm_ref ?? p.title };
 
   return (
     <div className="space-y-4">
@@ -186,9 +229,15 @@ export default function CrmPropertyDetailPage() {
               Public page <ExternalLink className="w-3 h-3" />
             </a>
           ) : null}
-          <Link href="/admin/properties" className="rounded-md border px-2 py-1 hover:border-navy-800">Edit listing</Link>
+          <PropertyActions p={p} />
         </div>
       </div>
+      {!p.in_crm ? (
+        <div className="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-[13px] text-amber-800 flex flex-wrap items-center justify-between gap-2">
+          <span>This listing is not in the CRM, so it is hidden from CRM lists, reports and matching.</span>
+          <AddBackButton id={p.id} />
+        </div>
+      ) : null}
 
       <div className="grid xl:grid-cols-[1fr_340px] gap-4 items-start">
         <div className="space-y-4 min-w-0">
