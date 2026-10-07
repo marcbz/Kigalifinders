@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, delete, func, or_, select
+from sqlalchemy import and_, case, delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.v1.endpoints.crm_common import (
@@ -907,9 +907,16 @@ async def landlord_contacted(landlord_id: UUID, body: ContactLog, db: DbSession,
 @router.delete("/landlords/{landlord_id}", status_code=204)
 async def delete_landlord(landlord_id: UUID, db: DbSession, user: AdminUser):
     ll = await get_or_404(db, CrmLandlord, landlord_id, "Landlord")
-    linked = (await db.execute(select(func.count(Property.id)).where(Property.landlord_id == landlord_id))).scalar_one()
+    linked = (
+        await db.execute(select(func.count(Property.id)).where(Property.landlord_id == landlord_id, Property.in_crm.is_(True)))
+    ).scalar_one()
     if linked:
-        raise HTTPException(status_code=400, detail=f"Unlink this landlord's {linked} propert{'y' if linked == 1 else 'ies'} first.")
+        raise HTTPException(
+            status_code=400,
+            detail=f"This landlord still has {linked} propert{'y' if linked == 1 else 'ies'} in the CRM. "
+            "Remove, delete or re-assign them first.",
+        )
+    await db.execute(update(Property).where(Property.landlord_id == landlord_id).values(landlord_id=None))
     await db.delete(ll)
     await db.commit()
 
