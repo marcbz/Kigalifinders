@@ -6,6 +6,7 @@ Revises: 030
 Create Date: 2026-10-07
 """
 
+import json
 import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Sequence, Union
@@ -185,27 +186,35 @@ def _seed_samples(conn) -> None:
         (1, 2, "NEGOTIATING", None, "EXPECTED", None),
         (2, 8, "COMPLETED", now - timedelta(days=5), "PAID", (now - timedelta(days=2)).date()),
     ]
+    usd_rwf = conn.execute(
+        sa.text(
+            """SELECT rate FROM exchange_rates WHERE base_currency = 'USD' AND quote_currency = 'RWF' AND rate > 0
+               ORDER BY rate_date DESC LIMIT 1"""
+        )
+    ).scalar() or 1474.0
     deal_ids = []
     for lead_i, prop_i, status, completed, cstatus, paid in deal_rows:
         p = prop(prop_i)
         rent = float(p[3].price or 1000)
         currency = (p[3].currency or "USD").upper()
+        commission = round(rent * 0.10, 2)
+        commission_usd = commission if currency == "USD" else round(commission / float(usd_rwf), 2)
         did = uuid.uuid4()
         deal_ids.append(did)
         conn.execute(
             sa.text(
                 """INSERT INTO crm_deals (id, property_id, landlord_id, lead_id, rent_amount, currency, status,
                        expected_move_in, lease_start, completed_at, commission_type, commission_value,
-                       commission_currency, commission_amount, commission_status, commission_due_date,
+                       commission_currency, commission_amount, commission_amount_usd, commission_status, commission_due_date,
                        commission_paid_date, notes, created_by_id, created_at, updated_at)
                    VALUES (:id, :prop, :ll, :lead, :rent, :cur, :status, :move, :lease, :completed, 'PERCENTAGE',
-                       10, NULL, :camount, :cstatus, :due, :paid, :notes, :uid, :created, :now)"""
+                       10, :cur, :camount, :camount_usd, :cstatus, :due, :paid, :notes, :uid, :created, :now)"""
             ),
             {
                 "id": did, "prop": p[0], "ll": p[2], "lead": lead_ids[lead_i], "rent": rent, "cur": currency,
                 "status": status, "move": (now + timedelta(days=20)).date(),
                 "lease": (now - timedelta(days=4)).date() if completed else None, "completed": completed,
-                "camount": round(rent * 0.10, 2), "cstatus": cstatus, "due": (now + timedelta(days=10)).date(),
+                "camount": commission, "camount_usd": commission_usd, "cstatus": cstatus, "due": (now + timedelta(days=10)).date(),
                 "paid": paid, "notes": SAMPLE_NOTE, "uid": admin_id, "created": now - timedelta(days=8), "now": now,
             },
         )
@@ -232,21 +241,27 @@ def _seed_samples(conn) -> None:
             },
         )
 
-    activity = [("property_added", f"{ref}: added to CRM (sample)", pid, ll, None) for pid, ref, ll, _ in prop_ids]
+    activity = [("property_added", f"{ref}: added to CRM (sample)", pid, ll, None, None, None) for pid, ref, ll, _ in prop_ids]
+    rented = prop(8)
     activity += [
-        ("lead_created", "Sarah Johnson (Sample): new client", None, None, lead_ids[0]),
-        ("viewing_completed", f"{prop(2)[1]}: viewing completed with Patrick Niyonzima (Sample)", prop(2)[0], prop(2)[2], lead_ids[1]),
-        ("deal_completed", f"{prop(8)[1]}: lease signed with Grace Ingabire (Sample)", prop(8)[0], prop(8)[2], lead_ids[2]),
-        ("commission_paid", f"{prop(8)[1]}: commission paid", prop(8)[0], prop(8)[2], lead_ids[2]),
+        ("lead_created", "Sarah Johnson (Sample): new client", None, None, lead_ids[0], None, None),
+        ("viewing_completed", f"{prop(2)[1]}: viewing completed with Patrick Niyonzima (Sample)", prop(2)[0], prop(2)[2], lead_ids[1], None, None),
+        ("deal_completed", f"{rented[1]}: lease signed with Grace Ingabire (Sample)", rented[0], rented[2], lead_ids[2], deal_ids[1],
+         {"from": "CONTRACT", "to": "COMPLETED"}),
+        ("availability_changed", f"{rented[1]}: AVAILABLE → RENTED (deal completed)", rented[0], rented[2], None, None,
+         {"from": "AVAILABLE", "to": "RENTED"}),
+        ("commission_paid", f"{rented[1]}: commission paid", rented[0], rented[2], lead_ids[2], deal_ids[1],
+         {"from": "EXPECTED", "to": "PAID"}),
     ]
-    for k, (event, summary, pid, ll, lead) in enumerate(activity):
+    for k, (event, summary, pid, ll, lead, deal, meta) in enumerate(activity):
         conn.execute(
             sa.text(
-                """INSERT INTO crm_activities (id, event, summary, user_id, property_id, landlord_id, lead_id, created_at)
-                   VALUES (:id, :event, :summary, :uid, :prop, :ll, :lead, :at)"""
+                """INSERT INTO crm_activities (id, event, summary, meta, user_id, property_id, landlord_id, lead_id, deal_id, created_at)
+                   VALUES (:id, :event, :summary, CAST(:meta AS jsonb), :uid, :prop, :ll, :lead, :deal, :at)"""
             ),
-            {"id": uuid.uuid4(), "event": event, "summary": summary[:500], "uid": admin_id, "prop": pid,
-             "ll": ll, "lead": lead, "at": now - timedelta(hours=len(activity) - k)},
+            {"id": uuid.uuid4(), "event": event, "summary": summary[:500], "meta": json.dumps(meta) if meta else None,
+             "uid": admin_id, "prop": pid, "ll": ll, "lead": lead, "deal": deal,
+             "at": now - timedelta(hours=len(activity) - k)},
         )
 
 
