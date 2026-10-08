@@ -45,10 +45,10 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
     },
   };
 
-  if (property.published_at) {
-    listing.datePosted = property.published_at;
-    listing.dateModified = property.last_verified_at || property.created_at || property.published_at;
-  }
+  const datePosted = property.published_at || property.created_at;
+  if (datePosted) listing.datePosted = datePosted;
+  const dateModified = latestIsoDate(property.updated_at, property.last_verified_at, datePosted);
+  if (dateModified) listing.dateModified = dateModified;
   if (Object.keys(addressParts).length > 2) listing.address = addressParts;
   if (property.latitude != null && property.longitude != null) {
     listing.geo = {
@@ -149,7 +149,13 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
     listing.additionalProperty = addProp;
   }
 
-  if (property.primary_image) {
+  const galleryImages = (property.images || [])
+    .filter((img) => img.url)
+    .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+    .map((img) => ({ "@type": "ImageObject", url: img.url, caption: img.alt_text || property.title }));
+  if (galleryImages.length) {
+    listing.image = galleryImages;
+  } else if (property.primary_image) {
     listing.image = {
       "@type": "ImageObject",
       url: property.primary_image,
@@ -158,4 +164,36 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
   }
 
   return listing;
+}
+
+function latestIsoDate(...values: (string | null | undefined)[]): string | undefined {
+  let latest: { raw: string; time: number } | undefined;
+  for (const raw of values) {
+    if (!raw) continue;
+    const time = new Date(raw).getTime();
+    if (Number.isNaN(time)) continue;
+    if (!latest || time > latest.time) latest = { raw, time };
+  }
+  return latest?.raw;
+}
+
+export function buildPropertyBreadcrumbJsonLd(property: PropertyDetail, propertyUrl: string, siteUrl: string) {
+  const isSale = property.listing_type === "sale";
+  const items = [
+    { name: "Home", item: siteUrl },
+    isSale
+      ? { name: "Properties", item: `${siteUrl}/properties` }
+      : { name: "Kigali rentals", item: `${siteUrl}/rentals` },
+    { name: property.title, item: propertyUrl },
+  ];
+  return {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: items.map((entry, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      name: entry.name,
+      item: entry.item,
+    })),
+  };
 }

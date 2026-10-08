@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const debug = url.searchParams.get("debug") === "1";
 
   try {
-    const { entries, meta } = await getRentalsSitemapEntries(new Date(), { debug });
+    const { entries, meta } = await getRentalsSitemapEntries({ debug });
 
     // Always HTTP 200. Entries are rental-specific only (/rentals/{hood|intent}),
     // never /rentals or /rentals/kigali (those live in sitemap-pages.xml).

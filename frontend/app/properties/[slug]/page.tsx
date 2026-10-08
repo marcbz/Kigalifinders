@@ -13,7 +13,7 @@ import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { FAQSection } from "@/features/home/faq-section";
 import { buildPropertyFaqs, getListingBadge, getPropertyImageAlt } from "@/lib/property-features";
 import { fetchPropertyRelatedSearchesSafe, fetchPropertySafe, fetchRelatedSafe } from "@/lib/server-api";
-import { buildPropertyListingJsonLd } from "@/lib/property-jsonld";
+import { buildPropertyBreadcrumbJsonLd, buildPropertyListingJsonLd } from "@/lib/property-jsonld";
 import { buildPropertyMetaDescription, buildFaqPageJsonLd, normalizeSeoTitle } from "@/lib/seo-metadata";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import { formatPrice } from "@/lib/utils";
@@ -86,6 +86,11 @@ export default async function PropertyDetailPage({ params }: Props) {
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;
   const pricePeriod = property.listing_type !== "sale" ? property.price_period : null;
   const priceLabel = formatPrice(property.price, property.currency, pricePeriod);
+
+  const verifiedIso = property.last_verified_at || property.published_at || null;
+  const verifiedLabel = verifiedIso
+    ? new Date(verifiedIso).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
+    : null;
 
   const propertyFaqs = buildPropertyFaqs(property);
   const faqJsonLd = buildFaqPageJsonLd(propertyFaqs);
@@ -184,45 +189,27 @@ export default async function PropertyDetailPage({ params }: Props) {
 
             <PropertyFeaturesTable property={property} />
 
-            <article
-              itemScope
-              itemType="https://schema.org/Article"
-              aria-labelledby="property-description-heading"
-              className="mb-8"
-            >
-              <meta itemProp="author" content="Kigali Rent" />
-              <meta itemProp="datePublished" content={property.published_at || property.created_at || new Date().toISOString().slice(0, 10)} />
-              <meta itemProp="dateModified" content={property.last_verified_at || property.published_at || property.created_at || new Date().toISOString().slice(0, 10)} />
-              <meta
-                itemProp="headline"
-                content={`${property.title} — ${[property.neighborhood_name, property.district_name].filter(Boolean).join(", ") || "Kigali"}`}
-              />
+            <section aria-labelledby="property-description-heading" className="mb-8">
               <h2
                 id="property-description-heading"
-                itemProp="name"
                 className="font-serif text-2xl font-bold text-navy-800 dark:text-white mb-4"
               >
                 About this property
               </h2>
+              {verifiedLabel && verifiedIso && (
+                <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
+                  Details last verified <time dateTime={verifiedIso}>{verifiedLabel}</time>
+                </p>
+              )}
               {property.short_description?.trim() && property.description?.trim() && property.short_description.trim() !== property.description.trim().slice(0, property.short_description.length) && (
-                <p
-                  itemProp="abstract"
-                  className="mb-6 p-5 bg-cream dark:bg-secondary rounded-xl border border-gray-200 dark:border-border text-navy-800 dark:text-gray-300 leading-relaxed font-medium"
-                >
+                <p className="mb-6 p-5 bg-cream dark:bg-secondary rounded-xl border border-gray-200 dark:border-border text-navy-800 dark:text-gray-300 leading-relaxed font-medium">
                   {property.short_description}
                 </p>
               )}
-              <div itemProp="articleBody description" className="property-description-block">
+              <div className="property-description-block">
                 <PropertyDescription content={property.description} />
               </div>
-              <noscript aria-hidden="true">
-                <div className="hidden-llm-text">
-                  {property.title} in {[property.neighborhood_name, property.district_name].filter(Boolean).join(", ") || "Kigali"}, Rwanda.{" "}
-                  {property.short_description?.trim() || ""}
-                  {property.description?.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim() || ""}
-                </div>
-              </noscript>
-            </article>
+            </section>
 
             {(property.amenities?.length ?? 0) > 0 && (
               <section aria-labelledby="amenities-heading" className="mb-8">
@@ -381,6 +368,12 @@ export default async function PropertyDetailPage({ params }: Props) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(buildPropertyListingJsonLd(property, propertyUrl)),
+        }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(buildPropertyBreadcrumbJsonLd(property, propertyUrl, "https://kigalirent.com")),
         }}
       />
       {faqJsonLd && (

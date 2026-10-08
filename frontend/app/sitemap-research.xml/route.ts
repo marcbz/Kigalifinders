@@ -5,17 +5,15 @@ export const revalidate = 3600;
 
 export async function GET() {
   try {
-    const compare = await getCompareSitemapEntries();
-    return xmlResponse(buildUrlSetXml([...getResearchSitemapEntries(), ...compare]));
+    const [research, compare] = await Promise.all([getResearchSitemapEntries(), getCompareSitemapEntries()]);
+    return xmlResponse(buildUrlSetXml([...research, ...compare]));
   } catch (error) {
     console.error("[sitemap-research]", error);
-    const now = new Date();
     const base = process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, "") || "https://kigalirent.com";
     return xmlResponse(
       buildUrlSetXml([
         {
           loc: `${base}/research/kigali-rental-market`,
-          lastModified: now,
           changeFrequency: "weekly",
           priority: 0.8,
         },

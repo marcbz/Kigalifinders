@@ -2,7 +2,7 @@ from math import ceil
 from typing import Optional, Sequence
 from uuid import UUID
 
-from sqlalchemy import case, func, or_, select
+from sqlalchemy import case, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -97,6 +97,7 @@ class PropertyRepository:
             original_price=prop.original_price,
             original_currency=prop.original_currency,
             last_verified_at=prop.last_verified_at,
+            updated_at=prop.updated_at,
             data_source_kind=getattr(prop, "data_source_kind", None) or "verified_kigali_rent",
             availability_note=(
                 None
@@ -287,9 +288,17 @@ class PropertyRepository:
         if prop.status == PropertyStatusEnum.DRAFT:
             return None
         if track_view and prop.status == PropertyStatusEnum.PUBLISHED:
-            prop.views_count += 1
-            await self.db.flush()
+            await self.increment_views(prop.id)
         return self._to_detail(prop)
+
+    async def increment_views(self, property_id: UUID) -> None:
+        # updated_at feeds sitemap lastmod and schema dateModified; a view is not a content change.
+        await self.db.execute(
+            update(Property)
+            .where(Property.id == property_id)
+            .values(views_count=func.coalesce(Property.views_count, 0) + 1, updated_at=Property.updated_at)
+            .execution_options(synchronize_session=False)
+        )
 
     async def get_by_id(self, property_id: UUID) -> Optional[Property]:
         result = await self.db.execute(self._base_query().where(Property.id == property_id))

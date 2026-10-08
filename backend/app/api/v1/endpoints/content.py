@@ -1,7 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -61,6 +61,7 @@ async def blog_posts(db: Annotated[AsyncSession, Depends(get_db)]):
             featured_image=p.featured_image,
             category_name=p.category.name if p.category else None,
             read_time_minutes=p.read_time_minutes, published_at=p.published_at,
+            updated_at=p.updated_at,
         )
         for p in result.scalars().all()
     ]
@@ -82,6 +83,7 @@ async def blog_detail(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
         featured_image=post.featured_image,
         category_name=post.category.name if post.category else None,
         read_time_minutes=post.read_time_minutes, published_at=post.published_at,
+        updated_at=post.updated_at,
         content=post.content, content_format=post.content_format,
         meta_title=post.meta_title, meta_description=post.meta_description,
         tags=[t.name for t in post.tags], views_count=post.views_count, likes_count=post.likes_count,
@@ -136,7 +138,13 @@ async def record_blog_view(
             user_agent=(request.headers.get("user-agent") or "")[:500] or None,
         )
     )
-    post.views_count = int(post.views_count or 0) + 1
+    # updated_at feeds sitemap lastmod and schema dateModified; a view is not a content change.
+    await db.execute(
+        update(BlogPost)
+        .where(BlogPost.id == post.id)
+        .values(views_count=func.coalesce(BlogPost.views_count, 0) + 1, updated_at=BlogPost.updated_at)
+        .execution_options(synchronize_session=False)
+    )
     await db.flush()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

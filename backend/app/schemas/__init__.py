@@ -124,6 +124,7 @@ class PropertyListItem(BaseModel):
     original_price: Optional[float] = None
     original_currency: Optional[str] = None
     last_verified_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
     data_source_kind: str = "verified_kigali_rent"
     availability_note: Optional[str] = None
 
@@ -289,6 +290,7 @@ class BlogPostListItem(BaseModel):
     category_name: Optional[str] = None
     read_time_minutes: int
     published_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
 
 
 class BlogPostDetail(BlogPostListItem):

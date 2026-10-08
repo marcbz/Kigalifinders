@@ -14,6 +14,21 @@ interface Props {
 
 export const revalidate = 120;
 
+function formatBlogDate(value: string): string {
+  return new Date(value).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+}
+
+function latestDate(...values: (string | null | undefined)[]): string | undefined {
+  let latest: { raw: string; time: number } | undefined;
+  for (const raw of values) {
+    if (!raw) continue;
+    const time = new Date(raw).getTime();
+    if (Number.isNaN(time)) continue;
+    if (!latest || time > latest.time) latest = { raw, time };
+  }
+  return latest?.raw;
+}
+
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
   const post = await fetchBlogPostSafe(slug);
@@ -61,6 +76,7 @@ export default async function BlogDetailPage({ params }: Props) {
 
   const faqJsonLd = buildFaqJsonLd(extractBlogFaqs(post.content, post.content_format));
   const canonical = `https://kigalirent.com/blog/${slug}`;
+  const modifiedAt = latestDate(post.updated_at, post.published_at);
   const articleJsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
@@ -71,6 +87,7 @@ export default async function BlogDetailPage({ params }: Props) {
     description: post.meta_description?.trim() || post.excerpt?.trim() || undefined,
     image: post.featured_image || undefined,
     ...(post.published_at ? { datePublished: post.published_at } : {}),
+    ...(modifiedAt ? { dateModified: modifiedAt } : {}),
     author: { "@id": "https://kigalirent.com/#organization", "@type": "Organization", name: "Kigali Rent" },
     publisher: { "@id": "https://kigalirent.com/#organization" },
     articleSection: post.category_name || undefined,
@@ -78,14 +95,26 @@ export default async function BlogDetailPage({ params }: Props) {
     inLanguage: "en",
     about: { "@type": "City", name: "Kigali", containedInPlace: { "@type": "Country", name: "Rwanda" } },
   };
-  const publishedLabel = post.published_at
-    ? new Date(post.published_at).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })
-    : null;
+  const breadcrumbJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Home", item: "https://kigalirent.com" },
+      { "@type": "ListItem", position: 2, name: "Blog", item: "https://kigalirent.com/blog" },
+      { "@type": "ListItem", position: 3, name: post.title, item: canonical },
+    ],
+  };
+  const publishedLabel = post.published_at ? formatBlogDate(post.published_at) : null;
+  const showUpdated =
+    !!post.published_at &&
+    !!modifiedAt &&
+    new Date(modifiedAt).getTime() - new Date(post.published_at).getTime() > 24 * 60 * 60 * 1000;
 
   return (
     <article className="py-20 px-6">
       <TrackBlogView slug={slug} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       {faqJsonLd && (
         <script
           type="application/ld+json"
@@ -102,6 +131,12 @@ export default async function BlogDetailPage({ params }: Props) {
         {publishedLabel && post.published_at && (
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-4">
             By Kigali Rent · Published <time dateTime={post.published_at}>{publishedLabel}</time>
+            {showUpdated && modifiedAt && (
+              <>
+                {" "}
+                · Updated <time dateTime={modifiedAt}>{formatBlogDate(modifiedAt)}</time>
+              </>
+            )}
           </p>
         )}
         <h1 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mb-8">

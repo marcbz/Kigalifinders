@@ -182,10 +182,17 @@ export function fetchFaqs() {
 }
 
 export async function fetchBlogPostsSafe() {
-  const data = await fetchApiSafe<{ id: string; title: string; slug: string; excerpt?: string; featured_image?: string }[]>(
-    "/blog",
-    { revalidate: 120 },
-  );
+  const data = await fetchApiSafe<
+    {
+      id: string;
+      title: string;
+      slug: string;
+      excerpt?: string;
+      featured_image?: string;
+      published_at?: string | null;
+      updated_at?: string | null;
+    }[]
+  >("/blog", { revalidate: 120 });
   return data ?? [];
 }
 
@@ -198,6 +205,7 @@ export type BlogPostDetail = {
   category_name?: string | null;
   read_time_minutes: number;
   published_at?: string | null;
+  updated_at?: string | null;
   content: string;
   content_format: string;
   meta_title?: string | null;

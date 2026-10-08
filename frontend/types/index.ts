@@ -44,6 +44,7 @@ export interface PropertyListItem {
   original_price?: number;
   original_currency?: string;
   last_verified_at?: string;
+  updated_at?: string;
   data_source_kind?: string;
   availability_note?: string;
 }
@@ -90,6 +91,7 @@ export interface BlogPost {
   category_name?: string;
   read_time_minutes: number;
   published_at?: string;
+  updated_at?: string;
   views_count?: number;
   created_at?: string;
   is_published?: boolean;

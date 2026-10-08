@@ -280,9 +280,7 @@ async def record_property_view(
             user_agent=(request.headers.get("user-agent") or "")[:500] or None,
         )
     )
-    db_prop = await repo.get_by_id(prop.id)
-    if db_prop:
-        db_prop.views_count = int(db_prop.views_count or 0) + 1
+    await repo.increment_views(prop.id)
     await db.flush()
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 

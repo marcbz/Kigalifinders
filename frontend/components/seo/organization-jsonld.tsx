@@ -1,4 +1,4 @@
-import { SITE_ADDRESS, SITE_SOCIAL } from "@/lib/site-defaults";
+import { SITE_GEO, SITE_PHONE, SITE_PLUS_CODE, SITE_SOCIAL, SITE_STREET_ADDRESS } from "@/lib/site-defaults";
 
 const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com").replace(/\/+$/, "");
 
@@ -20,12 +20,36 @@ const graph = {
       image: `${siteUrl}/logo.png`,
       description:
         "Kigali rental and property marketplace — housing costs, neighbourhood guides, and current listings for rent and sale.",
+      telephone: SITE_PHONE,
       address: {
         "@type": "PostalAddress",
         addressLocality: "Kigali",
         addressCountry: "RW",
-        streetAddress: SITE_ADDRESS,
+        streetAddress: SITE_STREET_ADDRESS,
       },
+      geo: {
+        "@type": "GeoCoordinates",
+        latitude: SITE_GEO.latitude,
+        longitude: SITE_GEO.longitude,
+      },
+      hasMap: `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(SITE_PLUS_CODE)}`,
+      openingHoursSpecification: [
+        {
+          "@type": "OpeningHoursSpecification",
+          dayOfWeek: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+          opens: "09:00",
+          closes: "17:00",
+        },
+      ],
+      contactPoint: [
+        {
+          "@type": "ContactPoint",
+          telephone: SITE_PHONE,
+          contactType: "customer service",
+          areaServed: "RW",
+          url: `${siteUrl}/contact`,
+        },
+      ],
       areaServed: [
         { "@type": "City", name: "Kigali" },
         { "@type": "Country", name: "Rwanda" },

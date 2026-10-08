@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { LazyGoogleMap } from "@/components/maps/lazy-google-map";
-import { SITE_BOOKING_URL } from "@/lib/site-defaults";
+import { SITE_ADDRESS, SITE_BOOKING_URL, SITE_PLUS_CODE } from "@/lib/site-defaults";
 import type { BlogPost } from "@/types";
 
 export function BlogSection({ posts }: { posts: BlogPost[] }) {
@@ -98,10 +98,14 @@ export function MapSection({
   latitude?: number;
   longitude?: number;
 }) {
-  const mapSrc =
-    latitude && longitude
-      ? `https://www.google.com/maps/embed?pb=!1m14!1m12!1m3!1d2000!2d${longitude}!3d${latitude}!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!5e0!3m2!1sen!2srw!4v1700000000000`
-      : "https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3987.7956749506064!2d30.058775!3d-1.944072!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!2m1!1sKigali!5e0!3m2!1sen!2srw!4v1700000000000";
+  // The settings API may still hold the old city-only value; fall back to the office street address.
+  const officeAddress =
+    address?.trim() && !/^kigali,?\s*rwanda$/i.test(address.trim()) ? address.trim() : SITE_ADDRESS;
+  const fullAddress = /rwanda/i.test(officeAddress) ? officeAddress : `${officeAddress}, Rwanda`;
+  // Coordinates from admin settings win; otherwise pin the Google Business Profile plus code.
+  const mapQuery = encodeURIComponent(latitude && longitude ? `${latitude},${longitude}` : SITE_PLUS_CODE);
+  const mapSrc = `https://www.google.com/maps?q=${mapQuery}&z=17&output=embed`;
+  const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${mapQuery}`;
 
   return (
     <section className="py-20 px-6 bg-cream dark:bg-secondary">
@@ -112,14 +116,30 @@ export function MapSection({
             <h2 className="font-serif text-4xl md:text-5xl font-bold text-navy-800 dark:text-white mt-3 mb-6">Find Us in the Heart of Kigali</h2>
             <div className="section-divider mb-6" />
             <div className="space-y-5 text-sm">
-              <div><strong className="text-navy-800 dark:text-white">Address</strong><br />{address}</div>
+              <div>
+                <strong className="text-navy-800 dark:text-white">Address</strong>
+                <br />
+                <address className="not-italic">
+                  {fullAddress}
+                  <br />
+                  <span className="text-gray-500">Plus code: {SITE_PLUS_CODE}</span>
+                </address>
+                <a
+                  href={directionsUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gold-600 hover:underline text-xs"
+                >
+                  Get directions
+                </a>
+              </div>
               <div><strong className="text-navy-800 dark:text-white">Phone</strong><br /><a href={`tel:${phone?.replace(/\s/g, "")}`} className="hover:text-gold-500">{phone}</a></div>
               <div><strong className="text-navy-800 dark:text-white">Hours</strong><br />{hours}</div>
             </div>
           </div>
           <div className="w-full max-w-sm mx-auto lg:mx-0">
             <div className="rounded-lg overflow-hidden border border-gold-500/35 bg-white dark:bg-card shadow-sm aspect-[4/3] max-h-[255px]">
-              <LazyGoogleMap src={mapSrc} title="Kigali Rent Office Location" clickToLoad />
+              <LazyGoogleMap src={mapSrc} title={`Kigali Rent office, ${officeAddress}`} clickToLoad />
             </div>
             <p className="text-xs text-gray-500 mt-2 text-center lg:text-left">Google Maps · tap to load</p>
           </div>
