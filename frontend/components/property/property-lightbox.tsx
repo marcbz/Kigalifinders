@@ -68,7 +68,7 @@ export function PropertyLightbox({
       role="dialog"
       aria-modal="true"
       aria-label={`${title} – photo ${index + 1} of ${count}`}
-      className="fixed inset-0 z-[100] bg-black/95 flex flex-col select-none"
+      className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-[2px] flex items-center justify-center p-3 sm:p-6 md:p-10 select-none"
       onClick={onClose}
       onContextMenu={blockPropertyImageContextMenu}
       onTouchStart={(e) => {
@@ -83,61 +83,63 @@ export function PropertyLightbox({
         if (Math.abs(dx) >= SWIPE_THRESHOLD_PX) go(dx < 0 ? 1 : -1);
       }}
     >
-      <div className="flex items-center justify-between px-4 py-3 text-white/90 text-sm">
-        <span>
-          {index + 1} / {count}
-        </span>
-        <button
-          ref={closeRef}
-          type="button"
-          onClick={onClose}
-          className="w-10 h-10 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
-          aria-label="Close full-screen photos"
-        >
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      <div className="relative flex-1 min-h-0 mx-2 md:mx-16 mb-4" onClick={(e) => e.stopPropagation()}>
-        <ListingImage
-          key={img.id}
-          src={img.url}
-          alt={img.alt_text || title}
-          fill
-          className="object-contain pointer-events-none"
-          sizes="100vw"
-          optimizeWidth={2000}
-          draggable={false}
-          priority
-        />
-      </div>
-
-      {count > 1 && (
-        <>
+      <div
+        className="relative flex flex-col w-full max-w-5xl h-[min(80vh,820px)] rounded-2xl bg-navy-900 shadow-2xl ring-1 ring-white/10 overflow-hidden"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 text-white/90 text-sm">
+          <span className="truncate">
+            <span className="font-semibold">
+              {index + 1} / {count}
+            </span>
+            <span className="text-white/60"> · {title}</span>
+          </span>
           <button
+            ref={closeRef}
             type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              go(-1);
-            }}
-            className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
-            aria-label="Previous photo"
+            onClick={onClose}
+            className="shrink-0 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 flex items-center justify-center"
+            aria-label="Close photo viewer"
           >
-            <ChevronLeft className="w-6 h-6" />
+            <X className="w-5 h-5" />
           </button>
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation();
-              go(1);
-            }}
-            className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-white/15 hover:bg-white/25 text-white flex items-center justify-center"
-            aria-label="Next photo"
-          >
-            <ChevronRight className="w-6 h-6" />
-          </button>
-        </>
-      )}
+        </div>
+
+        <div className="relative flex-1 min-h-0">
+          <ListingImage
+            key={img.id}
+            src={img.url}
+            alt={img.alt_text || title}
+            fill
+            className="object-contain pointer-events-none"
+            sizes="(max-width: 1100px) 100vw, 1024px"
+            optimizeWidth={1600}
+            draggable={false}
+            priority
+          />
+        </div>
+
+        {count > 1 && (
+          <>
+            <button
+              type="button"
+              onClick={() => go(-1)}
+              className="absolute left-2 md:left-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center"
+              aria-label="Previous photo"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              type="button"
+              onClick={() => go(1)}
+              className="absolute right-2 md:right-4 top-1/2 -translate-y-1/2 w-11 h-11 rounded-full bg-black/40 hover:bg-black/60 text-white flex items-center justify-center"
+              aria-label="Next photo"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
+          </>
+        )}
+      </div>
     </div>,
     document.body,
   );
