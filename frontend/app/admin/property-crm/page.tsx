@@ -34,16 +34,16 @@ function VerifySetting() {
   const m = useCrmMutation(() => crmApi.saveSettings({ verify_after_days: Number(days) }));
   return (
     <form
-      className="flex items-center gap-1.5 text-xs text-gray-600"
+      className="flex shrink-0 items-center gap-2 text-xs text-gray-600 whitespace-nowrap"
       title="If a property's availability hasn't been confirmed within this many days, it is marked Verify so you remember to call the landlord or manager."
       onSubmit={(e) => {
         e.preventDefault();
         m.mutate(undefined);
       }}
     >
-      Re-check availability every
-      <input className={`${inputCls} w-16 py-1`} type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} aria-label="Days between availability checks" />
-      days
+      <span>Re-check availability every</span>
+      <input className={`${inputCls.replace("w-full", "")} w-16 shrink-0 py-1 text-center`} type="number" min={1} max={365} value={days} onChange={(e) => setDays(e.target.value)} aria-label="Days between availability checks" />
+      <span>days</span>
       <SmallButton type="submit" disabled={m.isPending || !data || Number(days) === data.verify_after_days}>Save</SmallButton>
       <ErrorText error={m.error} />
     </form>
