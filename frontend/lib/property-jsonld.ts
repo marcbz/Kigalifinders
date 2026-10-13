@@ -6,7 +6,6 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
     "@type": "PostalAddress",
     addressCountry: "RW",
   };
-  if (property.address) addressParts.streetAddress = property.address;
   if (property.neighborhood_name) addressParts.addressLocality = property.neighborhood_name;
   if (property.district_name) addressParts.addressRegion = property.district_name;
 

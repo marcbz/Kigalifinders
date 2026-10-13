@@ -130,7 +130,7 @@ export function buildPropertyFaqs(property: PropertyDetail): { id: string; quest
   faqs.push({
     id: `faq-${property.id}-location`,
     question: `Where is ${shortTitle} located?`,
-    answer: `<p>${property.title || shortTitle} is in ${loc}, Rwanda. ${property.address ? `Address: ${property.address}. ` : ""}${contextHints.join(" ")} For exact directions or landmarks, message us on WhatsApp or book a viewing.</p>`,
+    answer: `<p>${property.title || shortTitle} is in ${loc}, Rwanda. ${contextHints.join(" ")} For exact directions or landmarks, message us on WhatsApp or book a viewing.</p>`,
     category: "Location",
   });
 

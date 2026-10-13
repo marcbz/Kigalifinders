@@ -102,6 +102,11 @@ export default async function PropertyDetailPage({ params }: Props) {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap gap-2 mb-4">
             <span className="badge-gold px-3 py-1 rounded text-xs inline-block">{listingBadge}</span>
+            {property.crm_available && (
+              <span className="bg-emerald-600 text-white text-xs font-bold tracking-widest uppercase px-3 py-1 rounded">
+                Available
+              </span>
+            )}
             {property.is_available === false && (
               <span className="bg-white/15 text-white text-xs font-bold tracking-widest uppercase px-3 py-1 rounded border border-white/30">
                 No longer available
@@ -125,7 +130,7 @@ export default async function PropertyDetailPage({ params }: Props) {
           )}
           <div className="flex items-center gap-2 text-gray-200">
             <MapPin className="w-4 h-4 text-gold-500" />
-            {property.address || `${property.neighborhood_name || ""}${property.district_name ? `, ${property.district_name}` : ""}`}
+            {`${property.neighborhood_name || ""}${property.district_name ? `, ${property.district_name}` : ""}`}
           </div>
         </div>
       </div>

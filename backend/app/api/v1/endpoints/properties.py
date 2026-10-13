@@ -233,7 +233,8 @@ async def get_property(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     prop = await repo.get_by_slug(slug, track_view=False, allow_soft_unavailable=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
-    return prop
+    # Address / directions are internal (admin + CRM only).
+    return prop.model_copy(update={"address": None})
 
 
 @router.post("/{slug}/view", status_code=status.HTTP_204_NO_CONTENT)

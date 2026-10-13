@@ -127,6 +127,7 @@ class PropertyListItem(BaseModel):
     updated_at: Optional[datetime] = None
     data_source_kind: str = "verified_kigali_rent"
     availability_note: Optional[str] = None
+    crm_available: bool = False
 
 
 class PropertyDetail(PropertyListItem):

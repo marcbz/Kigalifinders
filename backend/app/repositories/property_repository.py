@@ -104,6 +104,11 @@ class PropertyRepository:
                 if prop.status == PropertyStatusEnum.PUBLISHED
                 else "This property is no longer verified as available."
             ),
+            crm_available=(
+                bool(prop.in_crm)
+                and prop.availability_status == "AVAILABLE"
+                and prop.status == PropertyStatusEnum.PUBLISHED
+            ),
         )
 
     def _to_detail(self, prop: Property) -> PropertyDetail:
@@ -165,9 +170,10 @@ class PropertyRepository:
 
         if params.q:
             term = f"%{params.q}%"
-            query = query.where(
-                or_(Property.title.ilike(term), Property.description.ilike(term), Property.address.ilike(term))
-            )
+            text_match = [Property.title.ilike(term), Property.description.ilike(term)]
+            if not published_only:
+                text_match.append(Property.address.ilike(term))
+            query = query.where(or_(*text_match))
         if params.listing_type:
             lt = params.listing_type.lower()
             if lt == ListingType.FURNISHED.value:

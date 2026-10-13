@@ -47,6 +47,7 @@ export interface PropertyListItem {
   updated_at?: string;
   data_source_kind?: string;
   availability_note?: string;
+  crm_available?: boolean;
 }
 
 export interface PropertyDetail extends PropertyListItem {
