@@ -11,6 +11,14 @@ const FloatingCTAs = dynamic(
   { ssr: false },
 );
 
+const CommissionerFlyerPopup = dynamic(
+  () =>
+    import("@/components/layout/commissioner-flyer-popup").then(
+      (m) => m.CommissionerFlyerPopup,
+    ),
+  { ssr: false },
+);
+
 export function SiteChrome({
   children,
   phone,
@@ -44,6 +52,7 @@ export function SiteChrome({
       <main>{children}</main>
       <Footer phone={phone} whatsapp={whatsapp} address={address} hours={hours} bookingUrl={bookingUrl} social={social} />
       <FloatingCTAs phone={phone} whatsapp={whatsapp} />
+      <CommissionerFlyerPopup whatsapp={whatsapp} />
     </>
   );
 }
