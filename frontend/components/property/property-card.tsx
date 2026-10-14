@@ -72,8 +72,8 @@ export function PropertyCard({ property }: PropertyCardProps) {
             <span className="flex items-center gap-1"><Bath className="w-4 h-4 text-gold-500" /> {property.bathrooms} Baths</span>
           )}
           {property.crm_available && (
-            <span className="flex items-center gap-1 text-emerald-600 font-medium">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Available
+            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm">
+              <CheckCircle2 className="w-3.5 h-3.5" aria-hidden /> Available
             </span>
           )}
           {areaLabel && (

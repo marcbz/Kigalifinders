@@ -159,8 +159,8 @@ export default async function PropertyDetailPage({ params }: Props) {
                 </span>
               )}
               {property.crm_available && (
-                <span className="flex items-center gap-2 text-emerald-600 font-medium">
-                  <CheckCircle2 className="text-emerald-600" /> Available
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-sm">
+                  <CheckCircle2 className="w-3.5 h-3.5" aria-hidden /> Available
                 </span>
               )}
               {property.parking_spaces != null && property.parking_spaces > 0 ? (
