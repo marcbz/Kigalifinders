@@ -71,6 +71,47 @@ export default async function AreaLandingPage({ params }: PageProps) {
 
   const pageUrl = `https://kigalirent.com${getAreaHref(neighborhood.slug)}`;
   const areaIndexUrl = `https://kigalirent.com${getAreaIndexHref()}`;
+  const listingImages = properties.items
+    .map((p) => p.primary_image)
+    .filter((url): url is string => Boolean(url))
+    .slice(0, 12);
+  const itemList =
+    properties.items.length > 0
+      ? {
+          "@type": "ItemList",
+          name: `Homes in ${neighborhood.name}`,
+          url: pageUrl,
+          numberOfItems: properties.items.length,
+          itemListElement: properties.items.slice(0, 12).map((property, index) => ({
+            "@type": "ListItem",
+            position: index + 1,
+            item: {
+              "@type": ["RealEstateListing", "Product"],
+              name: property.title,
+              url: `https://kigalirent.com/properties/${encodeURIComponent(property.slug)}`,
+              ...(property.primary_image
+                ? {
+                    image: {
+                      "@type": "ImageObject",
+                      url: property.primary_image,
+                      caption: property.primary_image_alt || property.title,
+                    },
+                  }
+                : {}),
+              ...(property.usd_price != null || property.price != null
+                ? {
+                    offers: {
+                      "@type": "Offer",
+                      price: property.usd_price ?? property.price,
+                      priceCurrency: property.currency || "USD",
+                    },
+                  }
+                : {}),
+              ...(property.bedrooms != null ? { numberOfRooms: property.bedrooms } : {}),
+            },
+          })),
+        }
+      : null;
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
@@ -83,10 +124,16 @@ export default async function AreaLandingPage({ params }: PageProps) {
         ],
       },
       {
-        "@type": "WebPage",
+        "@type": "CollectionPage",
         name: content.metaTitle,
         description: content.metaDescription,
         url: pageUrl,
+        ...(listingImages.length
+          ? {
+              image: listingImages,
+              primaryImageOfPage: { "@type": "ImageObject", url: listingImages[0] },
+            }
+          : {}),
         about: {
           "@type": "Place",
           name: `${neighborhood.name}${neighborhood.district_name ? `, ${neighborhood.district_name}` : ""}`,
@@ -97,6 +144,7 @@ export default async function AreaLandingPage({ params }: PageProps) {
             addressCountry: "RW",
           },
         },
+        ...(itemList ? { mainEntity: itemList } : {}),
       },
     ],
   };

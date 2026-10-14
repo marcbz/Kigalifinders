@@ -35,8 +35,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = normalizeSeoTitle(property.meta_title || property.title);
   const description = buildPropertyMetaDescription(property);
   const imageAlt = getPropertyImageAlt(property);
-  const images = property.primary_image
-    ? [{ url: property.primary_image, width: 1200, height: 630, alt: imageAlt }]
+  const galleryUrls = (property.images || [])
+    .filter((img) => img.url)
+    .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
+    .map((img) => img.url);
+  if (property.primary_image && !galleryUrls.includes(property.primary_image)) {
+    galleryUrls.unshift(property.primary_image);
+  }
+  const images = galleryUrls.length
+    ? galleryUrls.slice(0, 6).map((url, i) => ({
+        url,
+        width: 1200,
+        height: 630,
+        alt: i === 0 ? imageAlt : property.title,
+      }))
     : undefined;
 
   return {
@@ -56,7 +68,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card: "summary_large_image",
       title,
       description,
-      images: property.primary_image ? [property.primary_image] : undefined,
+      images: galleryUrls.length ? galleryUrls.slice(0, 4) : undefined,
     },
   };
 }

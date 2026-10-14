@@ -36,9 +36,17 @@ export const metadata: Metadata = {
     siteName: "Kigali Rent",
     images: [{ url: "/logo.png", width: 512, height: 512, alt: "Kigali Rent logo" }],
   },
+  // Google Search does not support SVG favicons — use ICO/PNG (≥48px recommended).
   icons: {
-    icon: "/icon.svg",
-    apple: "/apple-icon.svg",
+    icon: [
+      { url: "/favicon.ico", sizes: "48x48" },
+      { url: "/favicon-32x32.png", sizes: "32x32", type: "image/png" },
+      { url: "/favicon-48x48.png", sizes: "48x48", type: "image/png" },
+      { url: "/favicon-96x96.png", sizes: "96x96", type: "image/png" },
+      { url: "/icon-192.png", sizes: "192x192", type: "image/png" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+    shortcut: "/favicon.ico",
   },
   robots: { index: true, follow: true },
   metadataBase: new URL(siteUrl),

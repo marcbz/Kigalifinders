@@ -36,6 +36,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: page.meta_description,
       url: page.canonical,
       image: page.verified_matches?.find((l) => l.primary_image)?.primary_image,
+      images: (page.verified_matches || []).map((l) => l.primary_image).filter(Boolean),
+      imageAlt: title,
     }),
     robots: page.robots.includes("noindex")
       ? { index: false, follow: true }
@@ -94,6 +96,7 @@ export default async function RentalLandingPage({ params }: Props) {
       <RentalIntentSeoJsonLd
         h1={page.h1}
         canonical={page.canonical}
+        description={page.meta_description || intro || undefined}
         locationSlug={page.location_slug}
         locationLabel={locationLabel}
         listings={listings}

@@ -17,8 +17,19 @@ export function pageOpenGraph(opts: {
   description?: string;
   url?: string;
   image?: string | null;
+  /** Extra listing photos — helps social previews and image discovery. */
+  images?: Array<string | null | undefined>;
   imageAlt?: string;
 }) {
+  const urls = [
+    opts.image,
+    ...(opts.images || []),
+  ]
+    .map((u) => (typeof u === "string" ? u.trim() : ""))
+    .filter(Boolean)
+    .filter((url, index, arr) => arr.indexOf(url) === index)
+    .slice(0, 6);
+
   return {
     title: opts.title,
     description: opts.description,
@@ -26,8 +37,8 @@ export function pageOpenGraph(opts: {
     type: "website" as const,
     siteName: "Kigali Rent",
     locale: "en_RW",
-    images: opts.image
-      ? [{ url: opts.image, alt: opts.imageAlt || opts.title }]
+    images: urls.length
+      ? urls.map((url, i) => ({ url, alt: i === 0 ? opts.imageAlt || opts.title : opts.title }))
       : [{ url: "/logo.png", width: 512, height: 512, alt: "Kigali Rent logo" }],
   };
 }

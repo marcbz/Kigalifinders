@@ -31,6 +31,8 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description: page.meta_description,
       url: page.canonical,
       image: page.verified_listings?.find((l) => l.primary_image)?.primary_image,
+      images: (page.verified_listings || []).map((l) => l.primary_image).filter(Boolean),
+      imageAlt: title,
     }),
     robots: page.robots?.includes("noindex")
       ? { index: false, follow: true }

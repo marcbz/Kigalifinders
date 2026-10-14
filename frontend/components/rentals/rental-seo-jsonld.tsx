@@ -1,7 +1,8 @@
 import {
   buildRentalBreadcrumbJsonLd,
+  buildRentalCollectionPageJsonLd,
   buildRentalFaqJsonLd,
-  buildRentalItemListJsonLd,
+  type RentalListing,
 } from "@/lib/rental-jsonld";
 import type { RentalHubData } from "@/components/rentals/rental-hub-page";
 
@@ -12,6 +13,40 @@ function JsonLdScript({ data }: { data: Record<string, unknown> | null }) {
   return (
     <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }} />
   );
+}
+
+function asRentalListings(
+  listings: Array<{
+    title: string;
+    slug: string;
+    price?: number;
+    usd_price?: number;
+    currency?: string;
+    primary_image?: string | null;
+    primary_image_alt?: string | null;
+    bedrooms?: number | null;
+    bathrooms?: number | null;
+    neighborhood_name?: string | null;
+    district_name?: string | null;
+    property_type_name?: string | null;
+    is_furnished?: boolean | null;
+  }>,
+): RentalListing[] {
+  return listings.map((l) => ({
+    title: l.title,
+    slug: l.slug,
+    price: l.price,
+    usd_price: l.usd_price,
+    currency: l.currency,
+    primary_image: l.primary_image,
+    primary_image_alt: l.primary_image_alt,
+    bedrooms: l.bedrooms,
+    bathrooms: l.bathrooms,
+    neighborhood_name: l.neighborhood_name,
+    district_name: l.district_name,
+    property_type_name: l.property_type_name,
+    is_furnished: l.is_furnished,
+  }));
 }
 
 export function RentalHubSeoJsonLd({ data }: { data: RentalHubData }) {
@@ -29,15 +64,20 @@ export function RentalHubSeoJsonLd({ data }: { data: RentalHubData }) {
     });
   }
 
-  const listings = data.verified_listings || [];
+  const listings = asRentalListings(data.verified_listings || []);
   const breadcrumb = buildRentalBreadcrumbJsonLd(crumbs);
-  const itemList = buildRentalItemListJsonLd(listings, canonical, data.h1);
+  const collection = buildRentalCollectionPageJsonLd({
+    name: data.h1,
+    description: data.meta_description || data.intro,
+    pageUrl: canonical,
+    listings,
+  });
   const faq = buildRentalFaqJsonLd(data.faqs || []);
 
   return (
     <>
       <JsonLdScript data={breadcrumb} />
-      <JsonLdScript data={itemList} />
+      <JsonLdScript data={collection} />
       <JsonLdScript data={faq} />
     </>
   );
@@ -46,14 +86,16 @@ export function RentalHubSeoJsonLd({ data }: { data: RentalHubData }) {
 type IntentPageJsonLdProps = {
   h1: string;
   canonical: string;
+  description?: string;
   locationSlug: string;
   locationLabel: string;
-  listings: { title: string; slug: string; price?: number; usd_price?: number; currency?: string }[];
+  listings: RentalListing[];
 };
 
 export function RentalIntentSeoJsonLd({
   h1,
   canonical,
+  description,
   locationSlug,
   locationLabel,
   listings,
@@ -64,12 +106,17 @@ export function RentalIntentSeoJsonLd({
     { name: locationLabel, url: `${SITE}/rentals/${encodeURIComponent(locationSlug)}` },
     { name: h1, url: canonical },
   ]);
-  const itemList = buildRentalItemListJsonLd(listings, canonical, h1);
+  const collection = buildRentalCollectionPageJsonLd({
+    name: h1,
+    description,
+    pageUrl: canonical,
+    listings: asRentalListings(listings),
+  });
 
   return (
     <>
       <JsonLdScript data={breadcrumb} />
-      <JsonLdScript data={itemList} />
+      <JsonLdScript data={collection} />
     </>
   );
 }

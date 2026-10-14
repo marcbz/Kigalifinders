@@ -3,6 +3,10 @@ import Link from "next/link";
 import { fetchResearchPricesSafe } from "@/lib/market-api";
 import { ResearchChart } from "@/components/research/research-charts";
 import { ResearchDatasetJsonLd } from "@/components/research/research-dataset-jsonld";
+import {
+  buildResearchBreadcrumbJsonLd,
+  buildResearchFaqJsonLd,
+} from "@/lib/research-faq-jsonld";
 import { pageOpenGraph } from "@/lib/seo-metadata";
 import {
   BudgetBandsTable,
@@ -13,14 +17,28 @@ import {
 
 export const revalidate = 60;
 
+const PAGE_URL = "https://kigalirent.com/research/kigali-rental-market/prices";
+const PAGE_TITLE = "Kigali Rental Prices 2026: Cost of Renting in Kigali";
+const PAGE_DESCRIPTION =
+  "How much does rent cost in Kigali? Typical asking rents with middle-50% ranges by bedroom, neighbourhood, and furnished vs unfurnished — from eligible market observations.";
+
 export const metadata: Metadata = {
-  title: "Kigali Rental Prices 2026: Cost of Renting in Kigali",
-  description:
-    "Typical asking rents in Kigali with middle-50% ranges, bedroom and neighbourhood comparisons, trends, and sample sizes from combined eligible observations.",
-  alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market/prices" },
+  title: PAGE_TITLE,
+  description: PAGE_DESCRIPTION,
+  keywords: [
+    "Kigali rental prices",
+    "cost of renting in Kigali",
+    "Kigali rent prices 2026",
+    "2 bedroom rent Kigali",
+    "apartment rent Kigali",
+    "furnished house rent Kigali",
+    "Kigali housing costs",
+  ],
+  alternates: { canonical: PAGE_URL },
   openGraph: pageOpenGraph({
-    title: "Kigali Rental Prices 2026: Cost of Renting in Kigali",
-    url: "https://kigalirent.com/research/kigali-rental-market/prices",
+    title: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    url: PAGE_URL,
   }),
 };
 
@@ -28,6 +46,49 @@ export default async function ResearchPricesPage() {
   const data = await fetchResearchPricesSafe("kigali");
   const answer = data?.answer;
   const sections = data?.sections;
+  const faqAnswers = [
+    answer
+      ? {
+          question: answer.question || "How much does rent cost in Kigali?",
+          headline: answer.headline,
+          plain_english: answer.plain_english,
+          summary: answer.summary,
+          sample_size: answer.sample_size,
+          period_end: answer.period_end,
+        }
+      : null,
+    ...(data?.bedroom_answers || []),
+    ...(data?.property_type_answers || []),
+  ].filter(Boolean) as Array<{
+    question?: string;
+    headline?: string | null;
+    plain_english?: string | null;
+    summary?: string;
+    sample_size?: number;
+    period_end?: string | null;
+  }>;
+  const faqJsonLd = buildResearchFaqJsonLd(faqAnswers);
+  const breadcrumbJsonLd = buildResearchBreadcrumbJsonLd([
+    { name: "Home", url: "https://kigalirent.com" },
+    { name: "Kigali rental market research", url: "https://kigalirent.com/research/kigali-rental-market" },
+    { name: "Rental prices", url: PAGE_URL },
+  ]);
+  const webPageJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebPage",
+    "@id": `${PAGE_URL}#webpage`,
+    url: PAGE_URL,
+    name: PAGE_TITLE,
+    description: PAGE_DESCRIPTION,
+    isPartOf: { "@id": "https://kigalirent.com/#website" },
+    about: {
+      "@type": "Thing",
+      name: "Kigali rental prices",
+    },
+    mainEntity: { "@id": `${PAGE_URL}#dataset` },
+    inLanguage: "en-RW",
+    ...(answer?.period_end ? { dateModified: answer.period_end } : {}),
+  };
 
   return (
     <div className="max-w-4xl mx-auto px-6 py-14 space-y-10">
@@ -36,8 +97,30 @@ export default async function ResearchPricesPage() {
         description="Typical monthly asking rents and middle-50% ranges for 1- to 4+-bedroom rentals in Kigali, Rwanda, with furnished vs unfurnished comparisons."
         path="/research/kigali-rental-market/prices"
         observationCount={answer?.sample_size}
-        keywords={["1 bedroom rent Kigali", "2 bedroom rent Kigali", "4 bedroom house rent Kigali"]}
+        periodEnd={answer?.period_end}
+        dateModified={answer?.period_end}
+        keywords={[
+          "Kigali rental prices",
+          "cost of renting in Kigali",
+          "1 bedroom rent Kigali",
+          "2 bedroom rent Kigali",
+          "4 bedroom house rent Kigali",
+        ]}
       />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(webPageJsonLd) }}
+      />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
       <div>
         <p className="text-sm mb-4">
           <Link href="/research/kigali-rental-market" className="underline">

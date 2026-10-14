@@ -1,8 +1,16 @@
+export type SitemapImageEntry = {
+  loc: string;
+  title?: string;
+  caption?: string;
+};
+
 export type SitemapUrlEntry = {
   loc: string;
   lastModified?: Date;
   changeFrequency?: "always" | "hourly" | "daily" | "weekly" | "monthly" | "yearly" | "never";
   priority?: number;
+  /** Google image sitemap extension — listing photos for SERP image packs. */
+  images?: SitemapImageEntry[];
 };
 
 export type SitemapIndexEntry = {
@@ -64,11 +72,24 @@ export function normalizeSitemapEntries(entries: SitemapUrlEntry[]): SitemapUrlE
         ? Math.min(1, Math.max(0, entry.priority))
         : undefined;
 
+    const images: SitemapImageEntry[] = [];
+    for (const img of entry.images || []) {
+      const imgLoc = typeof img.loc === "string" ? img.loc.trim() : "";
+      if (!isValidSitemapLoc(imgLoc)) continue;
+      images.push({
+        loc: imgLoc,
+        title: img.title?.trim() || undefined,
+        caption: img.caption?.trim() || undefined,
+      });
+      if (images.length >= 10) break;
+    }
+
     out.push({
       loc,
       lastModified,
       changeFrequency: entry.changeFrequency,
       priority,
+      ...(images.length ? { images } : {}),
     });
   }
 
@@ -77,6 +98,7 @@ export function normalizeSitemapEntries(entries: SitemapUrlEntry[]): SitemapUrlE
 
 export function buildUrlSetXml(entries: SitemapUrlEntry[]): string {
   const valid = normalizeSitemapEntries(entries);
+  const hasImages = valid.some((entry) => (entry.images?.length || 0) > 0);
   const urls = valid
     .map((entry) => {
       const parts = [`  <url>`, `    <loc>${escapeXml(entry.loc)}</loc>`];
@@ -84,13 +106,21 @@ export function buildUrlSetXml(entries: SitemapUrlEntry[]): string {
       if (lastmod) parts.push(`    <lastmod>${lastmod}</lastmod>`);
       if (entry.changeFrequency) parts.push(`    <changefreq>${entry.changeFrequency}</changefreq>`);
       if (entry.priority !== undefined) parts.push(`    <priority>${entry.priority.toFixed(1)}</priority>`);
+      for (const img of entry.images || []) {
+        parts.push(`    <image:image>`);
+        parts.push(`      <image:loc>${escapeXml(img.loc)}</image:loc>`);
+        if (img.title) parts.push(`      <image:title>${escapeXml(img.title)}</image:title>`);
+        if (img.caption) parts.push(`      <image:caption>${escapeXml(img.caption)}</image:caption>`);
+        parts.push(`    </image:image>`);
+      }
       parts.push(`  </url>`);
       return parts.join("\n");
     })
     .join("\n");
 
   // Always emit a well-formed urlset. Callers should supply fallbacks so this is rarely empty.
-  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${
+  const imageNs = hasImages ? ' xmlns:image="http://www.google.com/schemas/sitemap-image/1.1"' : "";
+  return `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"${imageNs}>${
     urls ? `\n${urls}\n` : "\n"
   }</urlset>`;
 }

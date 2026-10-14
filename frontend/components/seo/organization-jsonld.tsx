@@ -16,8 +16,10 @@ const graph = {
       logo: {
         "@type": "ImageObject",
         url: `${siteUrl}/logo.png`,
+        width: 512,
+        height: 512,
       },
-      image: `${siteUrl}/logo.png`,
+      image: [`${siteUrl}/logo.png`, `${siteUrl}/icon-192.png`],
       description:
         "Kigali rental and property marketplace — housing costs, neighbourhood guides, and current listings for rent and sale.",
       telephone: SITE_PHONE,

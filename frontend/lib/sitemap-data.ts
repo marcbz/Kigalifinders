@@ -137,7 +137,7 @@ export async function getPropertiesSitemapEntries(): Promise<SitemapUrlEntry[]> 
     .map((property) => {
       const slug = String(property.slug || property.id || "").trim();
       if (!slug) return null;
-      return entryFromPath(`/properties/${encodeURIComponent(slug)}`, {
+      const entry = entryFromPath(`/properties/${encodeURIComponent(slug)}`, {
         lastModified: latestSitemapDate(
           property.updated_at,
           property.last_verified_at,
@@ -147,6 +147,18 @@ export async function getPropertiesSitemapEntries(): Promise<SitemapUrlEntry[]> 
         changeFrequency: "weekly",
         priority: 0.8,
       });
+      if (!entry) return null;
+      const imageUrl = String(property.primary_image || "").trim();
+      if (imageUrl && /^https?:\/\//i.test(imageUrl)) {
+        entry.images = [
+          {
+            loc: imageUrl,
+            title: property.title,
+            caption: property.primary_image_alt || property.title,
+          },
+        ];
+      }
+      return entry;
     })
     .filter((e): e is SitemapUrlEntry => Boolean(e));
 }

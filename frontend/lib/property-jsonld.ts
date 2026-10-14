@@ -1,5 +1,20 @@
 import type { PropertyDetail } from "@/types";
 
+const SITE = (process.env.NEXT_PUBLIC_SITE_URL || "https://kigalirent.com").replace(/\/+$/, "");
+
+function absoluteAssetUrl(url?: string | null): string | null {
+  if (!url || typeof url !== "string") return null;
+  const trimmed = url.trim();
+  if (!trimmed) return null;
+  if (/^https?:\/\//i.test(trimmed)) return trimmed;
+  if (trimmed.startsWith("//")) return `https:${trimmed}`;
+  try {
+    return new URL(trimmed.startsWith("/") ? trimmed : `/${trimmed}`, `${SITE}/`).toString();
+  } catch {
+    return null;
+  }
+}
+
 export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl: string) {
   const price = property.usd_price ?? property.price;
   const addressParts: Record<string, string> = {
@@ -17,7 +32,8 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
 
   const listing: Record<string, unknown> = {
     "@context": "https://schema.org",
-    "@type": "RealEstateListing",
+    // Product helps Google associate price + images with the result; RealEstateListing is the domain type.
+    "@type": ["RealEstateListing", "Product"],
     "@id": `${propertyUrl}#listing`,
     url: propertyUrl,
     name: property.title,
@@ -151,15 +167,38 @@ export function buildPropertyListingJsonLd(property: PropertyDetail, propertyUrl
   const galleryImages = (property.images || [])
     .filter((img) => img.url)
     .sort((a, b) => Number(b.is_primary) - Number(a.is_primary))
-    .map((img) => ({ "@type": "ImageObject", url: img.url, caption: img.alt_text || property.title }));
+    .map((img) => {
+      const url = absoluteAssetUrl(img.url);
+      if (!url) return null;
+      return {
+        "@type": "ImageObject",
+        url,
+        caption: img.alt_text || property.title,
+        contentUrl: url,
+      };
+    })
+    .filter((img): img is { "@type": "ImageObject"; url: string; caption: string; contentUrl: string } =>
+      Boolean(img),
+    );
   if (galleryImages.length) {
     listing.image = galleryImages;
-  } else if (property.primary_image) {
-    listing.image = {
-      "@type": "ImageObject",
-      url: property.primary_image,
-      caption: property.primary_image_alt || property.title,
-    };
+  } else {
+    const primary = absoluteAssetUrl(property.primary_image);
+    if (primary) {
+      listing.image = [
+        {
+          "@type": "ImageObject",
+          url: primary,
+          contentUrl: primary,
+          caption: property.primary_image_alt || property.title,
+        },
+      ];
+    }
+  }
+
+  // Explicit photo array helps image-pack eligibility in listing SERPs.
+  if (Array.isArray(listing.image) && (listing.image as unknown[]).length) {
+    listing.photo = listing.image;
   }
 
   return listing;

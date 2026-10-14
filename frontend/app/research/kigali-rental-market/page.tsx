@@ -23,10 +23,19 @@ export const revalidate = 60;
 export const metadata: Metadata = {
   title: "Kigali Rental Market Data & Research",
   description:
-    "Independent Kigali rental market research: typical asking rents, trends, and neighborhood comparisons from combined eligible observations.",
+    "Independent Kigali rental market research: typical asking rents, rental price trends, and neighborhood comparisons from combined eligible observations.",
+  keywords: [
+    "Kigali rental market",
+    "Kigali rental prices",
+    "Kigali rent research",
+    "cost of renting in Kigali",
+    "Kigali housing costs",
+  ],
   alternates: { canonical: "https://kigalirent.com/research/kigali-rental-market" },
   openGraph: pageOpenGraph({
     title: "Kigali Rental Market Data & Research",
+    description:
+      "Independent Kigali rental market research: typical asking rents, rental price trends, and neighborhood comparisons.",
     url: "https://kigalirent.com/research/kigali-rental-market",
   }),
 };

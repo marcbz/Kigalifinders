@@ -21,6 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
       description: page.meta_description,
       url: canonical,
       image: page.verified_listings?.find((l) => l.primary_image)?.primary_image,
+      images: (page.verified_listings || []).map((l) => l.primary_image).filter(Boolean),
+      imageAlt: title,
     }),
     robots: { index: true, follow: true },
   };
