@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bath, Bed, CalendarCheck, Car, MapPin, Ruler, Trees } from "lucide-react";
+import { Bath, Bed, CalendarCheck, Car, CheckCircle2, MapPin, Ruler, Trees } from "lucide-react";
 import { notFound } from "next/navigation";
 import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyDescription } from "@/components/property/property-description";
@@ -114,11 +114,6 @@ export default async function PropertyDetailPage({ params }: Props) {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-wrap gap-2 mb-4">
             <span className="badge-gold px-3 py-1 rounded text-xs inline-block">{listingBadge}</span>
-            {property.crm_available && (
-              <span className="bg-emerald-600 text-white text-xs font-bold tracking-widest uppercase px-3 py-1 rounded">
-                Available
-              </span>
-            )}
             {property.is_available === false && (
               <span className="bg-white/15 text-white text-xs font-bold tracking-widest uppercase px-3 py-1 rounded border border-white/30">
                 No longer available
@@ -161,6 +156,11 @@ export default async function PropertyDetailPage({ params }: Props) {
               {property.bathrooms != null && (
                 <span className="flex items-center gap-2">
                   <Bath className="text-gold-500" /> {property.bathrooms} Bathrooms
+                </span>
+              )}
+              {property.crm_available && (
+                <span className="flex items-center gap-2 text-emerald-600 font-medium">
+                  <CheckCircle2 className="text-emerald-600" /> Available
                 </span>
               )}
               {property.parking_spaces != null && property.parking_spaces > 0 ? (
