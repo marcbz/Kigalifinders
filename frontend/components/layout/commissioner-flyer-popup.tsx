@@ -134,7 +134,7 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
 
   return (
     <div
-      className="fixed inset-0 z-[90] flex items-end sm:items-center justify-center p-0 sm:p-6"
+      className="fixed inset-0 z-[90] flex items-center justify-center p-3 sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby={titleId}
@@ -142,7 +142,7 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
     >
       <button
         type="button"
-        className={`absolute inset-0 bg-navy-900/60 backdrop-blur-[3px] transition-opacity duration-300 ${
+        className={`absolute inset-0 bg-navy-900/65 backdrop-blur-[3px] transition-opacity duration-300 ${
           visible ? "opacity-100" : "opacity-0"
         }`}
         aria-label="Funga"
@@ -150,13 +150,13 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
       />
 
       <div
-        className={`relative w-full sm:max-w-[440px] overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gold-500/25 bg-cream dark:bg-card transition-all duration-300 ease-out ${
+        className={`relative w-full max-w-[420px] max-h-[min(92vh,720px)] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl border border-gold-500/25 bg-[#faf7f2] dark:bg-card transition-all duration-300 ease-out ${
           visible
-            ? "opacity-100 translate-y-0 sm:scale-100"
-            : "opacity-0 translate-y-6 sm:translate-y-4 sm:scale-[0.97]"
+            ? "opacity-100 translate-y-0 scale-100"
+            : "opacity-0 translate-y-5 scale-[0.97]"
         }`}
       >
-        <div className="relative bg-gradient-to-br from-navy-800 via-navy-700 to-navy-900 px-5 pt-5 pb-5 sm:px-6 sm:pt-6 sm:pb-6 text-white overflow-hidden">
+        <div className="relative bg-gradient-to-br from-navy-800 via-navy-700 to-navy-900 px-4 pt-5 pb-5 sm:px-6 sm:pt-6 sm:pb-6 text-white overflow-hidden">
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.12]"
             style={{
@@ -187,20 +187,20 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
           </p>
           <h2
             id={titleId}
-            className="relative mt-2.5 pr-8 font-serif font-bold text-white text-[1.35rem] leading-[1.25] tracking-tight sm:text-[1.55rem] sm:leading-[1.28] text-balance"
+            className="relative mt-2.5 pr-9 font-serif font-bold text-white text-[1.28rem] leading-[1.22] tracking-tight xs:text-[1.35rem] sm:text-[1.5rem] sm:leading-[1.26] text-balance"
           >
             <span className="block">Uri Umu Commissioner?</span>
             <span className="block mt-1 text-gold-400">Uzi Inzu Ikodeshwa!!</span>
-            <span className="block mt-1 text-[0.95em] font-semibold text-white/95 sm:text-[0.92em]">
+            <span className="block mt-1 text-[0.92em] font-semibold leading-snug text-white/95">
               Ese Waruziko Wabihemberwa!?
             </span>
           </h2>
-          <p className="relative mt-3 text-[13px] sm:text-sm leading-snug text-white/80 text-pretty">
+          <p className="relative mt-3 text-[12.5px] sm:text-sm leading-snug text-white/80 text-pretty">
             Dufashe kubona Inzu Ikodeshwa/Igurishwa — Maze Ukorere Cash Ako Kanya!!.
           </p>
         </div>
 
-        <div className="px-5 py-5 sm:px-6 space-y-4">
+        <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-3.5 sm:space-y-4">
           <div className="rounded-xl bg-gradient-to-r from-gold-500/15 via-gold-400/10 to-transparent border border-gold-500/30 px-4 py-3">
             <p className="text-[11px] font-semibold tracking-wider uppercase text-gold-600">
               Unguka kuri listing yemejwe
