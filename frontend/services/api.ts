@@ -222,6 +222,27 @@ export const adminService = {
     formData.append("folder", folder);
     return api.post<{ url: string }>("/admin/upload", formData).then((r) => r.data.url);
   },
+  externalImagesReport: () =>
+    api
+      .get<{
+        our_cloudinary_cloud: string | null;
+        total_images: number;
+        external_count: number;
+        by_cloud: Record<string, number>;
+        images: { image_id: string; property_id: string; url: string; cloud: string; is_primary: boolean }[];
+      }>("/admin/images/external-report")
+      .then((r) => r.data),
+  rehostExternalImages: (limit = 50) =>
+    api
+      .post<{
+        attempted: number;
+        rehosted_count: number;
+        failed_count: number;
+        external_before: number;
+        rehosted: { image_id: string; property_id: string; from: string; to: string }[];
+        failed: { image_id: string; property_id: string; url: string; error: string }[];
+      }>("/admin/images/rehost-external", null, { params: { limit } })
+      .then((r) => r.data),
   faqs: () => api.get("/admin/faqs").then((r) => r.data),
   createFaq: (data: Record<string, unknown>) => api.post("/admin/faqs", data).then((r) => r.data),
   updateFaq: (id: string, data: Record<string, unknown>) => api.patch(`/admin/faqs/${id}`, data).then((r) => r.data),

@@ -713,7 +713,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                       label=""
                       folder="kigalifinders/properties"
                       allowUpload
-                      hint="Upload from device (recommended) or paste a Cloudinary HTTPS URL"
+                      hint="Upload from device (best). Pasted links from other sites/Cloudinary accounts are copied onto your Cloudinary when you save — if that copy fails, download the photo and Upload it."
                       value={row.url}
                       onChange={(url) => {
                         const next = [...imageRows];

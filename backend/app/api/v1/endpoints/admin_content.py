@@ -152,6 +152,95 @@ async def upload_status(user: Annotated[User, Depends(require_staff)]):
     return {
         "configured": cloudinary_ready or s3_ready,
         "provider": "cloudinary" if cloudinary_ready else ("s3" if s3_ready else None),
+        "cloudinary_cloud_name": settings.CLOUDINARY_CLOUD_NAME or None,
+    }
+
+
+@router.get("/images/external-report")
+async def external_images_report(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_staff)],
+):
+    """List listing photos that are not on our Cloudinary/S3 (likely to break for some visitors)."""
+    from collections import Counter
+
+    from app.models import PropertyImage
+    from app.services.image_rehost import cloudinary_cloud_from_url, needs_rehost
+
+    result = await db.execute(select(PropertyImage))
+    rows = result.scalars().all()
+    external: list[dict] = []
+    clouds: Counter[str] = Counter()
+    for img in rows:
+        if not needs_rehost(img.url):
+            continue
+        cloud = cloudinary_cloud_from_url(img.url) or "other"
+        clouds[cloud] += 1
+        external.append(
+            {
+                "image_id": str(img.id),
+                "property_id": str(img.property_id),
+                "url": img.url,
+                "cloud": cloud,
+                "is_primary": img.is_primary,
+            }
+        )
+    return {
+        "our_cloudinary_cloud": settings.CLOUDINARY_CLOUD_NAME or None,
+        "total_images": len(rows),
+        "external_count": len(external),
+        "by_cloud": dict(clouds),
+        "images": external[:500],
+    }
+
+
+@router.post("/images/rehost-external")
+async def rehost_external_images(
+    db: Annotated[AsyncSession, Depends(get_db)],
+    user: Annotated[User, Depends(require_admin)],
+    limit: int = 50,
+):
+    """Copy up to `limit` third-party listing photos onto our CDN and rewrite DB URLs.
+
+    Photos whose source returns 401/404 (e.g. a disabled foreign Cloudinary cloud) cannot
+    be recovered automatically — re-upload those from the device instead.
+    """
+    from app.models import PropertyImage
+    from app.services.image_rehost import needs_rehost, rehost_url
+
+    limit = max(1, min(limit, 200))
+    result = await db.execute(select(PropertyImage).order_by(PropertyImage.created_at.asc()))
+    external = [img for img in result.scalars().all() if needs_rehost(img.url)]
+    candidates = external[:limit]
+
+    rehosted: list[dict] = []
+    failed: list[dict] = []
+    for img in candidates:
+        old = img.url
+        try:
+            new_url = await rehost_url(old)
+            img.url = new_url
+            rehosted.append(
+                {"image_id": str(img.id), "property_id": str(img.property_id), "from": old, "to": new_url}
+            )
+        except Exception as exc:
+            failed.append(
+                {
+                    "image_id": str(img.id),
+                    "property_id": str(img.property_id),
+                    "url": old,
+                    "error": str(exc),
+                }
+            )
+
+    await db.commit()
+    return {
+        "attempted": len(candidates),
+        "rehosted_count": len(rehosted),
+        "failed_count": len(failed),
+        "external_before": len(external),
+        "rehosted": rehosted,
+        "failed": failed,
     }
 
 

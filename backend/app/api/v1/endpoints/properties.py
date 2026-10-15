@@ -61,17 +61,35 @@ def _resolve_property_types(
 async def _sync_property_images(db: AsyncSession, prop: Property, images: list[PropertyImageInput] | None) -> None:
     if images is None:
         return
+
+    from app.services.image_rehost import rehost_urls
+
+    # Copy third-party / other-Cloudinary links onto our CDN before saving so visitors
+    # outside Rwanda (or after a foreign account is disabled) still see the photos.
+    raw_urls = [img.url.strip() for img in images if img.url.strip()]
+    try:
+        hosted = await rehost_urls(raw_urls)
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"{exc} Tip: use Upload from your device so the photo is stored on your "
+                "own Cloudinary account."
+            ),
+        ) from exc
+
     result = await db.execute(select(PropertyImage).where(PropertyImage.property_id == prop.id))
     for img in result.scalars().all():
         await db.delete(img)
     await db.flush()
     for i, img in enumerate(images):
-        if not img.url.strip():
+        url = img.url.strip()
+        if not url:
             continue
         db.add(
             PropertyImage(
                 property_id=prop.id,
-                url=img.url.strip(),
+                url=hosted.get(url, url),
                 alt_text=img.alt_text,
                 is_primary=img.is_primary,
                 sort_order=img.sort_order if img.sort_order else i,
