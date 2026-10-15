@@ -187,11 +187,11 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
           </p>
           <h2
             id={titleId}
-            className="relative mt-2.5 pr-9 font-serif font-bold text-white text-[1.28rem] leading-[1.22] tracking-tight sm:text-[1.5rem] sm:leading-[1.26] text-balance"
+            className="relative mt-2.5 pr-9 font-serif font-bold text-white text-[1.28rem] leading-[1.3] tracking-tight sm:text-[1.5rem] sm:leading-[1.32] text-balance"
           >
             <span className="block">Uri Umu Commissioner?</span>
-            <span className="block mt-1 text-gold-400">Uzi Inzu Ikodeshwa!!</span>
-            <span className="block mt-1 text-[0.92em] font-semibold leading-snug text-white/95">
+            <span className="block mt-1.5 text-gold-400">Uzi Inzu Ikodeshwa!!</span>
+            <span className="block mt-1.5 text-[0.92em] font-semibold leading-snug text-white/95">
               Ese Waruziko Wabihemberwa!?
             </span>
           </h2>
