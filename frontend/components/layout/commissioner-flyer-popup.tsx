@@ -1,19 +1,16 @@
 "use client";
 
-import { useCallback, useEffect, useId, useMemo, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Home, KeyRound, X } from "lucide-react";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 
-const DELAY_MS = 12_000;
 const STORAGE_KEY = "kr_commissioner_flyer_dismissed_at";
 const DISMISS_COOLDOWN_MS = 7 * 24 * 60 * 60 * 1000;
+/** Avoid firing on the first accidental cursor flicker after load. */
+const ARM_AFTER_MS = 1_500;
 
-const WHATSAPP_MESSAGE = [
-  "Muraho Kigali Rent!",
-  "Ndi commissioner ushaka gufasha kubona listing zemejwe mu karere kanjye.",
-  "Icyiciro nyamukuru: inzu zo gukodesha. Nshobora no gufasha ku nzu zo kugurisha.",
-  "Ndashaka gutangira — mwadufasha?",
-].join("\n");
+const WHATSAPP_MESSAGE =
+  "Muraho!! Ndi Umu commissioner ushaka kugufasha kubona Inzu Ikodeshwa Cg Igurishwa Nkanaguhuza Nanyirayo/Manager.";
 
 function digitsOnly(value: string) {
   return value.replace(/\D/g, "");
@@ -43,12 +40,22 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
   const titleId = useId();
   const [open, setOpen] = useState(false);
   const [visible, setVisible] = useState(false);
+  const shownRef = useRef(false);
 
   const phone = digitsOnly(whatsapp || "250784806641");
   const href = useMemo(
     () => `https://wa.me/${phone}?text=${encodeURIComponent(WHATSAPP_MESSAGE)}`,
     [phone],
   );
+
+  const show = useCallback(() => {
+    if (shownRef.current || wasRecentlyDismissed()) return;
+    shownRef.current = true;
+    setOpen(true);
+    window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setVisible(true));
+    });
+  }, []);
 
   const dismiss = useCallback(() => {
     setVisible(false);
@@ -59,16 +66,54 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
   useEffect(() => {
     if (wasRecentlyDismissed()) return;
 
-    const showTimer = window.setTimeout(() => {
-      setOpen(true);
-      // Allow one paint with closed styles, then animate in.
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => setVisible(true));
-      });
-    }, DELAY_MS);
+    let armed = false;
+    const armTimer = window.setTimeout(() => {
+      armed = true;
+    }, ARM_AFTER_MS);
 
-    return () => window.clearTimeout(showTimer);
-  }, []);
+    const tryShow = () => {
+      if (!armed) return;
+      show();
+    };
+
+    /** Desktop: cursor leaves the viewport toward the top (tab bar / close / address bar). */
+    const onMouseOut = (e: MouseEvent) => {
+      if (e.clientY > 0) return;
+      const related = e.relatedTarget as Node | null;
+      if (related && document.documentElement.contains(related)) return;
+      tryShow();
+    };
+
+    /**
+     * Mobile / tablet: intercept the first back navigation so we can offer the flyer
+     * before they leave the site.
+     */
+    const historyKey = { krCommissionerFlyer: 1 as const };
+    try {
+      window.history.pushState(historyKey, "");
+    } catch {
+      /* ignore */
+    }
+
+    const onPopState = () => {
+      if (shownRef.current || wasRecentlyDismissed()) return;
+      try {
+        window.history.pushState(historyKey, "");
+      } catch {
+        /* ignore */
+      }
+      tryShow();
+    };
+
+    document.addEventListener("mouseout", onMouseOut);
+    window.addEventListener("popstate", onPopState);
+
+    return () => {
+      window.clearTimeout(armTimer);
+      document.removeEventListener("mouseout", onMouseOut);
+      window.removeEventListener("popstate", onPopState);
+    };
+  }, [show]);
 
   useEffect(() => {
     if (!open) return;
@@ -105,13 +150,13 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
       />
 
       <div
-        className={`relative w-full sm:max-w-[420px] overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gold-500/25 bg-cream dark:bg-card transition-all duration-300 ease-out ${
+        className={`relative w-full sm:max-w-[440px] overflow-hidden rounded-t-2xl sm:rounded-2xl shadow-2xl border border-gold-500/25 bg-cream dark:bg-card transition-all duration-300 ease-out ${
           visible
             ? "opacity-100 translate-y-0 sm:scale-100"
             : "opacity-0 translate-y-6 sm:translate-y-4 sm:scale-[0.97]"
         }`}
       >
-        <div className="relative bg-gradient-to-br from-navy-800 via-navy-700 to-navy-900 px-5 pt-5 pb-6 text-white overflow-hidden">
+        <div className="relative bg-gradient-to-br from-navy-800 via-navy-700 to-navy-900 px-5 pt-5 pb-5 sm:px-6 sm:pt-6 sm:pb-6 text-white overflow-hidden">
           <div
             className="pointer-events-none absolute inset-0 opacity-[0.12]"
             style={{
@@ -137,21 +182,25 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
             <X className="w-4 h-4" />
           </button>
 
-          <p className="relative text-[11px] font-semibold tracking-[0.18em] uppercase text-gold-400">
+          <p className="relative pr-10 text-[11px] font-semibold tracking-[0.18em] uppercase text-gold-400">
             Kigali Rent · Commissioners
           </p>
           <h2
             id={titleId}
-            className="relative mt-2 font-serif text-[1.65rem] leading-tight font-bold max-w-[17ch]"
+            className="relative mt-2.5 pr-8 font-serif font-bold text-white text-[1.35rem] leading-[1.25] tracking-tight sm:text-[1.55rem] sm:leading-[1.28] text-balance"
           >
-            Wunguke amafaranga mu karere kawe
+            <span className="block">Uri Umu Commissioner?</span>
+            <span className="block mt-1 text-gold-400">Uzi Inzu Ikodeshwa!!</span>
+            <span className="block mt-1 text-[0.95em] font-semibold text-white/95 sm:text-[0.92em]">
+              Ese Waruziko Wabihemberwa!?
+            </span>
           </h2>
-          <p className="relative mt-2 text-sm text-white/80 max-w-[34ch]">
-            Dufasha kubona listing zemejwe — cyane cyane inzu zo gukodesha.
+          <p className="relative mt-3 text-[13px] sm:text-sm leading-snug text-white/80 text-pretty">
+            Dufashe kubona Inzu Ikodeshwa/Igurishwa — Maze Ukorere Cash Ako Kanya!!.
           </p>
         </div>
 
-        <div className="px-5 py-5 space-y-4">
+        <div className="px-5 py-5 sm:px-6 space-y-4">
           <div className="rounded-xl bg-gradient-to-r from-gold-500/15 via-gold-400/10 to-transparent border border-gold-500/30 px-4 py-3">
             <p className="text-[11px] font-semibold tracking-wider uppercase text-gold-600">
               Unguka kuri listing yemejwe
@@ -161,41 +210,31 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
               <span className="text-base font-sans font-semibold text-gold-600">RWF</span>
             </p>
             <p className="mt-0.5 text-xs text-gray-500">
-              ku deal umwe ufasha kubona no kwemeza
+              ku deal Udufashije kubona Muri Kigali
             </p>
           </div>
 
           <ul className="space-y-2.5">
-            <li className="flex items-start gap-3">
-              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-800 text-gold-400">
+            <li className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-800 text-gold-400">
                 <KeyRound className="w-4 h-4" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-navy-800 dark:text-white">
-                  Inzu yo gukodesha{" "}
-                  <span className="text-[10px] font-bold tracking-wide uppercase text-gold-600 ml-1">
-                    nyamukuru
-                  </span>
+                  Inzu yo gukodesha
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  House for rent — icyiciro dushaka cyane mu mugi wa Kigali.
-                </p>
+                <p className="text-xs text-gray-500">House for rent</p>
               </div>
             </li>
-            <li className="flex items-start gap-3">
-              <span className="mt-0.5 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-800/10 text-navy-800 dark:bg-white/10 dark:text-gold-400">
+            <li className="flex items-center gap-3">
+              <span className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-navy-800/10 text-navy-800 dark:bg-white/10 dark:text-gold-400">
                 <Home className="w-4 h-4" />
               </span>
               <div>
                 <p className="text-sm font-semibold text-navy-800 dark:text-white">
-                  Inzu yo kugurisha{" "}
-                  <span className="text-[10px] font-semibold tracking-wide uppercase text-gray-400 ml-1">
-                    kabiri
-                  </span>
+                  Inzu yo kugurisha
                 </p>
-                <p className="text-xs text-gray-500 mt-0.5">
-                  Property for sale — nanone dukira listing zemejwe.
-                </p>
+                <p className="text-xs text-gray-500">Property for sale</p>
               </div>
             </li>
           </ul>
@@ -211,8 +250,8 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
             Ohereza kuri WhatsApp
           </a>
 
-          <p className="text-center text-[11px] text-gray-400 leading-relaxed">
-            Ubutumwa bwite buzamo — uvuge akarere kawe n&apos;uko ushaka gufasha.
+          <p className="text-center text-[10px] tracking-wide text-gray-400">
+            Amategeko Namabwirizwa, Birakurikiza
           </p>
         </div>
       </div>
