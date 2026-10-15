@@ -36,6 +36,23 @@ function markDismissed() {
   }
 }
 
+function clearDismissed() {
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+function forceFlyerFromQuery() {
+  try {
+    const params = new URLSearchParams(window.location.search);
+    return params.get("commissioner_flyer") === "1" || params.get("flyer") === "1";
+  } catch {
+    return false;
+  }
+}
+
 export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
   const titleId = useId();
   const [open, setOpen] = useState(false);
@@ -49,7 +66,7 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
   );
 
   const show = useCallback(() => {
-    if (shownRef.current || wasRecentlyDismissed()) return;
+    if (shownRef.current) return;
     shownRef.current = true;
     setOpen(true);
     window.requestAnimationFrame(() => {
@@ -64,6 +81,12 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
   }, []);
 
   useEffect(() => {
+    if (forceFlyerFromQuery()) {
+      clearDismissed();
+      show();
+      return;
+    }
+
     if (wasRecentlyDismissed()) return;
 
     let armed = false;
@@ -73,6 +96,7 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
 
     const tryShow = () => {
       if (!armed) return;
+      if (wasRecentlyDismissed()) return;
       show();
     };
 
@@ -142,7 +166,7 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
     >
       <button
         type="button"
-        className={`absolute inset-0 bg-navy-900/65 backdrop-blur-[3px] transition-opacity duration-300 ${
+        className={`absolute inset-0 bg-navy-900/70 backdrop-blur-[3px] transition-opacity duration-300 ${
           visible ? "opacity-100" : "opacity-0"
         }`}
         aria-label="Funga"
@@ -150,26 +174,30 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
       />
 
       <div
-        className={`relative w-full max-w-[420px] max-h-[min(92vh,720px)] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl border border-gold-500/25 bg-[#faf7f2] dark:bg-card transition-all duration-300 ease-out ${
+        className={`relative w-full max-w-[400px] max-h-[min(92vh,720px)] overflow-y-auto overflow-x-hidden rounded-2xl shadow-2xl border border-gold-500/30 bg-[#faf7f2] dark:bg-card transition-all duration-300 ease-out ${
           visible
             ? "opacity-100 translate-y-0 scale-100"
             : "opacity-0 translate-y-5 scale-[0.97]"
         }`}
       >
-        <div className="relative bg-gradient-to-br from-navy-800 via-navy-700 to-navy-900 px-4 pt-5 pb-5 sm:px-6 sm:pt-6 sm:pb-6 text-white overflow-hidden">
+        <div className="relative bg-gradient-to-br from-navy-800 via-[#0c274f] to-navy-900 px-5 pt-6 pb-6 sm:px-7 sm:pt-7 sm:pb-7 text-white overflow-hidden">
           <div
-            className="pointer-events-none absolute inset-0 opacity-[0.12]"
+            className="pointer-events-none absolute inset-0 opacity-[0.14]"
             style={{
               backgroundImage:
-                "radial-gradient(circle at 20% 20%, #c9a961 0%, transparent 45%), radial-gradient(circle at 85% 70%, #4A8FB8 0%, transparent 40%)",
+                "radial-gradient(circle at 18% 18%, #c9a961 0%, transparent 42%), radial-gradient(circle at 88% 72%, #4A8FB8 0%, transparent 38%)",
             }}
           />
           <div
-            className="pointer-events-none absolute -right-8 -top-8 h-36 w-36 rounded-full border border-gold-500/30"
+            className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full border border-gold-500/35"
             aria-hidden
           />
           <div
-            className="pointer-events-none absolute -right-2 top-10 h-24 w-24 rounded-full border border-white/10"
+            className="pointer-events-none absolute -right-3 top-12 h-28 w-28 rounded-full border border-white/15"
+            aria-hidden
+          />
+          <div
+            className="pointer-events-none absolute right-6 top-4 h-16 w-16 rounded-full border border-white/8"
             aria-hidden
           />
 
@@ -182,35 +210,74 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
             <X className="w-4 h-4" />
           </button>
 
-          <p className="relative pr-10 text-[11px] font-semibold tracking-[0.18em] uppercase text-gold-400">
+          <p
+            className={`relative pr-10 text-[11px] font-semibold tracking-[0.2em] uppercase text-gold-400 transition-all duration-500 ${
+              visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+            }`}
+          >
             Kigali Rent · Commissioners
           </p>
-          <h2
-            id={titleId}
-            className="relative mt-2.5 pr-9 font-serif font-bold text-white text-[1.28rem] leading-[1.3] tracking-tight sm:text-[1.5rem] sm:leading-[1.32] text-balance"
-          >
-            <span className="block">Uri Umu Commissioner?</span>
-            <span className="block mt-1.5 text-gold-400">Uzi Inzu Ikodeshwa!!</span>
-            <span className="block mt-1.5 text-[0.92em] font-semibold leading-snug text-white/95">
-              Ese Waruziko Wabihemberwa!?
+
+          <h2 id={titleId} className="relative mt-4 pr-8 text-balance">
+            <span
+              className={`block font-serif font-bold text-white/95 text-[1.15rem] leading-snug sm:text-[1.28rem] transition-all duration-500 delay-75 ${
+                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+              }`}
+            >
+              Uri umu commissioner?
+            </span>
+            <span
+              className={`mt-3 block font-serif font-bold text-gold-400 text-[1.55rem] leading-[1.15] tracking-tight sm:text-[1.85rem] sm:leading-[1.12] drop-shadow-[0_1px_12px_rgba(201,169,97,0.35)] transition-all duration-500 delay-150 ${
+                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+              }`}
+            >
+              Uzi inzu ikodeshwa?
+            </span>
+            <span
+              className={`mt-3 block font-serif font-semibold text-white text-[1.05rem] leading-snug sm:text-[1.2rem] transition-all duration-500 delay-200 ${
+                visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+              }`}
+            >
+              Ese waruziko{" "}
+              <span className="text-gold-400 underline decoration-gold-400/50 underline-offset-4">
+                wabihemberwa
+              </span>
+              ?
             </span>
           </h2>
-          <p className="relative mt-3 text-[12.5px] sm:text-sm leading-snug text-white/80 text-pretty">
-            Dufashe kubona Inzu Ikodeshwa/Igurishwa — Maze Ukorere Cash Ako Kanya!!.
+
+          <div
+            className={`relative mt-5 h-px w-14 bg-gradient-to-r from-gold-400 to-transparent transition-all duration-500 delay-300 ${
+              visible ? "opacity-100 scale-x-100" : "opacity-0 scale-x-50"
+            }`}
+            style={{ transformOrigin: "left" }}
+            aria-hidden
+          />
+
+          <p
+            className={`relative mt-4 max-w-[34ch] text-[13.5px] sm:text-[15px] leading-relaxed text-white/85 text-pretty transition-all duration-500 delay-300 ${
+              visible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
+            }`}
+          >
+            Dufasha kubona inzu{" "}
+            <span className="text-white font-medium">ikodeshwa</span> cyangwa{" "}
+            <span className="text-white font-medium">igurishwa</span>
+            {" — "}
+            maze ukorere <span className="text-gold-400 font-semibold">cash ako kanya</span>.
           </p>
         </div>
 
-        <div className="px-4 py-4 sm:px-6 sm:py-5 space-y-3.5 sm:space-y-4">
-          <div className="rounded-xl bg-gradient-to-r from-gold-500/15 via-gold-400/10 to-transparent border border-gold-500/30 px-4 py-3">
+        <div className="px-5 py-4 sm:px-7 sm:py-5 space-y-3.5 sm:space-y-4">
+          <div className="rounded-xl bg-gradient-to-r from-gold-500/15 via-gold-400/10 to-transparent border border-gold-500/30 px-4 py-3.5">
             <p className="text-[11px] font-semibold tracking-wider uppercase text-gold-600">
               Unguka kuri listing yemejwe
             </p>
-            <p className="mt-1 font-serif text-2xl font-bold text-navy-800 dark:text-white">
+            <p className="mt-1 font-serif text-2xl sm:text-[1.7rem] font-bold text-navy-800 dark:text-white leading-none">
               2,000 – 3,000{" "}
               <span className="text-base font-sans font-semibold text-gold-600">RWF</span>
             </p>
-            <p className="mt-0.5 text-xs text-gray-500">
-              ku deal Udufashije kubona Muri Kigali
+            <p className="mt-1.5 text-xs leading-snug text-gray-500">
+              ku deal udufashije kubona muri Kigali
             </p>
           </div>
 
@@ -251,7 +318,7 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
           </a>
 
           <p className="text-center text-[10px] tracking-wide text-gray-400">
-            Amategeko Namabwirizwa, Birakurikiza
+            Amategeko namabwirizwa birakurikiza
           </p>
         </div>
       </div>
