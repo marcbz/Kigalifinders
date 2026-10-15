@@ -190,7 +190,7 @@ export function CommissionerFlyerPopup({ whatsapp }: { whatsapp?: string }) {
                 <p className="text-sm font-semibold text-navy-800 dark:text-white">
                   Inzu yo kugurisha{" "}
                   <span className="text-[10px] font-semibold tracking-wide uppercase text-gray-400 ml-1">
-                    secondary
+                    kabiri
                   </span>
                 </p>
                 <p className="text-xs text-gray-500 mt-0.5">
