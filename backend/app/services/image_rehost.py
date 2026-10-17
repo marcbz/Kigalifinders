@@ -206,6 +206,19 @@ async def rehost_urls(urls: list[str], folder: str = PUBLIC_FOLDER) -> dict[str,
         if isinstance(out, BaseException):
             cloud = cloudinary_cloud_from_url(u)
             err_text = str(out)
+            # Never block a listing save for a photo that is already on Cloudinary
+            # when our upload destination cloud name is broken (e.g. "Root").
+            if cloud and (
+                "Invalid cloud_name" in err_text
+                or (cloudinary_credentials_present() and not cloudinary_ready())
+            ):
+                logger.warning(
+                    "Keeping existing Cloudinary URL after rehost failure (%s): %s",
+                    err_text,
+                    u[:120],
+                )
+                result[u] = u
+                continue
             if "Invalid cloud_name" in err_text or (
                 cloudinary_credentials_present() and not cloudinary_ready()
             ):

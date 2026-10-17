@@ -60,6 +60,8 @@ class Settings(BaseSettings):
     FACEBOOK_CLIENT_SECRET: str = ""
 
     CLOUDINARY_CLOUD_NAME: str = ""
+    # Used only when CLOUDINARY_CLOUD_NAME is the invalid Render mix-up "Root".
+    CLOUDINARY_CLOUD_NAME_FALLBACK: str = ""
     CLOUDINARY_API_KEY: str = ""
     CLOUDINARY_API_SECRET: str = ""
 

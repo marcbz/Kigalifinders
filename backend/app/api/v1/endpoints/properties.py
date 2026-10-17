@@ -62,7 +62,7 @@ async def _sync_property_images(db: AsyncSession, prop: Property, images: list[P
     if images is None:
         return
 
-    from app.services.image_rehost import rehost_urls
+    from app.services.image_rehost import cloudinary_cloud_from_url, rehost_urls
 
     # Copy third-party / other-Cloudinary links onto our CDN before saving so visitors
     # outside Rwanda (or after a foreign account is disabled) still see the photos.
@@ -71,12 +71,26 @@ async def _sync_property_images(db: AsyncSession, prop: Property, images: list[P
         hosted = await rehost_urls(raw_urls)
     except ValueError as exc:
         detail = str(exc)
-        if "CLOUDINARY_CLOUD_NAME" not in detail and "misconfigured" not in detail.lower():
-            detail = (
-                f"{detail} Tip: use Upload from your device so the photo is stored on your "
-                "own Cloudinary account."
+        # Last resort: Media Library links on Cloudinary must never block publish/update
+        # when CLOUDINARY_CLOUD_NAME is mis-set (e.g. Render "Root").
+        cloudinary_urls = [u for u in raw_urls if cloudinary_cloud_from_url(u)]
+        if cloudinary_urls and (
+            "Invalid cloud_name" in detail
+            or "CLOUDINARY_CLOUD_NAME" in detail
+            or "misconfigured" in detail.lower()
+        ):
+            logger.warning(
+                "Saving listing images without rehost after Cloudinary config error: %s",
+                detail,
             )
-        raise HTTPException(status_code=400, detail=detail) from exc
+            hosted = {u: u for u in raw_urls}
+        else:
+            if "CLOUDINARY_CLOUD_NAME" not in detail and "misconfigured" not in detail.lower():
+                detail = (
+                    f"{detail} Tip: use Upload from your device so the photo is stored on your "
+                    "own Cloudinary account."
+                )
+            raise HTTPException(status_code=400, detail=detail) from exc
 
     result = await db.execute(select(PropertyImage).where(PropertyImage.property_id == prop.id))
     for img in result.scalars().all():

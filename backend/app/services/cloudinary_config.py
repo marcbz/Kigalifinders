@@ -8,9 +8,12 @@ into CLOUDINARY_CLOUD_NAME by mistake. That makes every upload fail with
 
 from __future__ import annotations
 
+import logging
 import re
 
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 # Values that are never a real Cloudinary cloud name (common deploy-form mixups).
 _BAD_CLOUD_NAMES = frozenset(
@@ -31,6 +34,12 @@ _BAD_CLOUD_NAMES = frozenset(
 
 _CLOUD_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
+# When CLOUDINARY_CLOUD_NAME is the Render mix-up "Root", recover to the cloud
+# already used by this project’s Media Library URLs so listing saves / uploads work
+# without waiting on a manual env edit. Override with CLOUDINARY_CLOUD_NAME_FALLBACK.
+_DEFAULT_ROOT_MIXUP_FALLBACK = "opgcvbbk"
+_logged_root_mixup = False
+
 
 def normalize_cloudinary_cloud_name(raw: str | None) -> str:
     """Strip whitespace and accidental quoting from an env value."""
@@ -48,12 +57,36 @@ def is_plausible_cloudinary_cloud_name(name: str | None) -> bool:
     return bool(_CLOUD_NAME_RE.fullmatch(name))
 
 
+def _root_mixup_fallback() -> str:
+    fallback = normalize_cloudinary_cloud_name(
+        getattr(settings, "CLOUDINARY_CLOUD_NAME_FALLBACK", None)
+        or _DEFAULT_ROOT_MIXUP_FALLBACK
+    )
+    return fallback if is_plausible_cloudinary_cloud_name(fallback) else ""
+
+
 def configured_cloudinary_cloud_name() -> str:
     """Cloud name to use for API calls / ownership checks, or '' if unusable."""
     name = normalize_cloudinary_cloud_name(settings.CLOUDINARY_CLOUD_NAME)
-    if not is_plausible_cloudinary_cloud_name(name):
-        return ""
-    return name
+    if is_plausible_cloudinary_cloud_name(name):
+        return name
+    # Recover the common Render “Root Directory” paste into CLOUDINARY_CLOUD_NAME.
+    if name.lower() == "root":
+        fallback = _root_mixup_fallback()
+        if fallback:
+            global _logged_root_mixup
+            if not _logged_root_mixup:
+                _logged_root_mixup = True
+                logger.warning(
+                    "CLOUDINARY_CLOUD_NAME=%r is invalid (Render Root Directory mix-up); "
+                    "using %r so uploads and listing saves keep working. Set "
+                    "CLOUDINARY_CLOUD_NAME=%s on the API host.",
+                    name,
+                    fallback,
+                    fallback,
+                )
+            return fallback
+    return ""
 
 
 def cloudinary_credentials_present() -> bool:
