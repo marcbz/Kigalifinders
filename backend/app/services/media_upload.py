@@ -6,6 +6,12 @@ import cloudinary.uploader
 from PIL import Image
 
 from app.core.config import settings
+from app.services.cloudinary_config import (
+    cloudinary_credentials_present,
+    cloudinary_ready,
+    configured_cloudinary_cloud_name,
+    invalid_cloud_name_message,
+)
 
 MAX_IMAGE_BYTES = 10 * 1024 * 1024
 ALLOWED_MIME = {"image/jpeg", "image/png", "image/webp", "image/gif"}
@@ -25,8 +31,11 @@ def _validate_image(data: bytes, mime_type: str | None) -> bytes:
 
 
 def _upload_cloudinary(data: bytes, folder: str) -> str:
+    cloud_name = configured_cloudinary_cloud_name()
+    if not cloud_name:
+        raise ValueError(invalid_cloud_name_message())
     cloudinary.config(
-        cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+        cloud_name=cloud_name,
         api_key=settings.CLOUDINARY_API_KEY,
         api_secret=settings.CLOUDINARY_API_SECRET,
     )
@@ -37,6 +46,9 @@ def _upload_cloudinary(data: bytes, folder: str) -> str:
             resource_type="image",
         )
     except Exception as exc:
+        err = str(exc)
+        if "Invalid cloud_name" in err:
+            raise ValueError(invalid_cloud_name_message()) from exc
         raise ValueError(f"Cloudinary upload failed: {exc}") from exc
     return result["secure_url"]
 
@@ -64,7 +76,9 @@ def _upload_s3(data: bytes, filename: str, folder: str, mime_type: str | None) -
 def upload_image(data: bytes, filename: str, folder: str = "kigalifinders", mime_type: str | None = None) -> str:
     data = _validate_image(data, mime_type)
 
-    if settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_API_KEY and settings.CLOUDINARY_API_SECRET:
+    if cloudinary_credentials_present():
+        if not cloudinary_ready():
+            raise ValueError(invalid_cloud_name_message())
         return _upload_cloudinary(data, folder)
 
     if settings.AWS_S3_BUCKET and settings.AWS_ACCESS_KEY_ID and settings.AWS_SECRET_ACCESS_KEY:

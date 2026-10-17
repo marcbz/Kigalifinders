@@ -138,21 +138,32 @@ async def upload_media(
 @router.get("/upload/status")
 async def upload_status(user: Annotated[User, Depends(require_staff)]):
     from app.core.config import settings
-
-    cloudinary_ready = bool(
-        settings.CLOUDINARY_CLOUD_NAME
-        and settings.CLOUDINARY_API_KEY
-        and settings.CLOUDINARY_API_SECRET
+    from app.services.cloudinary_config import (
+        cloudinary_credentials_present,
+        cloudinary_ready as cld_ready,
+        configured_cloudinary_cloud_name,
+        invalid_cloud_name_message,
+        normalize_cloudinary_cloud_name,
     )
+
+    cloudinary_ok = cld_ready()
     s3_ready = bool(
         settings.AWS_S3_BUCKET
         and settings.AWS_ACCESS_KEY_ID
         and settings.AWS_SECRET_ACCESS_KEY
     )
+    raw_cloud = normalize_cloudinary_cloud_name(settings.CLOUDINARY_CLOUD_NAME) or None
     return {
-        "configured": cloudinary_ready or s3_ready,
-        "provider": "cloudinary" if cloudinary_ready else ("s3" if s3_ready else None),
-        "cloudinary_cloud_name": settings.CLOUDINARY_CLOUD_NAME or None,
+        "configured": cloudinary_ok or s3_ready,
+        "provider": "cloudinary" if cloudinary_ok else ("s3" if s3_ready else None),
+        "cloudinary_cloud_name": configured_cloudinary_cloud_name() or None,
+        "cloudinary_cloud_name_raw": raw_cloud,
+        "cloudinary_cloud_name_invalid": bool(cloudinary_credentials_present() and not cloudinary_ok),
+        "cloudinary_config_help": (
+            invalid_cloud_name_message()
+            if cloudinary_credentials_present() and not cloudinary_ok
+            else None
+        ),
     }
 
 
@@ -165,6 +176,7 @@ async def external_images_report(
     from collections import Counter
 
     from app.models import PropertyImage
+    from app.services.cloudinary_config import configured_cloudinary_cloud_name
     from app.services.image_rehost import cloudinary_cloud_from_url, needs_rehost
 
     result = await db.execute(select(PropertyImage))
@@ -186,7 +198,7 @@ async def external_images_report(
             }
         )
     return {
-        "our_cloudinary_cloud": settings.CLOUDINARY_CLOUD_NAME or None,
+        "our_cloudinary_cloud": configured_cloudinary_cloud_name() or None,
         "total_images": len(rows),
         "external_count": len(external),
         "by_cloud": dict(clouds),

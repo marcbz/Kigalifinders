@@ -16,6 +16,12 @@ from urllib.parse import urlparse
 import httpx
 
 from app.core.config import settings
+from app.services.cloudinary_config import (
+    cloudinary_credentials_present,
+    cloudinary_ready,
+    configured_cloudinary_cloud_name,
+    invalid_cloud_name_message,
+)
 from app.services.media_upload import MAX_IMAGE_BYTES, upload_image
 
 logger = logging.getLogger(__name__)
@@ -26,17 +32,12 @@ USER_AGENT = "KigaliRent-ImageRehost/1.0"
 
 
 def storage_configured() -> bool:
-    cloudinary_ready = bool(
-        settings.CLOUDINARY_CLOUD_NAME
-        and settings.CLOUDINARY_API_KEY
-        and settings.CLOUDINARY_API_SECRET
-    )
     s3_ready = bool(
         settings.AWS_S3_BUCKET
         and settings.AWS_ACCESS_KEY_ID
         and settings.AWS_SECRET_ACCESS_KEY
     )
-    return cloudinary_ready or s3_ready
+    return cloudinary_ready() or s3_ready
 
 
 def cloudinary_cloud_from_url(url: str) -> str | None:
@@ -62,10 +63,10 @@ def is_our_hosted_url(url: str) -> bool:
         return False
     host = (parsed.hostname or "").lower()
 
-    our_cloud = (settings.CLOUDINARY_CLOUD_NAME or "").strip()
+    our_cloud = configured_cloudinary_cloud_name()
     if our_cloud:
         cloud = cloudinary_cloud_from_url(url)
-        if cloud and cloud == our_cloud:
+        if cloud and cloud.lower() == our_cloud.lower():
             return True
 
     bucket = (settings.AWS_S3_BUCKET or "").strip()
@@ -88,7 +89,17 @@ def needs_rehost(url: str) -> bool:
         return False
     if parsed.scheme not in ("http", "https") or not parsed.hostname:
         return False
-    return not is_our_hosted_url(url)
+    # Already on our CDN — keep as-is.
+    if is_our_hosted_url(url):
+        return False
+    # Cloudinary credentials present but cloud name is invalid (e.g. "Root"):
+    # we cannot copy onto a working CDN. Keep existing Cloudinary delivery URLs
+    # so admins can still save listings that use their Media Library links.
+    # Non-Cloudinary remote URLs still need a working upload destination.
+    if cloudinary_credentials_present() and not cloudinary_ready():
+        if cloudinary_cloud_from_url(url):
+            return False
+    return True
 
 
 def _assert_public_host(url: str) -> None:
@@ -142,12 +153,17 @@ async def fetch_image(url: str) -> tuple[bytes, str | None]:
 
 async def rehost_url(url: str, folder: str = PUBLIC_FOLDER) -> str:
     """Download `url` and upload it to our storage. Returns the new public URL."""
+    if is_our_hosted_url(url):
+        return url.strip()
+    if cloudinary_credentials_present() and not cloudinary_ready() and cloudinary_cloud_from_url(url):
+        # Misconfigured cloud name — keep Media Library URLs so listing edits are not blocked.
+        return url.strip()
     if not storage_configured():
+        if cloudinary_credentials_present() and not cloudinary_ready():
+            raise ValueError(invalid_cloud_name_message(cloudinary_cloud_from_url(url)))
         raise ValueError(
             "Image upload is not configured. Set Cloudinary or AWS S3 credentials on the server."
         )
-    if is_our_hosted_url(url):
-        return url.strip()
     data, mime = await fetch_image(url)
     filename = urlparse(url).path.rsplit("/", 1)[-1] or "image.jpg"
     return await asyncio.to_thread(upload_image, data, filename, folder, mime)
@@ -168,6 +184,11 @@ async def rehost_urls(urls: list[str], folder: str = PUBLIC_FOLDER) -> dict[str,
     if not todo:
         return result
 
+    if cloudinary_credentials_present() and not cloudinary_ready() and not storage_configured():
+        # Need to copy non-Cloudinary URLs but destination cloud name is broken.
+        sample = cloudinary_cloud_from_url(next((u for u in unique if cloudinary_cloud_from_url(u)), ""))
+        raise ValueError(invalid_cloud_name_message(sample))
+
     if not storage_configured():
         raise ValueError(
             "Image upload is not configured. Set Cloudinary or AWS S3 credentials on the server."
@@ -180,17 +201,23 @@ async def rehost_urls(urls: list[str], folder: str = PUBLIC_FOLDER) -> dict[str,
             return u, await rehost_url(u, folder=folder)
 
     outcomes = await asyncio.gather(*(one(u) for u in todo), return_exceptions=True)
+    our_cloud = configured_cloudinary_cloud_name()
     for u, out in zip(todo, outcomes):
         if isinstance(out, BaseException):
             cloud = cloudinary_cloud_from_url(u)
+            err_text = str(out)
+            if "Invalid cloud_name" in err_text or (
+                cloudinary_credentials_present() and not cloudinary_ready()
+            ):
+                raise ValueError(invalid_cloud_name_message(cloud)) from out
             hint = ""
-            if cloud and cloud != (settings.CLOUDINARY_CLOUD_NAME or "").strip():
+            if cloud and our_cloud and cloud.lower() != our_cloud.lower():
                 hint = (
                     f" That photo is on Cloudinary cloud “{cloud}”, not your account"
-                    f" “{settings.CLOUDINARY_CLOUD_NAME}”. Download the file and Upload it,"
+                    f" “{our_cloud}”. Download the file and Upload it,"
                     " or fix the source link."
                 )
-            raise ValueError(f"Could not copy {u[:120]} onto your image CDN: {out}.{hint}")
+            raise ValueError(f"Could not copy {u[:120]} onto your image CDN: {out}.{hint}") from out
         _orig, hosted = out
         result[u] = hosted
     return result

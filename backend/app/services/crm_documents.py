@@ -12,6 +12,7 @@ import time
 import uuid
 
 from app.core.config import settings
+from app.services.cloudinary_config import cloudinary_ready, configured_cloudinary_cloud_name
 
 MAX_DOCUMENT_BYTES = 10 * 1024 * 1024
 DOWNLOAD_URL_TTL_SECONDS = 300
@@ -23,14 +24,14 @@ ALLOWED_EXTENSIONS = {
 
 
 def storage_configured() -> bool:
-    return bool(settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_API_KEY and settings.CLOUDINARY_API_SECRET)
+    return cloudinary_ready()
 
 
 def _configure():
     import cloudinary
 
     cloudinary.config(
-        cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+        cloud_name=configured_cloudinary_cloud_name(),
         api_key=settings.CLOUDINARY_API_KEY,
         api_secret=settings.CLOUDINARY_API_SECRET,
         secure=True,

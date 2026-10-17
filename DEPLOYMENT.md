@@ -32,12 +32,13 @@ Repository: `https://github.com/marcbz/Kigalifinders`
 | `SUPABASE_URL` | `https://hmfdvrdorvdjhbkvprij.supabase.co` |
 | `SUPABASE_PUBLISHABLE_KEY` | From Supabase dashboard |
 | `SUPABASE_SECRET_KEY` | From Supabase dashboard |
-| `CLOUDINARY_CLOUD_NAME` | From [Cloudinary Dashboard](https://cloudinary.com/console) |
+| `CLOUDINARY_CLOUD_NAME` | Cloud name from [Cloudinary Dashboard](https://cloudinary.com/console) (e.g. `opgcvbbk` — the segment after `res.cloudinary.com/` in your image URLs). **Not** Render’s “Root Directory”. |
 | `CLOUDINARY_API_KEY` | From Cloudinary Dashboard |
 | `CLOUDINARY_API_SECRET` | From Cloudinary Dashboard |
 
 > **Image uploads** (admin property/blog photos) require Cloudinary. After deploy, verify with  
-> `GET /api/v1/admin/upload/status` (while logged in as admin) — should return `{"configured": true, "provider": "cloudinary"}`.
+> `GET /api/v1/admin/upload/status` (while logged in as admin) — should return `{"configured": true, "provider": "cloudinary"}`.  
+> If `cloudinary_cloud_name_invalid` is `true`, fix `CLOUDINARY_CLOUD_NAME` on Render (a value like `Root` will break uploads and listing saves).
 
 5. Deploy — your API will be at `https://kigalifinders-api.onrender.com`
 6. Verify: `https://kigalifinders-api.onrender.com/health`

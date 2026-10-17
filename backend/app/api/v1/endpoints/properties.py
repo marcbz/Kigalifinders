@@ -70,13 +70,13 @@ async def _sync_property_images(db: AsyncSession, prop: Property, images: list[P
     try:
         hosted = await rehost_urls(raw_urls)
     except ValueError as exc:
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"{exc} Tip: use Upload from your device so the photo is stored on your "
+        detail = str(exc)
+        if "CLOUDINARY_CLOUD_NAME" not in detail and "misconfigured" not in detail.lower():
+            detail = (
+                f"{detail} Tip: use Upload from your device so the photo is stored on your "
                 "own Cloudinary account."
-            ),
-        ) from exc
+            )
+        raise HTTPException(status_code=400, detail=detail) from exc
 
     result = await db.execute(select(PropertyImage).where(PropertyImage.property_id == prop.id))
     for img in result.scalars().all():
