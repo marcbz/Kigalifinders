@@ -1,5 +1,6 @@
 import axios, { type AxiosError, type InternalAxiosRequestConfig } from "axios";
 import type {
+  AdminPropertyDetail,
   BlogPost,
   FAQ,
   HomepageData,
@@ -113,6 +114,8 @@ export interface PropertyCreatePayload {
   has_title_deed?: boolean;
   badge_label?: string;
   address?: string;
+  /** Private admin notes — never shown on the public website. */
+  crm_notes?: string | null;
   latitude?: number;
   longitude?: number;
   realtor_name?: string;
@@ -145,7 +148,7 @@ export const propertyService = {
   listAdmin: (params?: PropertySearchParams) =>
     api.get<PaginatedResponse<PropertyListItem>>("/properties/manage", { params }).then((r) => r.data),
   getAdminById: (id: string) =>
-    api.get<PropertyDetail>(`/properties/manage/${id}`).then((r) => r.data),
+    api.get<AdminPropertyDetail>(`/properties/manage/${id}`).then((r) => r.data),
   featured: (limit = 6, listing_type?: string) =>
     api.get<PropertyListItem[]>("/properties/featured", { params: { limit, listing_type } }).then((r) => r.data),
   getBySlug: (slug: string) =>

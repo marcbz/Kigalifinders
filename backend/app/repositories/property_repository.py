@@ -17,7 +17,14 @@ from app.models import (
     PropertyStatusEnum,
     PropertyType,
 )
-from app.schemas import PaginatedResponse, PropertyDetail, PropertyImageResponse, PropertyListItem, PropertySearchParams
+from app.schemas import (
+    AdminPropertyDetail,
+    PaginatedResponse,
+    PropertyDetail,
+    PropertyImageResponse,
+    PropertyListItem,
+    PropertySearchParams,
+)
 from app.core.neighborhood_groups import expanded_neighborhood_slugs
 
 
@@ -139,6 +146,11 @@ class PropertyRepository:
             exchange_rate_source=prop.exchange_rate_source,
             is_available=prop.status == PropertyStatusEnum.PUBLISHED,
         )
+
+    def _to_admin_detail(self, prop: Property) -> AdminPropertyDetail:
+        """Staff serializer including private notes. Never use for public endpoints."""
+        detail = self._to_detail(prop)
+        return AdminPropertyDetail(**detail.model_dump(), crm_notes=prop.crm_notes)
 
     async def _resolve_neighborhood_ids(
         self,

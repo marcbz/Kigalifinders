@@ -771,7 +771,7 @@ export function PropertyFormModal({ property, onClose, onSaved }: { property?: C
           <p className="text-xs font-semibold text-gray-600 mb-1">Commission (leave empty to use the landlord&apos;s agreement)</p>
           <CommissionInputs value={c} onChange={setC} />
         </div>
-        <Field label="Internal notes"><textarea className={`${inputCls} min-h-[60px]`} value={f.crm_notes} onChange={set("crm_notes")} placeholder="Private — never shown on the website" /></Field>
+        <Field label="Internal notes"><textarea className={`${inputCls} min-h-[60px]`} value={f.crm_notes} onChange={set("crm_notes")} placeholder="Private — location, landlord/commissioner/manager contacts…" /></Field>
         <ErrorText error={m.error} />
         <FormActions pending={m.isPending} onCancel={onClose} label={property ? "Save" : "Add to CRM"} />
       </form>

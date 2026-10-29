@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { BlogRichTextEditor } from "@/components/admin/blog-rich-text-editor";
 import { ImageUrlOrUpload } from "@/components/admin/image-url-or-upload";
 import { FeaturedImageSeoPanel } from "@/components/admin/featured-image-seo-panel";
-import type { PropertyDetail, PropertyListItem } from "@/types";
+import type { AdminPropertyDetail, PropertyListItem } from "@/types";
 import {
   locationService,
   propertyService,
@@ -67,6 +67,8 @@ const defaultForm = {
   has_title_deed: false,
   badge_label: "",
   property_type_ids: [] as string[],
+  address: "",
+  crm_notes: "",
 };
 
 type PropertyDraftData = {
@@ -109,7 +111,7 @@ function YesNoField({
 
 function formFromProperty(
   property: PropertyListItem,
-  detail?: PropertyDetail | null,
+  detail?: AdminPropertyDetail | null,
 ): { form: typeof defaultForm; imageRows: ImageRow[] } {
   return {
     form: {
@@ -155,6 +157,8 @@ function formFromProperty(
       is_featured: property.is_featured,
       has_title_deed: property.has_title_deed,
       badge_label: property.badge_label || "",
+      address: detail?.address || "",
+      crm_notes: detail?.crm_notes || "",
     },
     imageRows: detail?.images?.length
       ? detail.images.map((img) => ({
@@ -189,6 +193,8 @@ function propertyDraftHasMeaningfulContent(data: PropertyDraftData): boolean {
     form.neighborhood_id,
     form.realtor_name,
     form.badge_label,
+    form.address,
+    form.crm_notes,
   ];
   if (
     meaningful.some((v) => {
@@ -391,6 +397,8 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       is_featured: form.is_featured,
       has_title_deed: form.has_title_deed,
       badge_label: form.badge_label.trim() || undefined,
+      address: form.address.trim() || null,
+      crm_notes: form.crm_notes.trim() || null,
       ...(includeImages ? { images } : {}),
     };
   };
@@ -645,6 +653,29 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <YesNoField label="JACUZZI" value={form.has_jacuzzi} onChange={(v) => setForm({ ...form, has_jacuzzi: v })} />
             <YesNoField label="GARDEN" value={form.has_garden} onChange={(v) => setForm({ ...form, has_garden: v })} />
             <YesNoField label="PETS ALLOWED" value={form.pets_allowed} onChange={(v) => setForm({ ...form, pets_allowed: v })} />
+            <div className="md:col-span-2 pt-2 border-t">
+              <h4 className="text-sm font-semibold text-navy-800 dark:text-white mb-1">
+                Private admin notes
+              </h4>
+              <p className="text-xs text-gray-400 mb-3">
+                Admin-only — never shown on the public website. Use for exact location/directions,
+                commissioner / landlord / manager contacts, gate codes, and similar internal details.
+              </p>
+              <label className="text-xs font-semibold text-gray-500">ADDRESS / DIRECTIONS</label>
+              <input
+                className="lux-input mt-1 mb-3"
+                placeholder="Exact address, landmarks, gate instructions…"
+                value={form.address}
+                onChange={(e) => setForm({ ...form, address: e.target.value })}
+              />
+              <label className="text-xs font-semibold text-gray-500">INTERNAL NOTES</label>
+              <textarea
+                className="lux-input mt-1 min-h-[100px]"
+                placeholder="Landlord / commissioner / manager name & phone, WhatsApp, commission notes, viewing tips…"
+                value={form.crm_notes}
+                onChange={(e) => setForm({ ...form, crm_notes: e.target.value })}
+              />
+            </div>
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">SHORT DESCRIPTION (EXCERPT)</label>
               <p className="text-xs text-gray-400 mt-0.5 mb-1">

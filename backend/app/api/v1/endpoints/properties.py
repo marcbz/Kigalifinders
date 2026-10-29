@@ -16,7 +16,16 @@ from app.services import crm as crm_svc
 from app.services.indexnow import property_urls, submit_research_pages, submit_urls
 from app.services.location_counts import sync_location_counts
 from app.repositories.property_repository import PropertyRepository
-from app.schemas import PaginatedResponse, PropertyCreate, PropertyDetail, PropertyImageInput, PropertyListItem, PropertySearchParams, PropertyUpdate
+from app.schemas import (
+    AdminPropertyDetail,
+    PaginatedResponse,
+    PropertyCreate,
+    PropertyDetail,
+    PropertyImageInput,
+    PropertyListItem,
+    PropertySearchParams,
+    PropertyUpdate,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -234,18 +243,18 @@ async def list_properties_admin(
     return await repo.search(params, published_only=False)
 
 
-@router.get("/manage/{property_id}", response_model=PropertyDetail)
+@router.get("/manage/{property_id}", response_model=AdminPropertyDetail)
 async def get_property_admin(
     property_id: UUID,
     db: Annotated[AsyncSession, Depends(get_db)],
     user: Annotated[User, Depends(require_staff)],
 ):
-    """Full property detail for staff, including drafts (public slug API excludes drafts)."""
+    """Full property detail for staff, including drafts and private admin notes."""
     repo = PropertyRepository(db)
     prop = await repo.get_by_id(property_id)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
-    return repo._to_detail(prop)
+    return repo._to_admin_detail(prop)
 
 
 @router.get("/featured", response_model=list[PropertyListItem])
@@ -265,7 +274,8 @@ async def get_property(slug: str, db: Annotated[AsyncSession, Depends(get_db)]):
     prop = await repo.get_by_slug(slug, track_view=False, allow_soft_unavailable=True)
     if not prop:
         raise HTTPException(status_code=404, detail="Property not found")
-    # Address / directions are internal (admin + CRM only).
+    # Address / directions and private admin notes are internal (admin + CRM only).
+    # crm_notes lives only on AdminPropertyDetail — strip address here for safety.
     return prop.model_copy(update={"address": None})
 
 
@@ -399,7 +409,8 @@ async def create_property(
         is_furnished=data.is_furnished,
         has_title_deed=data.has_title_deed,
         badge_label=data.badge_label,
-        address=data.address,
+        address=(data.address.strip() if data.address and data.address.strip() else None),
+        crm_notes=(data.crm_notes.strip() if data.crm_notes and data.crm_notes.strip() else None),
         latitude=data.latitude,
         longitude=data.longitude,
         realtor_name=data.realtor_name,
@@ -483,6 +494,10 @@ async def update_property(
         )
         updates["property_type_id"] = primary_type_id
         updates["property_type_ids"] = type_ids
+
+    for text_field in ("address", "crm_notes"):
+        if text_field in updates and isinstance(updates[text_field], str):
+            updates[text_field] = updates[text_field].strip() or None
 
     old_price, old_currency = prop.price, prop.currency
     for field, value in updates.items():

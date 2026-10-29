@@ -151,6 +151,12 @@ class PropertyDetail(PropertyListItem):
     is_available: bool = True
 
 
+class AdminPropertyDetail(PropertyDetail):
+    """Staff-only property detail. Private fields must never appear on public schemas/endpoints."""
+
+    crm_notes: Optional[str] = None
+
+
 class PropertyImageInput(BaseModel):
     url: str
     alt_text: Optional[str] = None
@@ -184,6 +190,7 @@ class PropertyCreate(BaseModel):
     has_title_deed: bool = False
     badge_label: Optional[str] = None
     address: Optional[str] = None
+    crm_notes: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     realtor_name: Optional[str] = None
@@ -226,6 +233,7 @@ class PropertyUpdate(BaseModel):
     has_title_deed: Optional[bool] = None
     badge_label: Optional[str] = None
     address: Optional[str] = None
+    crm_notes: Optional[str] = None
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     realtor_name: Optional[str] = None

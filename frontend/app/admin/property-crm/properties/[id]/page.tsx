@@ -100,7 +100,7 @@ function NotesCard({ p }: { p: CrmPropertyDetail }) {
   const m = useCrmMutation(() => crmApi.updateProperty(p.id, { crm_notes: notes }));
   return (
     <Card title="Internal notes">
-      <textarea className={`${inputCls} min-h-[80px]`} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Private notes — never shown on the website" />
+      <textarea className={`${inputCls} min-h-[80px]`} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Private — location details, landlord/commissioner/manager contacts, gate codes…" />
       <div className="mt-1 flex items-center gap-2">
         <SmallButton variant="primary" disabled={m.isPending || notes === (p.crm_notes ?? "")} onClick={() => m.mutate(undefined)}>Save notes</SmallButton>
         <ErrorText error={m.error} />

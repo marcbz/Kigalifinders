@@ -73,6 +73,11 @@ export interface PropertyDetail extends PropertyListItem {
   created_at: string;
 }
 
+/** Staff-only detail from /properties/manage/:id — never returned by public APIs. */
+export interface AdminPropertyDetail extends PropertyDetail {
+  crm_notes?: string | null;
+}
+
 export interface Testimonial {
   id: string;
   name: string;
