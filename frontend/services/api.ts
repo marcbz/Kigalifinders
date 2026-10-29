@@ -113,7 +113,8 @@ export interface PropertyCreatePayload {
   is_furnished?: boolean;
   has_title_deed?: boolean;
   badge_label?: string;
-  address?: string;
+  /** Exact location — admin-only; stripped from public property pages. */
+  address?: string | null;
   /** Private admin notes — never shown on the public website. */
   crm_notes?: string | null;
   latitude?: number;
