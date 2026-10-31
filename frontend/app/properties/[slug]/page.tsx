@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
-import { Bath, Bed, CalendarCheck, Car, CheckCircle2, MapPin, Ruler, Trees } from "lucide-react";
+import { Bath, Bed, CalendarCheck, Car, MapPin, Ruler, Trees } from "lucide-react";
 import { notFound } from "next/navigation";
+import { CrmAvailabilityBadge } from "@/components/property/crm-availability-badge";
 import { PropertyGallery } from "@/components/property/property-gallery";
 import { PropertyDescription } from "@/components/property/property-description";
 import { PropertyFeaturesTable } from "@/components/property/property-features-table";
@@ -158,11 +159,11 @@ export default async function PropertyDetailPage({ params }: Props) {
                   <Bath className="text-gold-500" /> {property.bathrooms} Bathrooms
                 </span>
               )}
-              {property.crm_available && (
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-600 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white shadow-sm">
-                  <CheckCircle2 className="w-3.5 h-3.5" aria-hidden /> Available
-                </span>
-              )}
+              <CrmAvailabilityBadge
+                status={property.crm_availability_status}
+                available={property.crm_available}
+                size="md"
+              />
               {property.parking_spaces != null && property.parking_spaces > 0 ? (
                 <span className="flex items-center gap-2">
                   <Car className="text-gold-500" /> {property.parking_spaces} Parking space{property.parking_spaces === 1 ? "" : "s"}

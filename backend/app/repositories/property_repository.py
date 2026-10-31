@@ -116,6 +116,15 @@ class PropertyRepository:
                 and prop.availability_status == "AVAILABLE"
                 and prop.status == PropertyStatusEnum.PUBLISHED
             ),
+            crm_availability_status=(
+                prop.availability_status
+                if (
+                    bool(prop.in_crm)
+                    and prop.status == PropertyStatusEnum.PUBLISHED
+                    and prop.availability_status in ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
+                )
+                else None
+            ),
         )
 
     def _to_detail(self, prop: Property) -> PropertyDetail:

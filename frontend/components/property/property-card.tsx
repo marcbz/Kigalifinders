@@ -1,9 +1,10 @@
 import Link from "next/link";
-import { ArrowRight, Bath, Bed, CheckCircle2, MapPin, Ruler } from "lucide-react";
+import { ArrowRight, Bath, Bed, MapPin, Ruler } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { PropertyListItem } from "@/types";
 import { getListingBadge, getPropertyAreaLabel, getPropertyImageAlt } from "@/lib/property-features";
 import { getPropertyHref } from "@/lib/property-url";
+import { CrmAvailabilityBadge } from "@/components/property/crm-availability-badge";
 import { ListingImage } from "@/components/property/listing-image";
 import { PropertyCardActions } from "@/components/property/property-card-actions";
 import { PropertyImageFrame } from "@/components/property/property-image-frame";
@@ -71,11 +72,10 @@ export function PropertyCard({ property }: PropertyCardProps) {
           {property.bathrooms != null && (
             <span className="flex items-center gap-1"><Bath className="w-4 h-4 text-gold-500" /> {property.bathrooms} Baths</span>
           )}
-          {property.crm_available && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-wide text-white shadow-sm">
-              <CheckCircle2 className="w-3.5 h-3.5" aria-hidden /> Available
-            </span>
-          )}
+          <CrmAvailabilityBadge
+            status={property.crm_availability_status}
+            available={property.crm_available}
+          />
           {areaLabel && (
             <span className="flex items-center gap-1">
               <Ruler className="w-4 h-4 text-gold-500" />
