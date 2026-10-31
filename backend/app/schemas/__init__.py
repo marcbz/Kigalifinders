@@ -128,6 +128,9 @@ class PropertyListItem(BaseModel):
     data_source_kind: str = "verified_kigali_rent"
     availability_note: Optional[str] = None
     crm_available: bool = False
+    # Public CRM availability label (AVAILABLE / RESERVED / RENTED / UNAVAILABLE).
+    # None when the listing is not in CRM or not published; VERIFY is omitted from the public site.
+    crm_availability_status: Optional[str] = None
 
 
 class PropertyDetail(PropertyListItem):
