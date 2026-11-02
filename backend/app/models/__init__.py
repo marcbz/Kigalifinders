@@ -381,6 +381,8 @@ class Property(Base):
         UUID(as_uuid=True), ForeignKey("crm_landlords.id", ondelete="SET NULL"), index=True
     )
     availability_status: Mapped[str] = mapped_column(String(20), default="AVAILABLE", server_default="AVAILABLE", index=True)
+    # When true, public site shows Available/Reserved/Rented/Unavailable badge from availability_status.
+    show_availability_badge: Mapped[bool] = mapped_column(Boolean, default=False, server_default="false")
     availability_updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     availability_verified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
     availability_verified_by_id: Mapped[uuid.UUID | None] = mapped_column(

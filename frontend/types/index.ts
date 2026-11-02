@@ -80,6 +80,8 @@ export interface PropertyDetail extends PropertyListItem {
 /** Staff-only detail from /properties/manage/:id — never returned by public APIs. */
 export interface AdminPropertyDetail extends PropertyDetail {
   crm_notes?: string | null;
+  availability_status?: string;
+  show_availability_badge?: boolean;
 }
 
 export interface Testimonial {

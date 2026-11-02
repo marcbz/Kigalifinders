@@ -31,6 +31,25 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
+# Statuses that can appear as the public listing availability badge.
+PUBLIC_AVAILABILITY_STATUSES = ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
+
+
+def _normalize_public_availability(
+    availability_status: str | None,
+    show_availability_badge: bool | None,
+) -> tuple[str | None, bool | None]:
+    """Validate listing-form availability badge fields."""
+    if availability_status is not None:
+        status_value = str(availability_status).strip().upper()
+        if status_value and status_value not in PUBLIC_AVAILABILITY_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"availability_status must be one of: {', '.join(PUBLIC_AVAILABILITY_STATUSES)}",
+            )
+        availability_status = status_value or None
+    return availability_status, show_availability_badge
+
 
 def _normalize_images(images: list[Any] | None) -> list[PropertyImageInput] | None:
     if images is None:
@@ -383,6 +402,12 @@ async def create_property(
     await store_rate(db, fx)
     usd_fields = resolve_property_usd_fields(data.price, data.currency, fx)
 
+    availability_status, show_badge = _normalize_public_availability(
+        data.availability_status, data.show_availability_badge
+    )
+    if show_badge and not availability_status:
+        availability_status = "AVAILABLE"
+
     prop = Property(
         title=data.title,
         slug=slug,
@@ -423,6 +448,8 @@ async def create_property(
         has_garden=data.has_garden,
         pets_allowed=data.pets_allowed,
         show_features_table=data.show_features_table,
+        availability_status=availability_status or "AVAILABLE",
+        show_availability_badge=bool(show_badge),
         meta_title=data.meta_title,
         meta_description=data.meta_description,
         data_source_kind="verified_kigali_rent",
@@ -499,6 +526,26 @@ async def update_property(
     for text_field in ("address", "crm_notes"):
         if text_field in updates and isinstance(updates[text_field], str):
             updates[text_field] = updates[text_field].strip() or None
+
+    if "availability_status" in updates or "show_availability_badge" in updates:
+        next_status, next_show = _normalize_public_availability(
+            updates.pop("availability_status", prop.availability_status),
+            updates.pop(
+                "show_availability_badge",
+                getattr(prop, "show_availability_badge", False),
+            ),
+        )
+        show_badge = bool(next_show)
+        if show_badge:
+            status_value = next_status or "AVAILABLE"
+            if prop.in_crm:
+                crm_svc.set_availability(db, prop, status_value, user=user)
+            else:
+                prop.availability_status = status_value
+                prop.availability_updated_at = datetime.now(timezone.utc)
+            prop.show_availability_badge = True
+        else:
+            prop.show_availability_badge = False
 
     old_price, old_currency = prop.price, prop.currency
     for field, value in updates.items():

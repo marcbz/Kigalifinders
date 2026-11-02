@@ -129,7 +129,7 @@ class PropertyListItem(BaseModel):
     data_source_kind: str = "verified_kigali_rent"
     availability_note: Optional[str] = None
     crm_available: bool = False
-    # Public CRM availability badge: AVAILABLE | RESERVED | RENTED | UNAVAILABLE
+    # Public availability badge: AVAILABLE | RESERVED | RENTED | UNAVAILABLE
     crm_availability_status: Optional[str] = None
 
 
@@ -158,6 +158,8 @@ class AdminPropertyDetail(PropertyDetail):
     """Staff-only property detail. Private fields must never appear on public schemas/endpoints."""
 
     crm_notes: Optional[str] = None
+    availability_status: str = "AVAILABLE"
+    show_availability_badge: bool = False
 
 
 class PropertyImageInput(BaseModel):
@@ -206,6 +208,9 @@ class PropertyCreate(BaseModel):
     has_garden: bool = False
     pets_allowed: bool = False
     show_features_table: bool = True
+    # Public site badge: AVAILABLE | RESERVED | RENTED | UNAVAILABLE (None = hide)
+    availability_status: Optional[str] = None
+    show_availability_badge: bool = False
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     images: List[PropertyImageInput] = []
@@ -250,6 +255,8 @@ class PropertyUpdate(BaseModel):
     has_garden: Optional[bool] = None
     pets_allowed: Optional[bool] = None
     show_features_table: Optional[bool] = None
+    availability_status: Optional[str] = None
+    show_availability_badge: Optional[bool] = None
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     images: Optional[List[PropertyImageInput]] = None

@@ -130,6 +130,9 @@ export interface PropertyCreatePayload {
   has_garden?: boolean;
   pets_allowed?: boolean;
   show_features_table?: boolean;
+  /** Public site badge: AVAILABLE | RESERVED | RENTED | UNAVAILABLE */
+  availability_status?: string | null;
+  show_availability_badge?: boolean;
   meta_title?: string;
   meta_description?: string;
   images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];

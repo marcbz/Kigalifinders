@@ -233,6 +233,8 @@ def set_availability(
     if user is not None:
         prop.availability_verified_at = now
         prop.availability_verified_by_id = user.id
+    # Keep public listing badge in sync with CRM availability actions.
+    prop.show_availability_badge = new_status in ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
     if new_status == old_status:
         return False
     prop.availability_status = new_status
@@ -322,6 +324,7 @@ async def add_to_crm(db: AsyncSession, prop: Property, *, user: User | None, ava
     now = utcnow()
     prop.availability_status = check_choice(availability, AVAILABILITY_STATUSES, "availability status") or initial_availability(prop)
     prop.availability_updated_at = now
+    prop.show_availability_badge = prop.availability_status in ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
     if user is not None:
         prop.availability_verified_at = now
         prop.availability_verified_by_id = user.id

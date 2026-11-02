@@ -55,6 +55,8 @@ const defaultForm = {
   neighborhood_id: "",
   realtor_name: "",
   whatsapp: "",
+  /** Empty = hide public badge; otherwise AVAILABLE | RESERVED | RENTED | UNAVAILABLE */
+  public_availability: "",
   is_furnished_yn: "",
   has_balcony: "",
   has_kitchen: "",
@@ -147,6 +149,16 @@ function formFromProperty(
             : [],
       realtor_name: detail?.realtor_name || property.realtor_name || "",
       whatsapp: detail?.whatsapp || property.whatsapp || "",
+      public_availability: (() => {
+        const publicStatuses = ["AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE"];
+        if (detail?.show_availability_badge && detail.availability_status && publicStatuses.includes(detail.availability_status)) {
+          return detail.availability_status;
+        }
+        if (property.crm_availability_status && publicStatuses.includes(property.crm_availability_status)) {
+          return property.crm_availability_status;
+        }
+        return "";
+      })(),
       is_furnished_yn: boolToYesNo(property.is_furnished),
       has_balcony: boolToYesNo(detail?.has_balcony ?? property.has_balcony),
       has_kitchen: boolToYesNo(detail?.has_kitchen ?? property.has_kitchen),
@@ -195,6 +207,7 @@ function propertyDraftHasMeaningfulContent(data: PropertyDraftData): boolean {
     form.neighborhood_id,
     form.realtor_name,
     form.whatsapp,
+    form.public_availability,
     form.badge_label,
     form.address,
     form.crm_notes,
@@ -389,6 +402,8 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       property_type_id: form.property_type_ids[0] || undefined,
       realtor_name: form.realtor_name.trim() || undefined,
       whatsapp: form.whatsapp.trim().replace(/\D/g, "") || null,
+      availability_status: form.public_availability || null,
+      show_availability_badge: Boolean(form.public_availability),
       is_furnished: yesNoToBool(form.is_furnished_yn) ?? false,
       has_balcony: yesNoToBool(form.has_balcony) ?? false,
       has_kitchen: yesNoToBool(form.has_kitchen) ?? false,
@@ -555,6 +570,23 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                 <option value="published">Published</option>
                 <option value="archived">Archived</option>
               </select>
+            </div>
+            <div className="md:col-span-2">
+              <label className="text-xs font-semibold text-gray-500">PUBLIC AVAILABILITY BADGE</label>
+              <select
+                className="lux-input mt-1"
+                value={form.public_availability}
+                onChange={(e) => setForm({ ...form, public_availability: e.target.value })}
+              >
+                <option value="">Don’t show on website</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="RESERVED">Reserved</option>
+                <option value="RENTED">Rented</option>
+                <option value="UNAVAILABLE">Unavailable</option>
+              </select>
+              <p className="text-xs text-gray-400 mt-1">
+                Same badge as Property CRM (Available / Reserved / Rented / Unavailable). Leave blank to hide it.
+              </p>
             </div>
             <div>
               <label className="text-xs font-semibold text-gray-500">PRICE *</label>

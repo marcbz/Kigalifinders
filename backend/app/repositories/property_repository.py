@@ -113,14 +113,14 @@ class PropertyRepository:
                 else "This property is no longer verified as available."
             ),
             crm_available=(
-                bool(prop.in_crm)
+                bool(getattr(prop, "show_availability_badge", False))
                 and prop.availability_status == "AVAILABLE"
                 and prop.status == PropertyStatusEnum.PUBLISHED
             ),
             crm_availability_status=(
                 prop.availability_status
                 if (
-                    bool(prop.in_crm)
+                    bool(getattr(prop, "show_availability_badge", False))
                     and prop.status == PropertyStatusEnum.PUBLISHED
                     and prop.availability_status in ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
                 )
@@ -160,7 +160,12 @@ class PropertyRepository:
     def _to_admin_detail(self, prop: Property) -> AdminPropertyDetail:
         """Staff serializer including private notes. Never use for public endpoints."""
         detail = self._to_detail(prop)
-        return AdminPropertyDetail(**detail.model_dump(), crm_notes=prop.crm_notes)
+        return AdminPropertyDetail(
+            **detail.model_dump(),
+            crm_notes=prop.crm_notes,
+            availability_status=prop.availability_status or "AVAILABLE",
+            show_availability_badge=bool(getattr(prop, "show_availability_badge", False)),
+        )
 
     async def _resolve_neighborhood_ids(
         self,
