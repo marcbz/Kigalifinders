@@ -50,6 +50,8 @@ export interface PropertyListItem {
   data_source_kind?: string;
   availability_note?: string;
   crm_available?: boolean;
+  /** Public CRM badge: AVAILABLE | RESERVED | RENTED | UNAVAILABLE */
+  crm_availability_status?: string | null;
 }
 
 export interface PropertyDetail extends PropertyListItem {
