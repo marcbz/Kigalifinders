@@ -23,7 +23,15 @@ export default async function Image({ params }: Props) {
     property != null
       ? `${property.currency || "USD"} ${Math.round(property.price).toLocaleString()}${
           property.listing_type !== "sale" && property.price_period
-            ? `/${property.price_period === "month" ? "mo" : property.price_period}`
+            ? `/${
+                property.price_period === "month"
+                  ? "mo"
+                  : property.price_period === "year"
+                    ? "yr"
+                    : property.price_period === "daily"
+                      ? "day"
+                      : property.price_period
+              }`
             : ""
         }`
       : "";

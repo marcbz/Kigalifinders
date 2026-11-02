@@ -129,7 +129,7 @@ class PropertyListItem(BaseModel):
     data_source_kind: str = "verified_kigali_rent"
     availability_note: Optional[str] = None
     crm_available: bool = False
-    # Public availability badge: AVAILABLE | RESERVED | RENTED | UNAVAILABLE
+    # Public availability badge: AVAILABLE | RESERVED | RENTED | SOLD | UNAVAILABLE
     crm_availability_status: Optional[str] = None
 
 
@@ -208,7 +208,7 @@ class PropertyCreate(BaseModel):
     has_garden: bool = False
     pets_allowed: bool = False
     show_features_table: bool = True
-    # Public site badge: AVAILABLE | RESERVED | RENTED | UNAVAILABLE (None = hide)
+    # Public site badge: AVAILABLE | RESERVED | RENTED | SOLD | UNAVAILABLE (None = hide)
     availability_status: Optional[str] = None
     show_availability_badge: bool = False
     meta_title: Optional[str] = None

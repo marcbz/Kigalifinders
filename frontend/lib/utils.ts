@@ -20,13 +20,27 @@ export function getApiErrorMessage(err: unknown, fallback = "Something went wron
   return fallback;
 }
 
+const PRICE_PERIOD_LABELS: Record<string, string> = {
+  month: "mo",
+  day: "day",
+  daily: "day",
+  night: "night",
+  year: "yr",
+};
+
+export function formatPricePeriod(period?: string | null) {
+  if (!period) return "";
+  return PRICE_PERIOD_LABELS[period] || period;
+}
+
 export function formatPrice(price: number, currency = "USD", period?: string | null) {
   const formatted = new Intl.NumberFormat("en-US", {
     style: "currency",
     currency,
     maximumFractionDigits: 0,
   }).format(price);
-  return period ? `${formatted}/${period === "month" ? "mo" : period}` : formatted;
+  const label = formatPricePeriod(period);
+  return label ? `${formatted}/${label}` : formatted;
 }
 
 export function formatDateTime(value: string | Date) {

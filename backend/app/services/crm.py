@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 # Rwanda is UTC+2 with no DST; a fixed offset avoids depending on system tzdata.
 KIGALI_TZ = timezone(timedelta(hours=2), "CAT")
 
-AVAILABILITY_STATUSES = ("AVAILABLE", "VERIFY", "RESERVED", "RENTED", "UNAVAILABLE")
+AVAILABILITY_STATUSES = ("AVAILABLE", "VERIFY", "RESERVED", "RENTED", "SOLD", "UNAVAILABLE")
 LANDLORD_STATUSES = ("ACTIVE", "PROSPECT", "INACTIVE", "DO_NOT_CONTACT")
 LANDLORD_TYPES = ("OWNER", "PROPERTY_MANAGER")
 CONTACT_METHODS = ("PHONE", "WHATSAPP", "EMAIL")
@@ -234,7 +234,7 @@ def set_availability(
         prop.availability_verified_at = now
         prop.availability_verified_by_id = user.id
     # Keep public listing badge in sync with CRM availability actions.
-    prop.show_availability_badge = new_status in ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
+    prop.show_availability_badge = new_status in ("AVAILABLE", "RESERVED", "RENTED", "SOLD", "UNAVAILABLE")
     if new_status == old_status:
         return False
     prop.availability_status = new_status
@@ -313,7 +313,7 @@ async def assign_crm_ref(db: AsyncSession, prop: Property) -> str:
 
 def initial_availability(prop: Property) -> str:
     status = getattr(prop.status, "value", prop.status)
-    return {"rented": "RENTED", "sold": "RENTED", "archived": "UNAVAILABLE"}.get(str(status).lower(), "AVAILABLE")
+    return {"rented": "RENTED", "sold": "SOLD", "archived": "UNAVAILABLE"}.get(str(status).lower(), "AVAILABLE")
 
 
 async def add_to_crm(db: AsyncSession, prop: Property, *, user: User | None, availability: str | None = None) -> None:
@@ -324,7 +324,7 @@ async def add_to_crm(db: AsyncSession, prop: Property, *, user: User | None, ava
     now = utcnow()
     prop.availability_status = check_choice(availability, AVAILABILITY_STATUSES, "availability status") or initial_availability(prop)
     prop.availability_updated_at = now
-    prop.show_availability_badge = prop.availability_status in ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
+    prop.show_availability_badge = prop.availability_status in ("AVAILABLE", "RESERVED", "RENTED", "SOLD", "UNAVAILABLE")
     if user is not None:
         prop.availability_verified_at = now
         prop.availability_verified_by_id = user.id

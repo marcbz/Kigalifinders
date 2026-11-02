@@ -45,7 +45,7 @@ export function RefLink({ id, label, kind }: { id: string | null; label: string 
 
 // --- Availability -----------------------------------------------------------------------
 
-const AVAILABILITY_ACTIONS = ["AVAILABLE", "VERIFY", "RESERVED", "RENTED", "UNAVAILABLE"] as const;
+const AVAILABILITY_ACTIONS = ["AVAILABLE", "VERIFY", "RESERVED", "RENTED", "SOLD", "UNAVAILABLE"] as const;
 
 export function AvailabilityControl({
   property,

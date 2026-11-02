@@ -68,6 +68,7 @@ const BADGE: Record<string, string> = {
   VERIFY: "bg-amber-100 text-amber-800",
   RESERVED: "bg-sky-100 text-sky-800",
   RENTED: "bg-violet-100 text-violet-800",
+  SOLD: "bg-indigo-100 text-indigo-800",
   UNAVAILABLE: "bg-gray-200 text-gray-700",
   ACTIVE: "bg-emerald-100 text-emerald-800",
   PROSPECT: "bg-sky-100 text-sky-800",

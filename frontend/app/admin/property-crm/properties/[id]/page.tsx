@@ -215,7 +215,9 @@ export default function CrmPropertyDetailPage() {
               {[p.property_type_name, p.neighborhood_name, p.district_name].filter(Boolean).join(" · ")}
               {" · "}
               <span className="tabular-nums font-semibold">{fmtMoney(p.price, p.currency)}</span>
-              {p.price_period ? `/${p.price_period === "month" ? "mo" : p.price_period}` : ""}
+              {p.price_period
+                ? `/${p.price_period === "month" ? "mo" : p.price_period === "year" ? "yr" : p.price_period === "daily" ? "day" : p.price_period}`
+                : ""}
               {p.bedrooms != null ? ` · ${p.bedrooms} bed` : ""}
               {p.bathrooms != null ? ` · ${p.bathrooms} bath` : ""}
               {p.area_sqm ? ` · ${p.area_sqm} m²` : ""}

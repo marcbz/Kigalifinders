@@ -1,4 +1,4 @@
-import { Ban, Bookmark, CheckCircle2, KeyRound } from "lucide-react";
+import { Ban, Bookmark, CheckCircle2, KeyRound, Tag } from "lucide-react";
 
 const STYLES: Record<
   string,
@@ -18,6 +18,11 @@ const STYLES: Record<
     label: "Rented",
     className: "bg-violet-600 text-white",
     Icon: KeyRound,
+  },
+  SOLD: {
+    label: "Sold",
+    className: "bg-indigo-700 text-white",
+    Icon: Tag,
   },
   UNAVAILABLE: {
     label: "Unavailable",

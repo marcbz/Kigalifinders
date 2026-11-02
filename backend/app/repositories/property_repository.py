@@ -122,7 +122,7 @@ class PropertyRepository:
                 if (
                     bool(getattr(prop, "show_availability_badge", False))
                     and prop.status == PropertyStatusEnum.PUBLISHED
-                    and prop.availability_status in ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
+                    and prop.availability_status in ("AVAILABLE", "RESERVED", "RENTED", "SOLD", "UNAVAILABLE")
                 )
                 else None
             ),

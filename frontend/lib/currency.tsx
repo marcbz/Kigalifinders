@@ -88,7 +88,9 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
         currency,
         maximumFractionDigits: 0,
       }).format(converted);
-      return period ? `${formatted}/${period === "month" ? "mo" : period}` : formatted;
+      const label =
+        period === "month" ? "mo" : period === "year" ? "yr" : period === "daily" ? "day" : period;
+      return label ? `${formatted}/${label}` : formatted;
     },
     [convert, currency],
   );
@@ -115,7 +117,9 @@ export function useCurrency() {
           currency: fromCurrency || "USD",
           maximumFractionDigits: 0,
         }).format(amount);
-        return period ? `${formatted}/${period === "month" ? "mo" : period}` : formatted;
+        const label =
+          period === "month" ? "mo" : period === "year" ? "yr" : period === "daily" ? "day" : period;
+        return label ? `${formatted}/${label}` : formatted;
       },
     };
   }

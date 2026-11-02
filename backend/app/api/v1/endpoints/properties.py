@@ -32,7 +32,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/properties", tags=["Properties"])
 
 # Statuses that can appear as the public listing availability badge.
-PUBLIC_AVAILABILITY_STATUSES = ("AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE")
+PUBLIC_AVAILABILITY_STATUSES = ("AVAILABLE", "RESERVED", "RENTED", "SOLD", "UNAVAILABLE")
 
 
 def _normalize_public_availability(

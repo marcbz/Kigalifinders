@@ -55,7 +55,7 @@ const defaultForm = {
   neighborhood_id: "",
   realtor_name: "",
   whatsapp: "",
-  /** Empty = hide public badge; otherwise AVAILABLE | RESERVED | RENTED | UNAVAILABLE */
+  /** Empty = hide public badge; otherwise AVAILABLE | RESERVED | RENTED | SOLD | UNAVAILABLE */
   public_availability: "",
   is_furnished_yn: "",
   has_balcony: "",
@@ -150,7 +150,7 @@ function formFromProperty(
       realtor_name: detail?.realtor_name || property.realtor_name || "",
       whatsapp: detail?.whatsapp || property.whatsapp || "",
       public_availability: (() => {
-        const publicStatuses = ["AVAILABLE", "RESERVED", "RENTED", "UNAVAILABLE"];
+        const publicStatuses = ["AVAILABLE", "RESERVED", "RENTED", "SOLD", "UNAVAILABLE"];
         if (detail?.show_availability_badge && detail.availability_status && publicStatuses.includes(detail.availability_status)) {
           return detail.availability_status;
         }
@@ -581,11 +581,22 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                 <option value="">Don’t show on website</option>
                 <option value="AVAILABLE">Available</option>
                 <option value="RESERVED">Reserved</option>
-                <option value="RENTED">Rented</option>
+                {form.listing_type === "sale" ? (
+                  <option value="SOLD">Sold</option>
+                ) : (
+                  <option value="RENTED">Rented</option>
+                )}
+                {/* Keep current value selectable if listing type changed */}
+                {form.public_availability === "RENTED" && form.listing_type === "sale" ? (
+                  <option value="RENTED">Rented</option>
+                ) : null}
+                {form.public_availability === "SOLD" && form.listing_type !== "sale" ? (
+                  <option value="SOLD">Sold</option>
+                ) : null}
                 <option value="UNAVAILABLE">Unavailable</option>
               </select>
               <p className="text-xs text-gray-400 mt-1">
-                Same badge as Property CRM (Available / Reserved / Rented / Unavailable). Leave blank to hide it.
+                Same badge as Property CRM. Sale listings use Sold; rentals use Rented. Leave blank to hide it.
               </p>
             </div>
             <div>
@@ -601,6 +612,8 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
               <label className="text-xs font-semibold text-gray-500">PRICE PERIOD</label>
               <select className="lux-input mt-1" value={form.price_period} onChange={(e) => setForm({ ...form, price_period: e.target.value })}>
                 <option value="month">Month</option>
+                <option value="day">Day</option>
+                <option value="night">Night</option>
                 <option value="year">Year</option>
                 <option value="">None (sale)</option>
               </select>

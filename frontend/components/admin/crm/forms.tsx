@@ -750,7 +750,7 @@ export function PropertyFormModal({ property, onClose, onSaved }: { property?: C
               <ChoiceSelect value={f.currency} onChange={(v) => setF({ ...f, currency: v })} options={data?.vocab.currency ?? []} blank={null} />
             </Field>
             <Field label="Per">
-              <ChoiceSelect value={f.price_period} onChange={(v) => setF({ ...f, price_period: v })} options={["month", "night", "year"]} blank="—" />
+              <ChoiceSelect value={f.price_period} onChange={(v) => setF({ ...f, price_period: v })} options={["month", "day", "night", "year"]} blank="—" />
             </Field>
           </div>
           <Field label="Bedrooms"><input className={inputCls} type="number" min={0} value={f.bedrooms} onChange={set("bedrooms")} /></Field>
