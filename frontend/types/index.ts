@@ -29,6 +29,8 @@ export interface PropertyListItem {
   latitude?: number;
   longitude?: number;
   realtor_name?: string;
+  /** Digits-only WhatsApp for this listing's inquiry CTA; empty uses site default. */
+  whatsapp?: string;
   has_balcony?: boolean;
   has_kitchen?: boolean;
   has_pool?: boolean;

@@ -109,6 +109,7 @@ class PropertyListItem(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     realtor_name: Optional[str] = None
+    whatsapp: Optional[str] = None
     has_balcony: bool = False
     has_kitchen: bool = False
     has_pool: bool = False
@@ -194,6 +195,7 @@ class PropertyCreate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     realtor_name: Optional[str] = None
+    whatsapp: Optional[str] = None
     has_balcony: bool = False
     has_kitchen: bool = False
     has_pool: bool = False
@@ -237,6 +239,7 @@ class PropertyUpdate(BaseModel):
     latitude: Optional[float] = None
     longitude: Optional[float] = None
     realtor_name: Optional[str] = None
+    whatsapp: Optional[str] = None
     has_balcony: Optional[bool] = None
     has_kitchen: Optional[bool] = None
     has_pool: Optional[bool] = None

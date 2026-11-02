@@ -93,7 +93,10 @@ export default async function PropertyDetailPage({ params }: Props) {
         : [{ id: "fallback", url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200" }];
 
   const bookingUrl = SITE_BOOKING_URL;
-  const whatsapp = process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "250784806641";
+  const whatsapp =
+    (property.whatsapp || "").replace(/\D/g, "") ||
+    process.env.NEXT_PUBLIC_WHATSAPP_NUMBER ||
+    "250784806641";
   const listingBadge = getListingBadge(property);
   const propertyUrl = `https://kigalirent.com/properties/${slug}`;
   const pricePeriod = property.listing_type !== "sale" ? property.price_period : null;

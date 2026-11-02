@@ -120,6 +120,8 @@ export interface PropertyCreatePayload {
   latitude?: number;
   longitude?: number;
   realtor_name?: string;
+  /** Digits-only; null/empty clears override and uses site default. */
+  whatsapp?: string | null;
   has_balcony?: boolean;
   has_kitchen?: boolean;
   has_pool?: boolean;

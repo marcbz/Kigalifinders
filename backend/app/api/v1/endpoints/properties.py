@@ -414,6 +414,7 @@ async def create_property(
         latitude=data.latitude,
         longitude=data.longitude,
         realtor_name=data.realtor_name,
+        whatsapp=data.whatsapp,
         has_balcony=data.has_balcony,
         has_kitchen=data.has_kitchen,
         has_pool=data.has_pool,

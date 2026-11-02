@@ -54,6 +54,7 @@ const defaultForm = {
   district_id: "",
   neighborhood_id: "",
   realtor_name: "",
+  whatsapp: "",
   is_furnished_yn: "",
   has_balcony: "",
   has_kitchen: "",
@@ -145,6 +146,7 @@ function formFromProperty(
             ? property.property_type_ids
             : [],
       realtor_name: detail?.realtor_name || property.realtor_name || "",
+      whatsapp: detail?.whatsapp || property.whatsapp || "",
       is_furnished_yn: boolToYesNo(property.is_furnished),
       has_balcony: boolToYesNo(detail?.has_balcony ?? property.has_balcony),
       has_kitchen: boolToYesNo(detail?.has_kitchen ?? property.has_kitchen),
@@ -192,6 +194,7 @@ function propertyDraftHasMeaningfulContent(data: PropertyDraftData): boolean {
     form.district_id,
     form.neighborhood_id,
     form.realtor_name,
+    form.whatsapp,
     form.badge_label,
     form.address,
     form.crm_notes,
@@ -385,6 +388,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       property_type_ids: form.property_type_ids.length ? form.property_type_ids : undefined,
       property_type_id: form.property_type_ids[0] || undefined,
       realtor_name: form.realtor_name.trim() || undefined,
+      whatsapp: form.whatsapp.trim().replace(/\D/g, "") || null,
       is_furnished: yesNoToBool(form.is_furnished_yn) ?? false,
       has_balcony: yesNoToBool(form.has_balcony) ?? false,
       has_kitchen: yesNoToBool(form.has_kitchen) ?? false,
@@ -628,6 +632,19 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
             <div>
               <label className="text-xs font-semibold text-gray-500">REALTOR</label>
               <input className="lux-input mt-1" placeholder="e.g. Ishimwe Marcel" value={form.realtor_name} onChange={(e) => setForm({ ...form, realtor_name: e.target.value })} />
+            </div>
+            <div>
+              <label className="text-xs font-semibold text-gray-500">WHATSAPP INQUIRY NUMBER</label>
+              <input
+                className="lux-input mt-1"
+                inputMode="tel"
+                placeholder="e.g. 250784806641"
+                value={form.whatsapp}
+                onChange={(e) => setForm({ ...form, whatsapp: e.target.value })}
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Digits only, country code included (no +). Leave blank to use the site default WhatsApp number.
+              </p>
             </div>
             <YesNoField label="FURNISHED" value={form.is_furnished_yn} onChange={(v) => setForm({ ...form, is_furnished_yn: v })} />
             <YesNoField label="BALCONY" value={form.has_balcony} onChange={(v) => setForm({ ...form, has_balcony: v })} />

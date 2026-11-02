@@ -352,6 +352,8 @@ class Property(Base):
     badge_label: Mapped[str | None] = mapped_column(String(50))
 
     realtor_name: Mapped[str | None] = mapped_column(String(120))
+    # Digits-only WhatsApp for listing inquiry CTA; falls back to site default when empty.
+    whatsapp: Mapped[str | None] = mapped_column(String(40))
     has_balcony: Mapped[bool] = mapped_column(Boolean, default=False)
     has_kitchen: Mapped[bool] = mapped_column(Boolean, default=False)
     has_pool: Mapped[bool] = mapped_column(Boolean, default=False)

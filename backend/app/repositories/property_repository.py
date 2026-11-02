@@ -87,6 +87,7 @@ class PropertyRepository:
             latitude=prop.latitude,
             longitude=prop.longitude,
             realtor_name=prop.realtor_name,
+            whatsapp=prop.whatsapp,
             has_balcony=prop.has_balcony,
             has_kitchen=prop.has_kitchen,
             has_pool=prop.has_pool,
