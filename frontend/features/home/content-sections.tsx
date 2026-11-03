@@ -73,6 +73,9 @@ export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; what
           <a href={resolvedBookingUrl} target="_blank" rel="noopener noreferrer" className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             Book Free Consultation
           </a>
+          <Link href="/list-your-property" className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
+            List Your Property
+          </Link>
           <Link href="/rentals" className="btn-outline-white px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             Browse Rentals
           </Link>

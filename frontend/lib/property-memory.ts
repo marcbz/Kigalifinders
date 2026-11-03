@@ -1,4 +1,3 @@
-const FAVORITES_KEY = "kigalirent_favorites";
 const RECENT_KEY = "kigalirent_recently_viewed";
 const MAX_RECENT = 12;
 
@@ -44,22 +43,6 @@ function writeList(key: string, items: SavedPropertySnapshot[]) {
   } catch {
     // ignore
   }
-}
-
-export function getFavorites(): SavedPropertySnapshot[] {
-  return readList(FAVORITES_KEY);
-}
-
-export function isFavorite(id: string): boolean {
-  return getFavorites().some((p) => p.id === id);
-}
-
-export function toggleFavorite(property: SavedPropertySnapshot): boolean {
-  const list = getFavorites();
-  const exists = list.some((p) => p.id === property.id);
-  const next = exists ? list.filter((p) => p.id !== property.id) : [{ ...property }, ...list];
-  writeList(FAVORITES_KEY, next);
-  return !exists;
 }
 
 export function getRecentlyViewed(): SavedPropertySnapshot[] {

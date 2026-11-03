@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { X } from "lucide-react";
 import { PropertyCard } from "@/components/property/property-card";
 import {
@@ -66,14 +65,6 @@ export function RecentlyViewedStrip({
   return (
     <section className="pt-8 pb-6 sm:pt-10 sm:pb-10 px-4 sm:px-6">
       <div className="max-w-7xl mx-auto relative rounded-xl sm:rounded-2xl border border-gold-500/30 bg-cream/80 dark:bg-secondary/50 px-4 pt-7 pb-5 sm:px-8 sm:pt-9 sm:pb-10 shadow-sm">
-        {/* Tab sits on the top border — half outside, half inside */}
-        <Link
-          href="/favorites"
-          className="absolute left-1/2 -translate-x-1/2 -top-3 z-20 inline-flex items-center rounded-full border border-gold-500/50 bg-cream dark:bg-secondary px-3 py-1 text-[11px] sm:text-xs font-semibold text-navy-800 dark:text-gold-400 shadow-sm hover:bg-gold-500/15 dark:hover:bg-gold-500/20 transition"
-        >
-          My Favorites →
-        </Link>
-
         <button
           type="button"
           onClick={handleDismiss}

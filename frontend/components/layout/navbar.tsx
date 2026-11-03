@@ -2,20 +2,17 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { CalendarCheck, Menu, X } from "lucide-react";
+import { Building2, CalendarCheck, Menu, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BrandName } from "@/components/brand/brand-name";
 import { CurrencyToggle } from "@/lib/currency";
-import { HighlightLabel } from "@/components/ui/highlight-label";
 import { cn } from "@/lib/utils";
 
 const navLinks = [
   { href: "/#home", label: "Home" },
   { href: "/rentals", label: "Rentals" },
   { href: "/properties", label: "Properties" },
-  { href: "/favorites", label: "My Favorites" },
-  { href: "/list-your-property", label: "List property", highlight: true },
   { href: "/contact", label: "Contact" },
 ];
 
@@ -29,14 +26,14 @@ export function Navbar({ bookingUrl }: NavbarProps) {
   return (
     <>
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/95 dark:bg-navy-900/95 border-b border-gray-100 dark:border-navy-800">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-3">
-          <Link href="/" className="flex items-center gap-3 min-w-0 shrink">
-            <div className="w-11 h-11 rounded-full bg-navy-800 flex items-center justify-center shrink-0">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
+          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 min-w-0 shrink">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-navy-800 flex items-center justify-center shrink-0">
               <span className="font-serif text-gold-500 text-sm font-bold leading-none">KR</span>
             </div>
             <div className="leading-tight min-w-0">
               <BrandName size="md" />
-              <div className="mt-1 text-[11px] tracking-[0.22em] font-semibold text-navy-700 dark:text-gold-400 truncate">
+              <div className="mt-1 text-[11px] tracking-[0.22em] font-semibold text-navy-700 dark:text-gold-400 truncate hidden sm:block">
                 RENTALS & PROPERTY
               </div>
             </div>
@@ -45,16 +42,23 @@ export function Navbar({ bookingUrl }: NavbarProps) {
           <div className="hidden lg:flex gap-8 text-sm font-medium text-navy-800 dark:text-gray-200 mx-auto">
             {navLinks.map((link) => (
               <Link key={link.href} href={link.href} className="nav-link">
-                {link.highlight ? <HighlightLabel>{link.label}</HighlightLabel> : link.label}
+                {link.label}
               </Link>
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-2 sm:gap-3 shrink-0">
+          <div className="ml-auto flex items-center gap-1.5 sm:gap-3 shrink-0">
             <CurrencyToggle />
             <ThemeToggle />
+            <Button asChild className="rounded-full shadow-sm" size="sm">
+              <Link href="/list-your-property" aria-label="List your property">
+                <Building2 className="w-4 h-4" />
+                <span className="hidden min-[380px]:inline">List property</span>
+                <span className="min-[380px]:hidden">List</span>
+              </Link>
+            </Button>
             {bookingUrl && (
-              <Button asChild className="hidden md:inline-flex rounded-full" size="sm">
+              <Button asChild className="hidden md:inline-flex rounded-full" size="sm" variant="navy">
                 <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
                   <CalendarCheck className="w-4 h-4" />
                   Book Visit
@@ -62,7 +66,7 @@ export function Navbar({ bookingUrl }: NavbarProps) {
               </Button>
             )}
             <button
-              className="lg:hidden text-navy-800 dark:text-white"
+              className="lg:hidden text-navy-800 dark:text-white p-1"
               onClick={() => setMobileOpen(true)}
               aria-label="Open menu"
             >
@@ -88,6 +92,12 @@ export function Navbar({ bookingUrl }: NavbarProps) {
           </div>
         </div>
         <nav className="flex flex-col gap-5 text-lg">
+          <Button asChild className="rounded-full w-full mb-2" size="lg">
+            <Link href="/list-your-property" onClick={() => setMobileOpen(false)}>
+              <Building2 className="w-5 h-5" />
+              List your property
+            </Link>
+          </Button>
           {navLinks.map((link) => (
             <Link
               key={link.href}
@@ -95,15 +105,11 @@ export function Navbar({ bookingUrl }: NavbarProps) {
               className="hover:text-gold-500"
               onClick={() => setMobileOpen(false)}
             >
-              {link.highlight ? (
-                <HighlightLabel onDark>{link.label}</HighlightLabel>
-              ) : (
-                link.label
-              )}
+              {link.label}
             </Link>
           ))}
           {bookingUrl && (
-            <Button asChild className="rounded-full mt-4">
+            <Button asChild className="rounded-full mt-4 btn-outline-white border-2">
               <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
                 Book Visit
               </a>

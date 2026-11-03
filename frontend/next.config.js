@@ -28,6 +28,9 @@ const nextConfig = {
   htmlLimitedBots: /.*/,
   poweredByHeader: false,
   compress: true,
+  async redirects() {
+    return [{ source: "/favorites", destination: "/", permanent: true }];
+  },
   // Next.js injects polyfill-module regardless of browserslist; drop it for our
   // modern targets so PageSpeed stops flagging unused Array.at / Object.hasOwn / etc.
   webpack(config) {

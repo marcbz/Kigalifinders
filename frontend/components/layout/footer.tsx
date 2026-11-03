@@ -72,18 +72,27 @@ export function Footer({
             <h4 className="text-white font-semibold mb-5 tracking-wider text-sm">EXPLORE</h4>
             <ul className="space-y-2 text-sm">
               {[
+                { label: "List Your Property", href: "/list-your-property", emphasize: true },
                 { label: "Rentals", href: "/rentals" },
                 { label: "Properties", href: "/properties" },
                 { label: "Neighborhoods", href: "/area" },
                 { label: "Rental market research", href: "/research/kigali-rental-market" },
                 { label: "Kigali rental prices", href: "/research/kigali-rental-market/prices" },
-                { label: "List Your Property", href: "/list-your-property" },
                 { label: "Why Us", href: "/#why" },
                 { label: "Blog", href: "/blog" },
                 { label: "FAQs", href: "/faq" },
               ].map((item) => (
                 <li key={item.label}>
-                  <Link href={item.href} className="hover:text-gold-500 transition">{item.label}</Link>
+                  <Link
+                    href={item.href}
+                    className={
+                      item.emphasize
+                        ? "text-gold-500 font-semibold hover:text-gold-400 transition"
+                        : "hover:text-gold-500 transition"
+                    }
+                  >
+                    {item.label}
+                  </Link>
                 </li>
               ))}
             </ul>

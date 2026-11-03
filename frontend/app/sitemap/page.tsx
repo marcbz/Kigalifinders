@@ -20,6 +20,7 @@ const STATIC_PAGES = [
   { href: "/blog", label: "Blog" },
   { href: "/faq", label: "FAQ" },
   { href: "/contact", label: "Contact" },
+  { href: "/list-your-property", label: "List Your Property" },
   { href: "/agents", label: "Our Agents" },
   { href: "/privacy", label: "Privacy Policy" },
   { href: "/terms", label: "Terms of Service" },
