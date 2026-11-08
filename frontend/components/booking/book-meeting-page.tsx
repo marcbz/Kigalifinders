@@ -31,10 +31,10 @@ interface BookMeetingPageProps {
 export function BookMeetingPage({ returnUrl }: BookMeetingPageProps) {
   const [open, setOpen] = useState(false);
   const titleId = useId();
-  const descId = useId();
 
   const close = useCallback(() => setOpen(false), []);
   const openCheckout = useCallback(() => setOpen(true), []);
+
 
   useEffect(() => {
     if (!open) return;
@@ -67,14 +67,16 @@ export function BookMeetingPage({ returnUrl }: BookMeetingPageProps) {
             LIMITED INTRO OFFER
           </span>
           <h1 className="font-serif text-3xl md:text-5xl font-bold text-navy-800 dark:text-white mt-5 mb-4 leading-tight">
-            Meeting Reservation Fee
+            Meeting Reservation
           </h1>
           <p className="text-lg md:text-xl text-navy-700 dark:text-gray-200 font-medium max-w-2xl mx-auto">
-            Found a property that feels like home?{" "}
+            Found a property that feels like home?
+            <br />
             <span className="text-gold-600 dark:text-gold-400 font-semibold">
-              Don&apos;t risk missing it — or paying more than you should.
+              Don&apos;t risk missing it or paying more than you should.
             </span>
           </p>
+
         </div>
 
         <div className="rounded-2xl border border-gold-500/20 bg-white/80 dark:bg-navy-900/70 backdrop-blur-sm p-6 md:p-8 shadow-[0_20px_60px_rgba(6,19,43,0.08)] space-y-5 text-gray-700 dark:text-gray-300 leading-relaxed">
@@ -136,8 +138,9 @@ export function BookMeetingPage({ returnUrl }: BookMeetingPageProps) {
             className="rounded-full px-10 text-base shadow-lg shadow-gold-500/20"
             onClick={openCheckout}
           >
-            Reserve My Meeting — $1.99
+            Reserve My Meeting Now!!
           </Button>
+
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 text-xs text-gray-500 dark:text-gray-400">
             <span className="inline-flex items-center gap-1.5">
               <Lock className="w-3.5 h-3.5 text-gold-500" />
@@ -173,27 +176,23 @@ export function BookMeetingPage({ returnUrl }: BookMeetingPageProps) {
             role="dialog"
             aria-modal="true"
             aria-labelledby={titleId}
-            aria-describedby={descId}
             className="relative z-10 w-full sm:max-w-lg max-h-[92vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white dark:bg-navy-900 shadow-2xl border border-gray-100 dark:border-navy-700"
           >
-            <div className="sticky top-0 z-10 flex items-start justify-between gap-4 border-b border-gray-100 dark:border-navy-700 bg-white/95 dark:bg-navy-900/95 backdrop-blur px-5 py-4">
-              <div>
-                <p id={titleId} className="font-serif text-xl font-bold text-navy-800 dark:text-white">
-                  Complete Your Reservation
-                </p>
-                <p id={descId} className="text-sm text-gray-500 dark:text-gray-400 mt-1">
-                  Pay the <strong className="text-gold-600 dark:text-gold-400">$1.99 Meeting Reservation Fee</strong> securely below.
-                </p>
-              </div>
+            <div className="sticky top-0 z-10 relative flex items-center justify-center border-b border-gray-100 dark:border-navy-700 bg-white/95 dark:bg-navy-900/95 backdrop-blur px-12 py-4">
+
+              <p id={titleId} className="font-serif text-xl font-bold text-navy-800 dark:text-white text-center">
+                Complete Your Reservation
+              </p>
               <button
                 type="button"
                 onClick={close}
-                className="rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-navy-800 hover:text-navy-800 dark:hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-navy-800 hover:text-navy-800 dark:hover:text-white"
                 aria-label="Close"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
+
             <div className="p-4 sm:p-5">
               <WhopCheckout returnUrl={returnUrl} className="min-h-[420px] w-full" />
             </div>
