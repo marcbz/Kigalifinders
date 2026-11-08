@@ -1,9 +1,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
+import { BookingLink } from "@/components/booking/booking-link";
 import { LazyGoogleMap } from "@/components/maps/lazy-google-map";
-import { SITE_ADDRESS, SITE_BOOKING_URL, SITE_PLUS_CODE } from "@/lib/site-defaults";
+import { resolveBookingUrl } from "@/lib/booking";
+import { SITE_ADDRESS, SITE_PLUS_CODE } from "@/lib/site-defaults";
 import type { BlogPost } from "@/types";
+
 
 export function BlogSection({ posts }: { posts: BlogPost[] }) {
   return (
@@ -57,7 +60,7 @@ export function BlogSection({ posts }: { posts: BlogPost[] }) {
 }
 
 export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; whatsapp?: string }) {
-  const resolvedBookingUrl = bookingUrl?.trim() || SITE_BOOKING_URL;
+  const resolvedBookingUrl = resolveBookingUrl(bookingUrl);
   const resolvedWhatsapp = whatsapp?.trim() || "250784806641";
   return (
     <section id="contact" className="py-24 px-6 relative bg-gradient-to-br from-navy-800 to-navy-700 overflow-hidden">
@@ -70,9 +73,10 @@ export function CTASection({ bookingUrl, whatsapp }: { bookingUrl?: string; what
           Speak to a Kigali Rent advisor today. Book a free consultation and start your real estate journey.
         </p>
         <div className="flex flex-wrap gap-4 justify-center">
-          <a href={resolvedBookingUrl} target="_blank" rel="noopener noreferrer" className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
+          <BookingLink href={resolvedBookingUrl} className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             Book Free Consultation
-          </a>
+          </BookingLink>
+
           <Link href="/list-your-property" className="btn-gold px-8 py-4 rounded-full font-semibold inline-flex items-center gap-2">
             List Your Property
           </Link>

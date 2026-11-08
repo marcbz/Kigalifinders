@@ -91,17 +91,20 @@ export default function AdminLinksPage() {
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Book Visit (navbar, hero, footer)</label>
           <input
             className="lux-input mt-1"
-            placeholder="https://your-booking-page.com"
+            placeholder="/book"
             value={form.booking_url}
             onChange={(e) => setForm({ ...form, booking_url: e.target.value })}
           />
-          <p className="text-xs text-gray-400 mt-1">Used for &quot;Book Visit&quot; in the menu, &quot;Book a Visit&quot; in the hero and footer.</p>
+          <p className="text-xs text-gray-400 mt-1">
+            Used for &quot;Book Visit&quot; in the menu, hero, footer, and property pages. Default is the on-site Whop checkout at <code>/book</code>. Legacy Setmore URLs are remapped automatically.
+          </p>
         </div>
         <div>
           <label className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Book Free Consultation (homepage CTA)</label>
           <input
             className="lux-input mt-1"
-            placeholder="Same as booking URL or a separate consultation link"
+            placeholder="/book"
+
             value={form.book_consultation_url}
             onChange={(e) => setForm({ ...form, book_consultation_url: e.target.value })}
           />

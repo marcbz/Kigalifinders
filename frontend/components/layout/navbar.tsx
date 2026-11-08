@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 import { Building2, CalendarCheck, Menu, X } from "lucide-react";
+import { BookingLink } from "@/components/booking/booking-link";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ui/theme-toggle";
 import { BrandName } from "@/components/brand/brand-name";
 import { CurrencyToggle } from "@/lib/currency";
 import { cn } from "@/lib/utils";
+
 
 const navLinks = [
   { href: "/#home", label: "Home" },
@@ -59,12 +61,13 @@ export function Navbar({ bookingUrl }: NavbarProps) {
             </Button>
             {bookingUrl && (
               <Button asChild className="hidden md:inline-flex rounded-full" size="sm" variant="navy">
-                <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+                <BookingLink href={bookingUrl}>
                   <CalendarCheck className="w-4 h-4" />
                   Book Visit
-                </a>
+                </BookingLink>
               </Button>
             )}
+
             <button
               className="lg:hidden text-navy-800 dark:text-white p-1"
               onClick={() => setMobileOpen(true)}
@@ -110,11 +113,12 @@ export function Navbar({ bookingUrl }: NavbarProps) {
           ))}
           {bookingUrl && (
             <Button asChild className="rounded-full mt-4 btn-outline-white border-2">
-              <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+              <BookingLink href={bookingUrl} onClick={() => setMobileOpen(false)}>
                 Book Visit
-              </a>
+              </BookingLink>
             </Button>
           )}
+
         </nav>
       </div>
     </>

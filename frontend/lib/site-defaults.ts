@@ -6,7 +6,10 @@ export const SITE_PLUS_CODE = "342G+G8 Kigali";
 export const SITE_GEO = { latitude: -1.9486875, longitude: 30.1258125 } as const;
 export const SITE_PHONE = "+250784806641";
 export const SITE_HOURS = "Mon - Sat: 9:00 AM - 5:00 PM";
-export const SITE_BOOKING_URL = "https://kigalirent.setmore.com/";
+/** On-site Whop checkout page — replaces the old Setmore booking link. */
+export const SITE_BOOKING_URL = "/book";
+export const WHOP_CHECKOUT_PLAN = "plan_D8Jjmi7IllYYR";
+
 
 export const SITE_SOCIAL = {
   facebook: "https://facebook.com/kigalirent",

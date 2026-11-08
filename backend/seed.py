@@ -286,17 +286,18 @@ async def seed():
             "whatsapp": "250784806641",
             "address": "KG 11 Ave, Kigali",
             "hours": "Mon - Sat: 9:00 AM - 5:00 PM",
-            "booking_url": "https://kigalirent.setmore.com/",
+            "booking_url": "/book",
             "email": "hello@kigalifinders.com",
             "latitude": -1.944072,
             "longitude": 30.058775,
         }, group="site"))
         db.add(Setting(key="links", value={
-            "booking_url": "https://kigalirent.setmore.com/",
-            "book_consultation_url": "https://kigalirent.setmore.com/",
+            "booking_url": "/book",
+            "book_consultation_url": "/book",
             "phone": "+250 784 806 641",
             "whatsapp": "250784806641",
         }, group="site"))
+
         db.add(Setting(key="social", value={
             "facebook": "https://facebook.com/kigalirent",
             "instagram": "https://instagram.com/kigalirent",

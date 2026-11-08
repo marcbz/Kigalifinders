@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { Facebook, Instagram, Linkedin, MapPin, Phone, Clock, CalendarCheck, Youtube } from "lucide-react";
+import { BookingLink } from "@/components/booking/booking-link";
 import { BrandName } from "@/components/brand/brand-name";
 import { TikTokIcon } from "@/components/icons/tiktok-icon";
 import { SITE_ADDRESS, SITE_BOOKING_URL, SITE_HOURS, SITE_SOCIAL } from "@/lib/site-defaults";
+
 
 interface FooterProps {
   phone?: string;
@@ -107,11 +109,12 @@ export function Footer({
               <li className="flex gap-3"><Clock className="w-4 h-4 text-gold-500 mt-0.5 shrink-0" /><span>{hours}</span></li>
               <li className="flex gap-3"><CalendarCheck className="w-4 h-4 text-gold-500 mt-0.5 shrink-0" />
                 {bookingUrl ? (
-                  <a href={bookingUrl} target="_blank" rel="noopener noreferrer" className="hover:text-gold-500">Book a Visit</a>
+                  <BookingLink href={bookingUrl} className="hover:text-gold-500">Book a Visit</BookingLink>
                 ) : (
                   <span>Book a Visit</span>
                 )}
               </li>
+
             </ul>
           </div>
         </div>

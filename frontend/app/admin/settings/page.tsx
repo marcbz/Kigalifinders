@@ -153,7 +153,8 @@ export default function AdminSettingsPage() {
             onChange={(e) => setHero({ ...hero, [key]: e.target.value })}
           />
         ))}
-        <p className="text-xs text-gray-500">Booking button uses the booking URL from Contact &amp; Office below, or the Links page. Public header and footer also use the built-in Kigali Rent booking and social URLs.</p>
+        <p className="text-xs text-gray-500">Booking buttons use <code>/book</code> (Whop checkout) by default. You can override via Contact &amp; Office below or the Links page; legacy Setmore URLs are remapped automatically.</p>
+
       </section>
 
       <section className="bg-white dark:bg-card rounded-xl border p-6 space-y-4">

@@ -10,6 +10,7 @@ import { PropertyPrice } from "@/components/property/property-price";
 import { TrackPropertyView } from "@/components/property/track-property-view";
 import { RelatedPropertiesSection } from "@/components/property/related-properties-section";
 import { RelatedRentalSearches } from "@/components/rentals/rental-landing-sections";
+import { BookingLink } from "@/components/booking/booking-link";
 import { WhatsAppIcon } from "@/components/icons/whatsapp-icon";
 import { FAQSection } from "@/features/home/faq-section";
 import { buildPropertyFaqs, getListingBadge, getPropertyImageAlt } from "@/lib/property-features";
@@ -19,6 +20,7 @@ import { buildPropertyMetaDescription, buildFaqPageJsonLd, normalizeSeoTitle } f
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import { formatPrice } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+
 
 interface Props {
   params: Promise<{ slug: string }>;
@@ -327,10 +329,11 @@ export default async function PropertyDetailPage({ params }: Props) {
                 {property.is_available !== false ? (
                   <>
                     <Button asChild className="w-full rounded-full">
-                      <a href={bookingUrl} target="_blank" rel="noopener noreferrer">
+                      <BookingLink href={bookingUrl}>
                         <CalendarCheck className="w-4 h-4" /> Schedule Viewing
-                      </a>
+                      </BookingLink>
                     </Button>
+
                     <Button asChild variant="outline" className="w-full rounded-full gap-2">
                       <a
                         href={`https://wa.me/${whatsapp}?text=Interested in ${encodeURIComponent(property.title)}`}

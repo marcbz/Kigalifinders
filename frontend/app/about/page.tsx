@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { BookingLink } from "@/components/booking/booking-link";
 import { pageOpenGraph } from "@/lib/seo-metadata";
 import { SITE_ADDRESS, SITE_BOOKING_URL, SITE_HOURS, SITE_SOCIAL } from "@/lib/site-defaults";
+
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -76,9 +78,10 @@ export default function AboutPage() {
               Contact form
             </Link>
             {" · "}
-            <a href={SITE_BOOKING_URL} className="text-gold-600 hover:underline" target="_blank" rel="noopener noreferrer">
+            <BookingLink href={SITE_BOOKING_URL} className="text-gold-600 hover:underline">
               Book a consultation
-            </a>
+            </BookingLink>
+
           </p>
 
           <p className="text-sm">

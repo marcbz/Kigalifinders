@@ -70,7 +70,9 @@ export async function HomePageContent() {
 
   const settings = data.settings || {};
   const links = data.links || {};
-  const consultationUrl = links.book_consultation_url || links.booking_url || settings.booking_url;
+  const consultationUrl =
+    links.book_consultation_url || links.booking_url || settings.booking_url || "/book";
+
   const phone = links.phone || settings.phone;
   const whatsapp = links.whatsapp || settings.whatsapp;
 

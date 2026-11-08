@@ -1,6 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { CalendarCheck, Home } from "lucide-react";
+import { BookingLink } from "@/components/booking/booking-link";
 import {
   DEFAULT_HERO_IMAGE,
   DEFAULT_HERO_IMAGE_MOBILE,
@@ -8,6 +9,7 @@ import {
 } from "@/lib/hero-image";
 import { SITE_BOOKING_URL } from "@/lib/site-defaults";
 import { HeroAnimatedTitleLine } from "@/features/home/hero-animated-title";
+
 
 interface HeroCopyProps {
   tagline?: string;
@@ -115,15 +117,14 @@ export function HeroSection({
           )}
 
           <div className="flex flex-wrap gap-4">
-            <a
+            <BookingLink
               href={displayBookingUrl}
-              target="_blank"
-              rel="noopener noreferrer"
               className="btn-gold inline-flex items-center justify-center gap-2 h-12 rounded-full px-8 text-sm font-semibold"
             >
               <CalendarCheck className="w-5 h-5" />
               {displayCtaPrimary}
-            </a>
+            </BookingLink>
+
             <Link
               href="/rentals"
               className="hero-cta-outline inline-flex h-12 rounded-full px-8 text-sm"
