@@ -11,6 +11,7 @@ const nextConfig = {
       { protocol: "https", hostname: "i.pravatar.cc" },
     ],
   },
+  transpilePackages: ["@whop/elements", "@whop/elements-react"],
   experimental: {
     optimizePackageImports: [
       "lucide-react",
