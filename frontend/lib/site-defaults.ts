@@ -9,6 +9,10 @@ export const SITE_HOURS = "Mon - Sat: 9:00 AM - 5:00 PM";
 /** On-site Whop checkout page — replaces the old Setmore booking link. */
 export const SITE_BOOKING_URL = "/book";
 export const WHOP_CHECKOUT_PLAN = "plan_D8Jjmi7IllYYR";
+/** Whop plan for the private $200 service payment page (/pay). Set via env after creating the product. */
+export const WHOP_SERVICE_PAYMENT_PLAN =
+  process.env.NEXT_PUBLIC_WHOP_SERVICE_PLAN || "plan_REPLACE_WITH_SERVICE_PLAN";
+export const SITE_SERVICE_PAYMENT_URL = "/pay";
 
 
 export const SITE_SOCIAL = {
