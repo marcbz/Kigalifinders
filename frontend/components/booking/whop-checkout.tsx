@@ -1,11 +1,27 @@
 "use client";
 
 import Script from "next/script";
-import { useEffect, useId, useState } from "react";
+import { useEffect, useState } from "react";
 import { WHOP_CHECKOUT_PLAN } from "@/lib/site-defaults";
 
+type WhopElement = {
+  mount: (selector: string) => void;
+};
+
 type WhopCheckoutHandle = {
-  create: (name: string) => { mount: (selector: string) => void };
+  create: (
+    name: "checkout" | "expressCheckout",
+    options?: {
+      layout?: "auto" | "horizontal" | "vertical";
+      wallets?:
+        | ("apple_pay" | "google_pay" | "paypal_express")[]
+        | {
+            applePay?: "auto" | "never";
+            googlePay?: "auto" | "never";
+            payPal?: "auto" | "never";
+          };
+    },
+  ) => WhopElement;
 };
 
 declare global {
@@ -33,8 +49,6 @@ export function WhopCheckout({
   returnUrl,
   className = "min-h-[480px] w-full",
 }: WhopCheckoutProps) {
-  const reactId = useId().replace(/:/g, "");
-  const mountId = `whop-checkout-${reactId}`;
   const [ready, setReady] = useState(
     () => typeof window !== "undefined" && typeof window.WhopElements === "function",
   );
@@ -42,25 +56,47 @@ export function WhopCheckout({
   useEffect(() => {
     if (!ready || typeof window === "undefined" || !window.WhopElements) return;
 
-    const selector = `#${mountId}`;
-    const target = document.querySelector(selector);
-    if (!target) return;
+    const expressTarget = document.querySelector("#whop-express-checkout");
+    const checkoutTarget = document.querySelector("#whop-checkout");
+    if (!expressTarget || !checkoutTarget) return;
 
-    target.innerHTML = "";
-    const checkout = window.WhopElements().checkout.create({
+    expressTarget.innerHTML = "";
+    checkoutTarget.innerHTML = "";
+
+    const createOptions = {
       plan,
       ...(returnUrl ? { returnUrl } : {}),
-    });
-    checkout.create("checkout").mount(selector);
+    };
+
+    // Separate handle: Apple Pay / Google Pay express buttons.
+    window
+      .WhopElements()
+      .checkout.create(createOptions)
+      .create("expressCheckout", {
+        layout: "horizontal",
+        wallets: { applePay: "auto", googlePay: "auto", payPal: "auto" },
+      })
+      .mount("#whop-express-checkout");
+
+    // Full checkout form (card + other methods), matching Whop's embed snippet.
+    window
+      .WhopElements()
+      .checkout.create(createOptions)
+      .create("checkout")
+      .mount("#whop-checkout");
 
     return () => {
-      target.innerHTML = "";
+      expressTarget.innerHTML = "";
+      checkoutTarget.innerHTML = "";
     };
-  }, [ready, plan, returnUrl, mountId]);
+  }, [ready, plan, returnUrl]);
 
   return (
     <>
-      <div id={mountId} className={className} />
+      <div className={className}>
+        <div id="whop-express-checkout" className="mb-4 min-h-[48px] w-full" />
+        <div id="whop-checkout" className="w-full" />
+      </div>
       <Script
         src="https://cdn.whop.com/elements/amber/elements.js"
         strategy="afterInteractive"
