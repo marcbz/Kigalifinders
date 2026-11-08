@@ -28,13 +28,16 @@ export function Navbar({ bookingUrl }: NavbarProps) {
   return (
     <>
       <nav className="sticky top-0 z-50 backdrop-blur-xl bg-white/95 dark:bg-navy-900/95 border-b border-gray-100 dark:border-navy-800">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center gap-2 sm:gap-3">
-          <Link href="/" className="flex items-center gap-2.5 sm:gap-3 min-w-0 shrink">
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-full bg-navy-800 flex items-center justify-center shrink-0">
-              <span className="font-serif text-gold-500 text-sm font-bold leading-none">KR</span>
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 py-3 sm:py-4 flex items-center gap-1.5 sm:gap-3">
+          <Link href="/" className="flex items-center gap-1.5 sm:gap-3 shrink-0 min-w-0">
+            <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-navy-800 flex items-center justify-center shrink-0">
+              <span className="font-serif text-gold-500 text-xs sm:text-sm font-bold leading-none">KR</span>
             </div>
-            <div className="leading-tight min-w-0">
-              <BrandName size="md" />
+            <div className="leading-none">
+              <BrandName
+                size="md"
+                className="text-[15px] sm:text-xl tracking-tight sm:tracking-wide"
+              />
               <div className="mt-1 text-[11px] tracking-[0.22em] font-semibold text-navy-700 dark:text-gold-400 truncate hidden sm:block">
                 RENTALS & PROPERTY
               </div>
@@ -49,14 +52,14 @@ export function Navbar({ bookingUrl }: NavbarProps) {
             ))}
           </div>
 
-          <div className="ml-auto flex items-center gap-1.5 sm:gap-3 shrink-0">
-            <CurrencyToggle />
+          <div className="ml-auto flex items-center gap-1 sm:gap-3 shrink-0">
+            <CurrencyToggle className="scale-90 sm:scale-100 origin-right" />
             <ThemeToggle />
             <Button asChild className="rounded-full shadow-sm" size="sm">
               <Link href="/list-your-property" aria-label="List your property">
                 <Building2 className="w-4 h-4" />
-                <span className="hidden min-[380px]:inline">List property</span>
-                <span className="min-[380px]:hidden">List</span>
+                <span className="hidden min-[420px]:inline">List property</span>
+                <span className="min-[420px]:hidden">List</span>
               </Link>
             </Button>
             {bookingUrl && (

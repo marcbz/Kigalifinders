@@ -19,9 +19,15 @@ export function BrandName({ variant = "default", size = "md", className }: Brand
   }[size];
 
   return (
-    <span className={cn("font-serif font-bold tracking-wide", sizeClass, className)}>
-      <span className={kigaliColor}>Kigali </span>
-      <span className="text-gold-500">Rent</span>
+    <span
+      className={cn(
+        "font-serif font-bold tracking-wide whitespace-nowrap inline-block",
+        sizeClass,
+        className,
+      )}
+    >
+      <span className={kigaliColor}>Kigali</span>
+      <span className="text-gold-500">{"\u00A0"}Rent</span>
     </span>
   );
 }
