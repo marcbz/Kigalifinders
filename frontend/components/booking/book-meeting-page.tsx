@@ -73,7 +73,7 @@ export function BookMeetingPage({ returnUrl }: BookMeetingPageProps) {
             Found a property that feels like home?
             <br />
             <span className="text-gold-600 dark:text-gold-400 font-semibold">
-              Don&apos;t risk missing it or paying more than you should.
+              Don&apos;t Risk Missing It Or Paying More Than Usual.
             </span>
           </p>
 
