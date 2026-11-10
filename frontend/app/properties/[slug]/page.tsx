@@ -93,7 +93,7 @@ export default async function PropertyDetailPage({ params }: Props) {
       ? property.images.map((img) => ({ id: img.id, url: img.url, alt_text: img.alt_text }))
       : property.primary_image
         ? [{ id: "primary", url: property.primary_image }]
-        : [{ id: "fallback", url: "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=1200" }];
+        : [];
 
   const bookingUrl = SITE_BOOKING_URL;
   const whatsapp =

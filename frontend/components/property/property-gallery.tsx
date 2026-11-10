@@ -71,6 +71,16 @@ export function PropertyGallery({ images, title }: { images: GalleryImage[]; tit
     return () => el.removeEventListener("scroll", onScroll);
   }, [images.length]);
 
+  if (images.length === 0) {
+    return (
+      <div className="mb-10">
+        <div className="relative h-[320px] md:h-[480px] lg:h-[560px] rounded-2xl overflow-hidden">
+          <ListingImage src={null} alt={title} fill />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="mb-10">
       <div

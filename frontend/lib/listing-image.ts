@@ -1,16 +1,9 @@
 /** Listing image helpers — keep Cloudinary off Vercel's Image Optimization quota. */
 
-const PLACEHOLDER =
-  "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?w=800";
-
 const CLOUDINARY_HOSTS = new Set(["res.cloudinary.com"]);
 
 /** Optional: when set, only this cloud gets on-the-fly transforms (avoids 401 on foreign clouds). */
 const OUR_CLOUDINARY_CLOUD = (process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "").trim();
-
-export function getListingImagePlaceholder(): string {
-  return PLACEHOLDER;
-}
 
 export function cloudinaryCloudFromUrl(src: string): string | null {
   try {
@@ -38,8 +31,9 @@ export function isOurCloudinaryUrl(src: string): boolean {
  * Cloudinary already optimizes delivery — bypass Next's optimizer for those URLs.
  *
  * Also bypass for any other remote HTTPS host: Next only allowlists a few domains in
- * next.config.js, so pasted realtor / foreign-CDN URLs would otherwise always 404 and
- * fall back to the placeholder house image.
+ * next.config.js, so pasted realtor / foreign-CDN URLs would otherwise always 404.
+ * Broken or missing photos render a neutral "Photo unavailable" state instead of a
+ * stock house image that could be mistaken for the listing.
  */
 export function shouldBypassNextImageOptimizer(src: string): boolean {
   if (isCloudinaryUrl(src)) return true;
@@ -60,7 +54,7 @@ export function shouldBypassNextImageOptimizer(src: string): boolean {
  * every delivery — transforms cannot fix that; the photo must be re-uploaded to our account.
  */
 export function optimizeListingImageUrl(src: string, width = 800): string {
-  if (!src) return PLACEHOLDER;
+  if (!src) return "";
   if (!isCloudinaryUrl(src)) return src;
   // Without the public cloud name, skip transforms — originals still load for our uploads.
   if (OUR_CLOUDINARY_CLOUD && !isOurCloudinaryUrl(src)) return src;
