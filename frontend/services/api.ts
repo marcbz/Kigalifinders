@@ -138,7 +138,10 @@ export interface PropertyCreatePayload {
   images?: { url: string; alt_text?: string; is_primary?: boolean; sort_order?: number }[];
 }
 
-export type PropertyUpdatePayload = Partial<PropertyCreatePayload>;
+export type PropertyUpdatePayload = Partial<PropertyCreatePayload> & {
+  /** Bump created_at/published_at so the listing ranks as new again. */
+  list_as_new?: boolean;
+};
 
 export interface UserProfile {
   id: string;

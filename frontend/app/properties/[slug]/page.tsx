@@ -336,7 +336,9 @@ export default async function PropertyDetailPage({ params }: Props) {
 
                     <Button asChild variant="outline" className="w-full rounded-full gap-2">
                       <a
-                        href={`https://wa.me/${whatsapp}?text=Interested in ${encodeURIComponent(property.title)}`}
+                        href={`https://wa.me/${whatsapp}?text=${encodeURIComponent(
+                          `Interested in ${property.title}\n${propertyUrl}`,
+                        )}`}
                         target="_blank"
                         rel="noopener noreferrer"
                       >

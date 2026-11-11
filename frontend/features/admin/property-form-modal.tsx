@@ -72,6 +72,7 @@ const defaultForm = {
   property_type_ids: [] as string[],
   address: "",
   crm_notes: "",
+  list_as_new: false,
 };
 
 type PropertyDraftData = {
@@ -173,6 +174,7 @@ function formFromProperty(
       badge_label: property.badge_label || "",
       address: detail?.address || "",
       crm_notes: detail?.crm_notes || "",
+      list_as_new: false,
     },
     imageRows: detail?.images?.length
       ? detail.images.map((img) => ({
@@ -363,7 +365,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       districts.find((d: { id: string; name: string }) => d.id === form.district_id)?.name === n.district_name,
   );
 
-  const buildPayload = (): PropertyCreatePayload => {
+  const buildPayload = (): PropertyCreatePayload | PropertyUpdatePayload => {
     const images = imageRows
       .filter((img) => img.url.trim())
       .map((img, i) => ({
@@ -376,7 +378,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
     // Never wipe existing images when edit form has not hydrated yet.
     const includeImages = !property || detailHydrated.current || images.length > 0;
 
-    return {
+    const base: PropertyCreatePayload = {
       title: form.title.trim(),
       slug: form.slug.trim() || undefined,
       description:
@@ -420,6 +422,11 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       crm_notes: form.crm_notes.trim() || null,
       ...(includeImages ? { images } : {}),
     };
+
+    if (property && form.list_as_new) {
+      return { ...base, list_as_new: true };
+    }
+    return base;
   };
 
   const primaryImageIndex = imageRows.findIndex((row) => row.is_primary);
@@ -447,7 +454,7 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
       if (property) {
         return propertyService.update(property.id, payload as PropertyUpdatePayload);
       }
-      return propertyService.create(payload);
+      return propertyService.create(payload as PropertyCreatePayload);
     },
     onSuccess: () => {
       clearAdminDraft(draftKey);
@@ -571,6 +578,27 @@ export function PropertyFormModal({ property, open, onClose }: PropertyFormModal
                 <option value="archived">Archived</option>
               </select>
             </div>
+            {property ? (
+              <div className="md:col-span-2 rounded-lg border border-gray-200 dark:border-navy-700 px-3 py-3">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-1"
+                    checked={form.list_as_new}
+                    onChange={(e) => setForm({ ...form, list_as_new: e.target.checked })}
+                  />
+                  <span>
+                    <span className="text-sm font-semibold text-navy-800 dark:text-white">
+                      List as new
+                    </span>
+                    <span className="block text-xs text-gray-500 mt-0.5">
+                      Reset the listing date to today so it appears in recent posts and updates the
+                      Google published date. Use when re-promoting an existing listing.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            ) : null}
             <div className="md:col-span-2">
               <label className="text-xs font-semibold text-gray-500">PUBLIC AVAILABILITY BADGE</label>
               <select

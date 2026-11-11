@@ -260,6 +260,9 @@ class PropertyUpdate(BaseModel):
     meta_title: Optional[str] = None
     meta_description: Optional[str] = None
     images: Optional[List[PropertyImageInput]] = None
+    # When true, bump created_at/published_at so the listing ranks as new again
+    # (recent posts + Google datePosted).
+    list_as_new: Optional[bool] = None
 
 
 class PropertySearchParams(BaseModel):

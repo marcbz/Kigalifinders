@@ -498,6 +498,7 @@ async def update_property(
     was_published = prop.status == PropertyStatusEnum.PUBLISHED
     updates = data.model_dump(exclude_unset=True)
     images = _normalize_images(updates.pop("images", None))
+    list_as_new = bool(updates.pop("list_as_new", False))
     if "listing_type" in updates:
         updates["listing_type"] = ListingType(updates["listing_type"])
     if "status" in updates:
@@ -505,6 +506,14 @@ async def update_property(
         updates["status"] = status_enum
         if status_enum == PropertyStatusEnum.PUBLISHED and not prop.published_at:
             updates["published_at"] = datetime.now(timezone.utc)
+    if list_as_new:
+        now = datetime.now(timezone.utc)
+        updates["created_at"] = now
+        updates["updated_at"] = now
+        updates["last_verified_at"] = now
+        next_status = updates.get("status", prop.status)
+        if next_status == PropertyStatusEnum.PUBLISHED:
+            updates["published_at"] = now
     if "title" in updates and "slug" not in updates:
         updates["slug"] = await _unique_slug(db, slugify(updates["title"]), exclude_id=property_id)
     if "slug" in updates:
