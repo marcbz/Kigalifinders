@@ -107,6 +107,8 @@ export async function getPagesSitemapEntries(): Promise<SitemapUrlEntry[]> {
     { loc: `${base}/blog`, lastModified: blogUpdated, changeFrequency: "weekly", priority: 0.8 },
     { loc: `${base}/faq`, changeFrequency: "monthly", priority: 0.6 },
     { loc: `${base}/contact`, changeFrequency: "monthly", priority: 0.7 },
+    { loc: `${base}/list-your-property`, changeFrequency: "monthly", priority: 0.7 },
+    { loc: `${base}/property-management`, changeFrequency: "monthly", priority: 0.75 },
     { loc: `${base}/agents`, changeFrequency: "monthly", priority: 0.6 },
     { loc: `${base}/privacy`, changeFrequency: "yearly", priority: 0.3 },
     { loc: `${base}/terms`, changeFrequency: "yearly", priority: 0.3 },

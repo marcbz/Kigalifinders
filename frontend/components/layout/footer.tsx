@@ -75,6 +75,7 @@ export function Footer({
             <ul className="space-y-2 text-sm">
               {[
                 { label: "List Your Property", href: "/list-your-property", emphasize: true },
+                { label: "Property Management", href: "/property-management", emphasize: true },
                 { label: "Rentals", href: "/rentals" },
                 { label: "Properties", href: "/properties" },
                 { label: "Neighborhoods", href: "/area" },
